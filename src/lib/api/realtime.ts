@@ -28,6 +28,7 @@ export const REALTIME_EVENTS = {
   hechoActualizado: 'hecho:actualizado',
   patrullaAsignada: 'patrulla:asignada',
   patrullaCancelada: 'patrulla:cancelada',
+  mandadoNuevo: 'mandado:nuevo',
 } as const;
 
 // `auth` se pasa como FUNCIÓN (no un objeto estático) — socket.io-client la

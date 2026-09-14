@@ -138,6 +138,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   useRealtimeEvent(REALTIME_EVENTS.guardiaUbicacion, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.sosNuevo, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, refreshNotifications);
+  useRealtimeEvent(REALTIME_EVENTS.mandadoNuevo, refreshNotifications);
 
   // Mientras se resuelve la sesión (primer mount o recuperación tras expiry de 15 min)
   // no mostramos "Invitado" — eso era lo que confundía: el refresh seguía vigente

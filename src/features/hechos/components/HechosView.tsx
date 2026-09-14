@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/Select';
 import { ExportMenu } from '@/components/ui/ExportMenu';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RISK_LEVEL_LABELS, RISK_LEVELS, type RiskLevel } from '@/types/risk';
-import { getHechosActivos } from '@/lib/data-source';
+import { getHechosActivos, getMandados, type Mandado } from '@/lib/data-source';
 import { canWrite } from '@/lib/permissions';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
@@ -40,6 +40,7 @@ export function HechosView() {
   const searchParams = useSearchParams();
 
   const [hechos, setHechos] = useState<Hecho[]>([]);
+  const [mandados, setMandados] = useState<Mandado[]>([]);
   const [status, setStatus] = useState<AsyncStatus>('loading');
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const [estadoFilter, setEstadoFilter] = useState<HechoEstado | 'todos'>('todos');
@@ -48,10 +49,11 @@ export function HechosView() {
 
   function loadHechos() {
     setStatus('loading');
-    getHechosActivos()
-      .then((data) => {
+    Promise.all([getHechosActivos(), getMandados(20).catch(() => [] as Mandado[])])
+      .then(([data, mands]) => {
         setHechos(data);
-        setStatus(data.length === 0 ? 'empty' : 'ready');
+        setMandados(mands);
+        setStatus(data.length === 0 && mands.length === 0 ? 'empty' : 'ready');
       })
       .catch(() => setStatus('error'));
   }
@@ -66,18 +68,23 @@ export function HechosView() {
   // por otro operador) llega por socket.io — recarga silenciosa, sin pasar
   // por 'loading' para no parpadear la tabla ya poblada.
   const pendingRefresh = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function refreshHechosYMandados() {
+    getHechosActivos()
+      .then((data) => {
+        setHechos(data);
+        setStatus((prev) => (prev === 'loading' ? (data.length === 0 ? 'empty' : 'ready') : prev));
+      })
+      .catch(() => {});
+    getMandados(20).then(setMandados).catch(() => {});
+  }
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, () => {
     if (pendingRefresh.current) return;
     pendingRefresh.current = setTimeout(() => {
       pendingRefresh.current = null;
-      getHechosActivos()
-        .then((data) => {
-          setHechos(data);
-          setStatus((prev) => (prev === 'loading' ? (data.length === 0 ? 'empty' : 'ready') : prev));
-        })
-        .catch(() => {});
+      refreshHechosYMandados();
     }, 500);
   });
+  useRealtimeEvent(REALTIME_EVENTS.mandadoNuevo, refreshHechosYMandados);
 
   const filtered = useMemo(() => {
     const q = normalizeSearch(query.trim());
@@ -157,6 +164,26 @@ export function HechosView() {
       <div className="col-span-12">
         <IncidentTable hechos={filtered} status={status} onRetry={loadHechos} onSelect={(hecho) => setSelectedId(hecho.id)} />
       </div>
+
+      {mandados.length > 0 && (
+        <div className="col-span-12 mt-2 rounded-xl border border-neutral-border bg-white shadow-sm">
+          <div className="border-b border-neutral-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-neutral-text">Tareas / Mandados de guardias</h2>
+            <p className="text-xs text-neutral-text-muted">Comisiones puntuales enviadas desde la app móvil (visible en tiempo real)</p>
+          </div>
+          <ul className="divide-y divide-neutral-border">
+            {mandados.map((m) => (
+              <li key={m.id} className="flex items-start justify-between gap-3 px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-neutral-text">{m.descripcion}</p>
+                  <p className="text-xs text-neutral-text-muted">{m.guardiaNombre ?? m.guardiaId} — {new Date(m.creadoEn).toLocaleString('es-BO')} — {m.lat.toFixed(4)}, {m.lng.toFixed(4)}</p>
+                </div>
+                <button type="button" onClick={() => window.open(`https://www.google.com/maps?q=${m.lat},${m.lng}`, '_blank')} className="shrink-0 text-xs font-semibold text-brand-gold-600 hover:underline">Ver en mapa</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <IncidentDetailDrawer
         hecho={selected}

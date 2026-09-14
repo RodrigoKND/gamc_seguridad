@@ -130,8 +130,8 @@ export function Topbar({
           </button>
 
           {isBellOpen && (
-            <div className="absolute right-0 top-full z-[20] mt-2 max-h-[80vh] w-[calc(100vw-2rem)] animate-fade-in-up overflow-hidden rounded-xl border border-neutral-border/70 bg-white/90 p-3 shadow-lg backdrop-blur-md sm:w-80">
-              {/* En móvil el dropdown se desbordaba a la derecha por w-80 fijo + right-0 en un viewport angosto. Con w-[calc(100vw-2rem)] en <sm y sm:w-80 se adapta sin overflow. El contenedor padre tiene ml-auto pero en móvil el header es estrecho; forzamos que el dropdown nunca exceda el viewport. */}
+            <div className="fixed inset-x-3 top-[4.75rem] z-[20] max-h-[80vh] w-auto animate-fade-in-up overflow-hidden rounded-xl border border-neutral-border/70 bg-white/90 p-3 shadow-lg backdrop-blur-md sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
+              {/* Móvil: fixed centrado al viewport (inset-x-3) para que quede al medio y no pegado a la derecha. Desktop sm+: vuelve a absolute right-0 anclado a la campana. */}
               <div className="mb-2 flex items-center justify-between px-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-text-muted">Alertas</p>
                 {unreadCount > 0 && onMarkAllRead && (

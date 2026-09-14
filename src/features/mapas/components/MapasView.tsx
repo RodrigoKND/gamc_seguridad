@@ -208,12 +208,20 @@ export function MapasView() {
   // botón (en vez de dejarlo abierto con el botón desapareciendo de golpe)
   // y se recarga el mapa para que el pin/color vuelvan a la normalidad.
   async function handleClearSos(guardId: string): Promise<boolean> {
+    // Optimista inmediato: limpia el SOS del panel derecho y del pin sin esperar al fetch
+    // (antes solo hacía setSelectedGuard(null)+loadMapData(true) y el `hasSos` quedaba en true
+    //  hasta que el polling/revalidate respondiera, por eso "tarda mucho en desaparecer")
+    setMarkers((prev) => prev.map((m) => (m.id === guardId ? { ...m, hasSos: false, operationalStatus: 'en_servicio' as const } : m)));
+    setSelectedGuard(null);
+    // Invalidar caché de módulo para que el reload no sirva datos viejos
+    mapDataCache = null;
     const result = await clearSosAction(guardId);
     if (result.success) {
-      setSelectedGuard(null);
       loadMapData(true);
       return true;
     }
+    // Rollback si falla (vuelve a pedir datos reales)
+    loadMapData(true);
     return false;
   }
 

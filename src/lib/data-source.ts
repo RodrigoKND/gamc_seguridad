@@ -732,11 +732,39 @@ export const getDashboardHechosPorZona = cache(async (): Promise<HechoPorZonaIte
 
 export interface AppNotification { id: string; title: string; timestamp: string; read?: boolean; guardiaId?: string; hechoId?: string; kind: 'sos' | 'bateria' | 'hecho' }
 
+export interface Mandado {
+  id: string;
+  guardiaId: string;
+  guardiaNombre?: string | null;
+  descripcion: string;
+  lat: number;
+  lng: number;
+  creadoEn: string;
+}
+
+export const getMandados = cache(async (limit = 50): Promise<Mandado[]> => {
+  try {
+    const rows = await apiFetch<any[]>(`/api/mandados/todos?limit=${limit}`, { revalidate: 5 });
+    return rows.map((r) => ({
+      id: r.id,
+      guardiaId: r.guardiaId,
+      guardiaNombre: r.guardiaNombre ?? null,
+      descripcion: r.descripcion,
+      lat: r.lat,
+      lng: r.lng,
+      creadoEn: r.creadoEn,
+    }));
+  } catch {
+    return [];
+  }
+});
+
 export const getNotificaciones = cache(async (limit = 10): Promise<AppNotification[]> => {
   try {
-    const [ubicaciones, hechos] = await Promise.all([
+    const [ubicaciones, hechos, mandados] = await Promise.all([
       apiFetch<ApiUbicacionGuardia[]>('/api/mapas/ubicaciones', { revalidate: 10 }).catch(() => [] as ApiUbicacionGuardia[]),
       apiFetch<ApiHecho[]>('/api/hechos', { revalidate: 15 }).catch(() => [] as ApiHecho[]),
+      getMandados(3).catch(() => [] as Mandado[]),
     ]);
     const sos = ubicaciones.filter((u) => u.esSos).slice(0, 5);
     const hechosRecientes = hechos.filter((h) => h.estado === 'reportado' || h.estado === 'en_revision').slice(0, 5);
@@ -762,6 +790,9 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
     const bateriaBaja = ubicaciones.filter((u) => (u.bateriaPct ?? 100) < 20).slice(0, 3);
     for (const b of bateriaBaja) {
       list.push({ id: `bat-${b.guardiaId}`, title: `Batería baja — ${b.guardiaNombre} (${b.bateriaPct}%)`, timestamp: formatRelative(b.capturadoEn), read: false, guardiaId: b.guardiaId, kind: 'bateria' as const });
+    }
+    for (const m of mandados.slice(0, 3)) {
+      list.push({ id: `mandado-${m.id}`, title: `Tarea — ${m.descripcion.slice(0, 45)}`, timestamp: formatRelative(m.creadoEn), read: false, guardiaId: m.guardiaId, kind: 'hecho' as const });
     }
     return list.slice(0, limit);
   } catch {

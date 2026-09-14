@@ -50,6 +50,7 @@ export function GlobalSosBanner() {
 
   useRealtimeEvent(REALTIME_EVENTS.sosNuevo, loadSos);
   useRealtimeEvent(REALTIME_EVENTS.guardiaEstado, loadSos);
+  useRealtimeEvent(REALTIME_EVENTS.guardiaUbicacion, loadSos);
 
   const visible = sosList.filter((s) => !dismissedIds.has(s.guardiaId));
   if (visible.length === 0) return null;
