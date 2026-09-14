@@ -1,0 +1,43 @@
+/**
+ * Variables CSS derivadas de MASTER.md sección 4.
+ * Uso: integraciones externas que no pueden consumir clases Tailwind
+ * directamente (p. ej. estilos inline de Leaflet/Mapbox en features/mapas).
+ * La fuente de verdad de los valores es tailwind.config.js — si cambia un
+ * token ahí, debe reflejarse aquí también.
+ */
+:root {
+  /* Marca institucional — legado (en migración, ver MASTER.md sección 4) */
+  --brand-navy-950: #0b1b3d;
+  --brand-navy-800: #16264d;
+  --brand-blue-600: #1d4ed8;
+
+  /* Marca institucional — paleta vigente, extraída del logo 2026 */
+  --brand-ink-950: #0d0d0e;
+  --brand-ink-900: #1a1a1a;
+  --brand-ink-800: #262624;
+  --brand-ink-700: #3d3a35;
+  --brand-gold-500: #c59b6d;
+  --brand-gold-600: #a97f52;
+  --brand-gold-700: #8c6740;
+  --brand-gold-300: #ddbe97;
+  --brand-gold-100: #f3e7d8;
+
+  /* Semántica de riesgo / estado */
+  --risk-critical: #dc2626;
+  --risk-high: #f97316;
+  --risk-medium: #eab308;
+  --risk-low: #22c55e;
+
+  /* Territorial (EPI) */
+  --epi-norte: #5dade2;
+  --epi-central: #26a69a;
+  --epi-sud: #f5a623;
+  --epi-cona: #8e6fce;
+  --epi-centro: #0b1b3d;
+
+  /* Neutrales */
+  --neutral-bg: #f5f7fa;
+  --neutral-border: #e5e7eb;
+  --neutral-text: #1f2937;
+  --neutral-text-muted: #6b7280;
+}

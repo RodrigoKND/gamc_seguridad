@@ -1,0 +1,30 @@
+# Dependencias
+/node_modules
+
+# Next.js
+/.next/
+/out/
+/unificacion/
+/Reportes/
+
+/.claude/
+# Producción
+/build
+
+# Variables de entorno — nunca commitear valores reales (MASTER.md sección 6: lib/).
+.env
+.env.local
+.env.*.local
+
+# Logs / debug
+npm-debug.log*
+.pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Editor / SO
+.DS_Store
+.vercel
+.env*
