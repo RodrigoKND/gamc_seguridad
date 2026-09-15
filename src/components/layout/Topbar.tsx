@@ -20,7 +20,7 @@ export interface TopbarNotification {
   read?: boolean;
   guardiaId?: string;
   hechoId?: string;
-  kind?: 'sos' | 'bateria' | 'hecho';
+  kind?: 'sos' | 'bateria' | 'hecho' | 'turno';
 }
 
 export interface TopbarProps {
@@ -75,7 +75,7 @@ export function Topbar({
   }
 
   return (
-    <header className="sticky top-3 z-[1050] m-3 flex h-16 items-center gap-4 rounded-2xl border border-neutral-border/70 bg-white/75 px-4 shadow-[0_1px_2px_rgba(15,15,15,0.03),0_8px_24px_-12px_rgba(15,15,15,0.12)] backdrop-blur-md lg:m-4 lg:px-6">
+    <header className="sticky top-3 z-[1080] m-3 flex h-16 items-center gap-4 rounded-2xl border border-neutral-border/70 bg-white/75 px-4 shadow-[0_1px_2px_rgba(15,15,15,0.03),0_8px_24px_-12px_rgba(15,15,15,0.12)] backdrop-blur-md lg:m-4 lg:px-6">
       <button
         type="button"
         onClick={onOpenMobileMenu}
@@ -130,7 +130,7 @@ export function Topbar({
           </button>
 
           {isBellOpen && (
-            <div className="fixed inset-x-3 top-[4.75rem] z-[20] max-h-[80vh] w-auto animate-fade-in-up overflow-hidden rounded-xl border border-neutral-border/70 bg-white/90 p-3 shadow-lg backdrop-blur-md sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
+            <div className="fixed inset-x-3 top-[4.75rem] z-[1090] max-h-[80vh] w-auto animate-fade-in-up overflow-hidden rounded-xl border border-neutral-border/70 bg-white/90 p-3 shadow-lg backdrop-blur-md sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
               {/* Móvil: fixed centrado al viewport (inset-x-3) para que quede al medio y no pegado a la derecha. Desktop sm+: vuelve a absolute right-0 anclado a la campana. */}
               <div className="mb-2 flex items-center justify-between px-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-text-muted">Alertas</p>

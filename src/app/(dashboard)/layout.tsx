@@ -139,6 +139,19 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   useRealtimeEvent(REALTIME_EVENTS.sosNuevo, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.mandadoNuevo, refreshNotifications);
+  useRealtimeEvent(REALTIME_EVENTS.turnoIniciado, refreshNotifications);
+  useRealtimeEvent(REALTIME_EVENTS.turnoFinalizado as any, (payload: any) => {
+    const nombre = payload?.guardiaNombre ?? payload?.guardiaId?.slice(0, 6) ?? 'Guardia';
+    const id = `turno-${payload?.turnoId ?? Date.now()}`;
+    const title = `Turno finalizado — ${nombre} finalizó su servicio`;
+    setNotifications((prev) => {
+      const next = [{ id, title, timestamp: 'Ahora', read: false, guardiaId: payload?.guardiaId, kind: 'turno' }, ...prev];
+      // Evitar duplicados y limitar a 10
+      const seen = new Set<string>();
+      const dedup = next.filter((n) => (seen.has(n.id) ? false : (seen.add(n.id), true))).slice(0, 10);
+      return applyRead(dedup);
+    });
+  });
 
   // Mientras se resuelve la sesión (primer mount o recuperación tras expiry de 15 min)
   // no mostramos "Invitado" — eso era lo que confundía: el refresh seguía vigente
