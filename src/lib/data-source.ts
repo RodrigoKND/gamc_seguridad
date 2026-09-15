@@ -49,7 +49,18 @@ function pad2(n: number): string {
 function toDDMMAAAA(value: string | Date): string {
   const d = toApiDate(value);
   if (Number.isNaN(d.getTime())) return '—';
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+  // Formatear siempre en America/La_Paz para que coincida con el backend (hoyInicio/KPIs).
+  // getDate/getMonth usan TZ del servidor (UTC en Render) y desplazaban 1 día.
+  const parts = new Intl.DateTimeFormat('es-BO', {
+    timeZone: 'America/La_Paz',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(d);
+  const day = parts.find((p) => p.type === 'day')?.value ?? '01';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const year = parts.find((p) => p.type === 'year')?.value ?? '1970';
+  return `${day}/${month}/${year}`;
 }
 
 // Adaptador único de datos frontend → API real (gamc-api). Cada función
@@ -209,7 +220,18 @@ function rowToHechoApi(row: ApiHecho): Hecho {
 
 function toDDMMAAAAHHMM(value: string | Date): string {
   const d = toApiDate(value);
-  return `${toDDMMAAAA(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  if (Number.isNaN(d.getTime())) return '—';
+  // Fecha + hora en America/La_Paz (consistente con hoyInicio del backend)
+  const datePart = toDDMMAAAA(d);
+  const timeParts = new Intl.DateTimeFormat('es-BO', {
+    timeZone: 'America/La_Paz',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const hh = timeParts.find((p) => p.type === 'hour')?.value ?? '00';
+  const mm = timeParts.find((p) => p.type === 'minute')?.value ?? '00';
+  return `${datePart} ${hh}:${mm}`;
 }
 
 export const getHechosActivos = cache(async (): Promise<Hecho[]> => {
@@ -257,7 +279,16 @@ interface ApiUbicacionGuardia {
 
 function formatHora(value: string | Date): string {
   const d = toApiDate(value);
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  if (Number.isNaN(d.getTime())) return '—';
+  const parts = new Intl.DateTimeFormat('es-BO', {
+    timeZone: 'America/La_Paz',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const hh = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const mm = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  return `${hh}:${mm}`;
 }
 
 // Solo guardias con telemetría reciente (GPS real del móvil) aparecen como
@@ -687,9 +718,11 @@ function zonaASlug(zona: string | null): EpiZone {
 }
 
 function dayShort(dia: string): string {
-  const d = new Date(`${dia}T00:00:00`);
+  // dia es YYYY-MM-DD ya en America/La_Paz (backend genera via AT TIME ZONE).
+  // Crear como mediodía -04:00 evita salto por UTC.
+  const d = new Date(`${dia}T12:00:00-04:00`);
   if (Number.isNaN(d.getTime())) return dia;
-  const label = d.toLocaleDateString('es-BO', { weekday: 'short' });
+  const label = d.toLocaleDateString('es-BO', { weekday: 'short', timeZone: 'America/La_Paz' });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
