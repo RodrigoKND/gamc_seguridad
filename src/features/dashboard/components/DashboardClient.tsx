@@ -42,12 +42,13 @@ export function DashboardClient({ denied }: { denied?: string }) {
   }
 
   function isToday(timestamp: string): boolean {
-    // timestamp es "DD/MM/YYYY HH:mm"
+    // timestamp es "DD/MM/YYYY HH:mm" ya en hora Bolivia (formateado desde ocurridoEn)
     const [datePart] = timestamp.split(' ');
     const [dd, mm, yyyy] = datePart.split('/').map(Number);
     const d = new Date(yyyy, mm - 1, dd);
-    const now = new Date();
-    return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    // Comparar en America/La_Paz para que coincida con backend (hoyInicio Bolivia)
+    const nowLaPaz = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/La_Paz' }));
+    return d.getDate() === nowLaPaz.getDate() && d.getMonth() === nowLaPaz.getMonth() && d.getFullYear() === nowLaPaz.getFullYear();
   }
 
   async function handleKpiClick(id: string) {
