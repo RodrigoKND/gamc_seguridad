@@ -178,7 +178,7 @@ export function HechosView() {
                   <p className="truncate text-sm font-medium text-neutral-text">{m.descripcion}</p>
                   <p className="text-xs text-neutral-text-muted">{m.guardiaNombre ?? m.guardiaId} — {new Date(m.creadoEn).toLocaleString('es-BO')} — {m.lat.toFixed(4)}, {m.lng.toFixed(4)}</p>
                 </div>
-                <button type="button" onClick={() => window.open(`https://www.google.com/maps?q=${m.lat},${m.lng}`, '_blank')} className="shrink-0 text-xs font-semibold text-brand-gold-600 hover:underline">Ver en mapa</button>
+                <a href={`https://www.google.com/maps?q=${m.lat},${m.lng}`} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md border border-brand-gold-600 px-2.5 py-1 text-xs font-semibold text-brand-gold-600 hover:bg-brand-gold-600 hover:text-white">Ver en mapa</a>
               </li>
             ))}
           </ul>
