@@ -27,6 +27,9 @@ export interface RouteGroupMember {
   guardiaId: string;
   /** PatrullaRow.id — la fila individual de ESTE guardia, para poder sacarlo de la ruta sin tocar a los demás (cancelGuardFromRouteAction). */
   patrullaId: string;
+  /** Última posición GPS conocida de este guardia en la ruta. */
+  lat?: number;
+  lng?: number;
 }
 
 export interface RouteGroup {
@@ -35,28 +38,35 @@ export interface RouteGroup {
   color: string;
   path: LatLng[];
   guards: RouteGroupMember[];
+  /** Número de guardias que están dentro de los puntos de la ruta (vs los que se salieron). */
+  guardiasEnRuta: number;
 }
 
-export function groupPatrullasByRuta(patrullas: PatrullaRow[]): RouteGroup[] {
+export function groupPatrullasByRuta(patrullas: PatrullaRow[], markersMap?: Map<string, { lat: number; lng: number }>): RouteGroup[] {
   const estadosActivos = new Set(['asignada', 'en_curso']);
   const byRuta = new Map<string, { nombre: string; trazado: PatrullaRow['trazado']; guards: RouteGroupMember[] }>();
 
   for (const p of patrullas) {
     if (!p.rutaPlantillaId || !estadosActivos.has(p.estado)) continue;
-    const entry = byRuta.get(p.rutaPlantillaId) ?? { nombre: p.rutaNombre ?? p.nombre, trazado: p.trazado, guards: [] };
-    entry.guards.push({ guardiaId: p.guardiaId, patrullaId: p.id });
+    const entry = byRuta.get(p.rutaPlantillaId) ?? { nombre: p.rutaNombre ?? p.nombre ?? 'Ruta sin nombre', trazado: p.trazado, guards: [] };
+    const lat = markersMap?.get(p.guardiaId)?.lat;
+    const lng = markersMap?.get(p.guardiaId)?.lng;
+    entry.guards.push({ guardiaId: p.guardiaId, patrullaId: p.id, lat, lng });
     byRuta.set(p.rutaPlantillaId, entry);
   }
 
   const groups: RouteGroup[] = [];
   for (const [rutaId, { nombre, trazado, guards }] of byRuta) {
     if (!trazado || trazado.length < 2) continue;
+    const path: LatLng[] = trazado.map(([lng, lat]) => ({ lat, lng }));
+    const guardiasEnRuta = guards.filter((g) => g.lat != null && g.lng != null).length;
     groups.push({
       id: rutaId,
       nombre,
       color: colorForRuta(rutaId),
-      path: trazado.map(([lng, lat]) => ({ lat, lng })),
+      path,
       guards,
+      guardiasEnRuta,
     });
   }
   return groups;

@@ -91,6 +91,7 @@ export interface PatrullaRow {
   estado: PatrullaEstado;
   modalidad: PatrullaModalidad;
   unidadId?: string;
+  direccionActual?: string;
   horaInicioProgramada?: string;
   horaFinProgramada?: string;
   horaInicioReal?: string;
@@ -111,4 +112,5 @@ export interface RutaPlantillaRow {
   epiId: string;
   trazado: TrazadoPuntos;
   activa: boolean;
+  modalidad?: PatrullaModalidad;
 }

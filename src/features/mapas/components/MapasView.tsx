@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Route } from 'lucide-react';
+import { Route, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { getGuardias, getGuardMarkers, getPatrullas, getRutasPlantilla, getZonasCriticas } from '@/lib/data-source';
 import { canWrite } from '@/lib/permissions';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
+import { useRealtimeSocket } from '@/lib/realtime/RealtimeProvider';
 import type { Guard } from '@/features/guardias/types';
 import type { PatrullaRow, RutaPlantillaRow } from '@/types/patrulla';
 import type { ZonaCriticaActivaRow } from '@/types/hecho';
@@ -29,6 +30,7 @@ import { clearSosAction } from '../actions/clearSos';
 import { cancelGuardFromRouteAction, cancelRouteAction } from '../actions/cancelRoute';
 import { groupPatrullasByRuta } from '../lib/routeGroups';
 import type { GuardMarker, MapTab } from '../types';
+import { projectOntoPath } from '../lib/routeGeometry';
 
 // RF/RNF: Módulo de Mapas — sub-header de tabs, 48px, sticky bajo topbar,
 // colapsa a dropdown <sm (MASTER.md sección 7.1). Transición de capas fade
@@ -95,6 +97,40 @@ export function MapasView() {
   const [rutas, setRutas] = useState<RutaPlantillaRow[]>([]);
   const [patrullas, setPatrullas] = useState<PatrullaRow[]>([]);
   const [assignModal, setAssignModal] = useState<{ open: boolean; guardId?: string }>({ open: false });
+  const [desviaciones, setDesviaciones] = useState<Map<string, { lat: number; lng: number; distanciaM: number }>>(new Map());
+  const markersMap = useMemo(() => new Map(markers.map((m) => [m.id, { lat: m.lat, lng: m.lng }])), [markers]);
+  const routeGroups = useMemo(() => groupPatrullasByRuta(patrullas, markersMap), [patrullas, markersMap]);
+  // Mapa de ruta por guardia para detectar desviación
+  const rutaPorGuardia = useMemo(() => {
+    const map = new Map<string, { puntos: { lat: number; lng: number }[]; rutaId: string }>();
+    for (const rg of routeGroups) {
+      for (const g of rg.guards) {
+        if (rg.path.length >= 2 && !map.has(g.guardiaId)) {
+          map.set(g.guardiaId, { puntos: rg.path, rutaId: rg.id });
+        }
+      }
+    }
+    return map;
+  }, [routeGroups]);
+
+  // Detectar desviación de ruta (RF-G3-09): cada vez que llegan
+  // ubicaciones nuevas por socket o caché, verifica si algún guardia
+  // con ruta asignada está a más de 50m del trazado.
+  const prevMarkerPositions = useRef<Map<string, { lat: number; lng: number }>>(new Map());
+
+  function detectarDesviaciones(): void {
+    const nuevas: Map<string, { lat: number; lng: number; distanciaM: number }> = new Map();
+    const METROS_ALERTA = 50;
+    for (const m of markers) {
+      const rutaInfo = rutaPorGuardia.get(m.id);
+      if (!rutaInfo || rutaInfo.puntos.length < 2) continue;
+      const dist = projectOntoPath({ lat: m.lat, lng: m.lng }, rutaInfo.puntos);
+      if (dist.distanceFromStart > METROS_ALERTA || (dist.point && Math.hypot(dist.point.lat - m.lat, dist.point.lng - m.lng) > METROS_ALERTA / 111320)) {
+        nuevas.set(m.id, { lat: m.lat, lng: m.lng, distanciaM: Math.round(dist.distanceFromStart) });
+      }
+    }
+    setDesviaciones(nuevas);
+  }
 
   function loadMapData(force = false) {
     if (!force && mapDataCache && Date.now() - mapDataCache.loadedAt < MAP_DATA_CACHE_TTL_MS) {
@@ -128,6 +164,26 @@ export function MapasView() {
 
   useEffect(() => loadMapData(false), []);
 
+  // Recarga completa DEBOUNCED (pedido explícito: "muchos guardias
+  // conectados... que se sienta fluido"): si varios guardias arrancan
+  // turno casi al mismo tiempo (cambio de turno), cada uno dispara un
+  // guardiaUbicacion cuyo primer ping cae en la rama "guardia nuevo" de
+  // abajo, que antes llamaba a loadMapData(true) una vez por CADA guardia
+  // — 5 fetches x N guardias en el mismo instante. Colapsa cualquier
+  // ráfaga de "guardia nuevo" ocurrida dentro de una ventana corta en UNA
+  // sola recarga.
+  const reloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function scheduleFullReload() {
+    if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+    reloadDebounceRef.current = setTimeout(() => {
+      reloadDebounceRef.current = null;
+      loadMapData(true);
+    }, 400);
+  }
+  useEffect(() => () => {
+    if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+  }, []);
+
   // Deep-link desde banner SOS / notificaciones: /mapas?guardiaId=xxx centra el mapa y abre el drawer
   useEffect(() => {
     const guardiaId = searchParams.get('guardiaId');
@@ -158,7 +214,7 @@ export function MapasView() {
         const idx = prev.findIndex((m) => m.id === payload.guardiaId);
         if (idx === -1) {
           // Guardia que aún no estaba en el mapa (primer ping tras iniciar ruta) — recarga completa para traer foto/nombre/zona.
-          loadMapData(true);
+          scheduleFullReload();
           return prev;
         }
         const next = [...prev];
@@ -179,18 +235,31 @@ export function MapasView() {
     },
   );
 
-  // Respaldo: antes 8s, ahora 30s — el mapa ya se actualiza optimistamente
-  // por socket (guardiaUbicacion mueve el pin sin fetch) y los eventos de
-  // patrulla/SOS fuerzan reload. 30s es la red de seguridad si el socket cae.
-  useEffect(() => {
-    const iv = setInterval(() => loadMapData(true), 30000);
-    return () => clearInterval(iv);
-  }, []);
+  const socket = useRealtimeSocket();
+  const isSocketConnected = !!socket;
 
-  // Agrupa las patrullas por rutaPlantillaId compartido (assignRoute.ts) —
-  // así el mapa dibuja una línea por ruta y el panel derecho colorea a cada
-  // guardia según en cuál está, en vez de mostrarlos sueltos.
-  const routeGroups = useMemo(() => groupPatrullasByRuta(patrullas), [patrullas]);
+  // Polling adaptativo: cuando el socket está conectado, usar 60s
+  // (el push en vivo ya actualiza el mapa); cuando está caído, 15s
+  // para no perder datos demasiado tiempo. Antes era siempre 30s.
+  useEffect(() => {
+    const intervalMs = isSocketConnected ? 60000 : 15000;
+    const iv = setInterval(() => loadMapData(true), intervalMs);
+    return () => clearInterval(iv);
+  }, [isSocketConnected]);
+
+  // Detectar desviación de ruta cada vez que cambian los markers
+  useEffect(() => {
+    detectarDesviaciones();
+  }, [markers, rutaPorGuardia]);
+
+  // Escuchar evento de desviación de ruta del backend (más allá de
+  // la detección client-side, el backend también puede notificar)
+  useRealtimeEvent<{ guardiaId: string; lat: number; lng: number; distanciaM: number }>(
+    REALTIME_EVENTS.guardiaFueraDeRuta,
+    (payload) => {
+      setDesviaciones((prev) => new Map(prev).set(payload.guardiaId, { lat: payload.lat, lng: payload.lng, distanciaM: payload.distanciaM }));
+    },
+  );
 
   function selectGuardFromPanel(guard: GuardMarker) {
     setSelectedGuard(guard);
@@ -325,11 +394,44 @@ export function MapasView() {
             {activeTab === 'calor' && (
               <HeatmapLayer zonas={zonas} onSelectZona={(zona) => setSelectedZonaId(zona.id)} />
             )}
-          </MapCanvas>
-          {activeTab === 'futuro' && <FutureLayerPlaceholder />}
-        </div>
+           </MapCanvas>
+           {activeTab === 'futuro' && <FutureLayerPlaceholder />}
+         </div>
 
-        {activeTab !== 'futuro' && (
+         {/* Alerta de desviación de ruta — banner visible cuando un
+         guardia se sale de su ruta asignada (RF-G3-09) */}
+         {desviaciones.size > 0 && activeTab === 'patrullaje' && (
+           <div className="mb-3 rounded-lg border border-risk-critical/30 bg-risk-critical/5 px-4 py-3">
+             <div className="flex items-center gap-2 mb-2">
+               <AlertTriangle className="h-4 w-4 shrink-0 text-risk-critical" aria-hidden="true" />
+               <p className="text-xs font-bold text-risk-critical">
+                 {desviaciones.size} guardia(s) fuera de ruta asignada
+               </p>
+             </div>
+             <div className="flex flex-wrap gap-2">
+               {Array.from(desviaciones.entries()).map(([guardiaId, info]) => {
+                 const marker = markers.find((m) => m.id === guardiaId);
+                 return (
+                   <button
+                     key={guardiaId}
+                     type="button"
+                     onClick={() => {
+                       if (marker) {
+                         setSelectedGuard(marker);
+                         setFocusTarget({ lat: marker.lat, lng: marker.lng, zoom: 17 });
+                       }
+                     }}
+                     className="flex items-center gap-1.5 rounded-full bg-risk-critical/10 px-3 py-1.5 text-[11px] font-semibold text-risk-critical hover:bg-risk-critical/20 transition-colors"
+                   >
+                     {marker?.nombre ?? guardiaId} — {info.distanciaM}m de desviación
+                   </button>
+                 );
+               })}
+             </div>
+           </div>
+         )}
+
+         {activeTab !== 'futuro' && (
           <div className="hidden w-[340px] shrink-0 overflow-hidden rounded-xl border border-neutral-border bg-white shadow-sm lg:block">
             {activeTab === 'patrullaje' && (
               <PatrolRosterPanel
@@ -339,6 +441,7 @@ export function MapasView() {
                 routeGroups={routeGroups}
                 onCancelRoute={canAssignRoute ? handleCancelRoute : undefined}
                 onCancelGuardFromRoute={canAssignRoute ? handleCancelGuardFromRoute : undefined}
+                desviaciones={desviaciones}
               />
             )}
             {activeTab === 'calor' && (

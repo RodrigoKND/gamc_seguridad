@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { BatteryLow, BatteryMedium, Check, ChevronDown, ChevronRight, Radio, Route, Users, X } from 'lucide-react';
+import { useMemo, useState, memo } from 'react';
+import { BatteryLow, BatteryMedium, Check, ChevronDown, ChevronRight, Radio, Route, Users, X, Search, Filter } from 'lucide-react';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { LiveRelativeTime } from '@/components/ui/LiveRelativeTime';
@@ -34,15 +34,13 @@ import type { GuardMarker } from '../types';
 // mientras dure el SOS (prioridad), pero su fila `patrulla` sigue intacta:
 // vuelve a aparecer en la ruta en cuanto se resuelve la alerta.
 
-function batteryIcon(bateria: number) {
+function batteryIcon(bateria: number | null) {
+  if (bateria === null) return BatteryMedium;
   return bateria <= 25 ? BatteryLow : BatteryMedium;
 }
 
 function guardRowClasses(isSelected: boolean, isSos: boolean) {
   if (isSos) {
-    // Pedido explícito: el banner de un guardia en Emergencia debe ser rojo
-    // y bien visual (no solo un borde fino) — mismo criterio que el header
-    // del TelemetryDrawer (bg-risk-critical + animate-pulse-emergency).
     return [
       'flex w-full items-start gap-2.5 border-l-[3px] border-risk-critical bg-risk-critical py-2.5 pl-3 pr-2 text-left text-white',
       'transition-colors duration-200 animate-pulse-emergency motion-reduce:animate-none',
@@ -68,9 +66,13 @@ interface GuardRowProps {
   confirming?: boolean;
   onStartConfirm?: () => void;
   onCancelConfirm?: () => void;
+  /** Información de la ruta asignada para mostrar en el row. */
+  rutaAsignada?: { nombre: string; color: string };
+  /** Indica si el guardia se ha desviado de su ruta. */
+  desviado?: boolean;
 }
 
-function GuardRow({ guard, isSelected, onSelect, onExpandFoto, onRemoveFromRoute, removing, confirming, onStartConfirm, onCancelConfirm }: GuardRowProps) {
+const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandFoto, onRemoveFromRoute, removing, confirming, onStartConfirm, onCancelConfirm, rutaAsignada, desviado }: GuardRowProps) {
   // `hasSos` (no `operationalStatus === 'emergencia'`) es la fuente de
   // verdad real de SOS — mismo criterio que las secciones de arriba y que
   // el pin del mapa/TelemetryDrawer (bug 2026-09-13).
@@ -108,6 +110,17 @@ function GuardRow({ guard, isSelected, onSelect, onExpandFoto, onRemoveFromRoute
           <p className={['truncate text-[11px]', isSos ? 'text-white/80' : 'text-neutral-text-muted'].join(' ')}>
             EPI {EPI_ZONE_LABELS[guard.zone]} · {guard.ubicacionActual}
           </p>
+          {rutaAsignada && (
+            <span className="inline-flex items-center gap-1 rounded bg-neutral-bg px-1.5 py-0.5 text-[10px] text-neutral-text-muted">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: rutaAsignada.color }} />
+              {rutaAsignada.nombre}
+            </span>
+          )}
+          {desviado && (
+            <span className="inline-flex items-center gap-1 rounded bg-risk-low/10 px-1.5 py-0.5 text-[10px] text-risk-low">
+              ⚠ Fuera de ruta
+            </span>
+          )}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <span
               className={[
@@ -119,12 +132,18 @@ function GuardRow({ guard, isSelected, onSelect, onExpandFoto, onRemoveFromRoute
             </span>
             <span className={['flex items-center gap-0.5 text-[10.5px]', isSos ? 'text-white/80' : 'text-neutral-text-muted'].join(' ')}>
               <BatteryIcon className="h-3 w-3" aria-hidden="true" />
-              {guard.bateria}%
+              {guard.bateria !== null ? `${guard.bateria}%` : 'N/D'}
             </span>
             <span className={['flex items-center gap-0.5 text-[10.5px]', isSos ? 'text-white/80' : 'text-neutral-text-muted'].join(' ')}>
               <Radio className="h-3 w-3" aria-hidden="true" />
               <LiveRelativeTime iso={guard.capturadoEnIso} fallback={guard.ultimoSync} />
             </span>
+            {guard.gpsSinActualizacionSeg !== null && guard.gpsSinActualizacionSeg > 300 && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-risk-low/10 px-1.5 py-0.5 text-[10px] text-risk-low">
+                <Radio className="h-2.5 w-2.5" aria-hidden="true" />
+                GPS {Math.round(guard.gpsSinActualizacionSeg / 60)}min
+              </span>
+            )}
           </div>
         </div>
       </button>
@@ -166,7 +185,7 @@ function GuardRow({ guard, isSelected, onSelect, onExpandFoto, onRemoveFromRoute
       )}
     </div>
   );
-}
+});
 
 export interface PatrolRosterPanelProps {
   guards: GuardMarker[];
@@ -178,15 +197,18 @@ export interface PatrolRosterPanelProps {
   onCancelRoute?: (rutaPlantillaId: string) => Promise<boolean>;
   /** Saca a UN guardia de su ruta sin tocar a los demás (patrullaId = fila propia de ese guardia). */
   onCancelGuardFromRoute?: (patrullaId: string) => Promise<boolean>;
+  /** Mapa de guardias que se han desviado de su ruta. */
+  desviaciones?: Map<string, { lat: number; lng: number; distanciaM: number }>;
 }
 
-export function PatrolRosterPanel({
+export const PatrolRosterPanel = memo(function PatrolRosterPanel({
   guards,
   selectedId,
   onSelect,
   routeGroups = [],
   onCancelRoute,
   onCancelGuardFromRoute,
+  desviaciones = new Map(),
 }: PatrolRosterPanelProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [fotoExpandida, setFotoExpandida] = useState<{ src: string; alt: string } | null>(null);
@@ -194,6 +216,9 @@ export function PatrolRosterPanel({
   const [cancellingRouteId, setCancellingRouteId] = useState<string | null>(null);
   const [confirmingPatrullaId, setConfirmingPatrullaId] = useState<string | null>(null);
   const [cancellingPatrullaId, setCancellingPatrullaId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'todos' | 'en_servicio' | 'fuera_de_servicio' | 'emergencia'>('todos');
+  const [filterRoute, setFilterRoute] = useState<string>('todos');
 
   function toggleCollapsed(id: string) {
     setCollapsed((prev) => {
@@ -256,6 +281,48 @@ export function PatrolRosterPanel({
     [guards, routedGuardIds],
   );
 
+  // Búsqueda y filtros
+  const guardedBySearch = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    const q = searchQuery.toLowerCase();
+    return guards.filter((g) => g.nombre.toLowerCase().includes(q) || g.ubicacionActual.toLowerCase().includes(q) || g.label.toLowerCase().includes(q));
+  }, [guards, searchQuery]);
+
+  const filteredByStatus = useMemo(() => {
+    if (filterStatus === 'todos') return null;
+    return guards.filter((g) => {
+      if (filterStatus === 'emergencia') return g.hasSos;
+      return g.operationalStatus === filterStatus;
+    });
+  }, [guards, filterStatus]);
+
+  const filteredByRoute = useMemo(() => {
+    if (filterRoute === 'todos') return null;
+    const routeGroup = routeGroups.find((r) => r.id === filterRoute);
+    if (!routeGroup) return null;
+    return routeGroup.guards.map((g) => guards.find((gm) => gm.id === g.guardiaId)).filter((g): g is GuardMarker => Boolean(g));
+  }, [guards, routeGroups, filterRoute]);
+
+  // Aplicar todos los filtros combinados
+  const displayedGuards = useMemo(() => {
+    let result = guards;
+    if (searchQuery.trim()) result = guardedBySearch ?? [];
+    if (filterStatus !== 'todos') result = filteredByStatus ?? result;
+    if (filterRoute !== 'todos') result = filteredByRoute ?? result;
+    // Intersecar: si hay múltiples filtros, tomar la intersección
+    const sets: Set<string>[] = [];
+    if (searchQuery.trim()) sets.push(new Set((guardedBySearch ?? []).map((g) => g.id)));
+    if (filterStatus !== 'todos') sets.push(new Set((filteredByStatus ?? []).map((g) => g.id)));
+    if (filterRoute !== 'todos') sets.push(new Set((filteredByRoute ?? []).map((g) => g.id)));
+    if (sets.length > 0) {
+      const intersection = new Set(sets.reduce((acc, s) => { const next = new Set<string>(); for (const x of acc) if (s.has(x)) next.add(x); return next; }, sets[0]));
+      result = result.filter((g) => intersection.has(g.id));
+    }
+    return result;
+  }, [guards, searchQuery, filterStatus, filterRoute, guardedBySearch, filteredByStatus, filteredByRoute]);
+
+  const activeFilterCount = [searchQuery.trim() ? 1 : 0, filterStatus !== 'todos' ? 1 : 0, filterRoute !== 'todos' ? 1 : 0].reduce((a, b) => a + b, 0);
+
   return (
     <div className="flex h-full flex-col">
       <ImageLightbox
@@ -263,29 +330,77 @@ export function PatrolRosterPanel({
         alt={fotoExpandida?.alt ?? ''}
         onClose={() => setFotoExpandida(null)}
       />
+      {/* Búsqueda y filtros */}
+      <div className="border-b border-neutral-border px-4 py-2 space-y-2">
+        <div className="flex items-center gap-2">
+          <Search className="h-3.5 w-3.5 shrink-0 text-neutral-text-muted" aria-hidden="true" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar guardia…"
+            className="flex-1 bg-transparent text-[12px] text-neutral-text placeholder:text-neutral-text-muted focus:outline-none"
+          />
+          {searchQuery && (
+            <button type="button" onClick={() => setSearchQuery('')} className="shrink-0 text-neutral-text-muted hover:text-neutral-text">
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Filter className="h-3 w-3 shrink-0 text-neutral-text-muted" aria-hidden="true" />
+          {(['todos', 'en_servicio', 'fuera_de_servicio', 'emergencia'] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setFilterStatus(s)}
+              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                filterStatus === s ? 'bg-brand-gold-600/20 text-brand-gold-700' : 'bg-neutral-bg text-neutral-text-muted hover:bg-neutral-border'
+              }`}
+            >
+              {s === 'todos' ? 'Todos' : OPERATIONAL_STATUS_LABELS[s]}
+            </button>
+          ))}
+          <select
+            value={filterRoute}
+            onChange={(e) => setFilterRoute(e.target.value)}
+            className="bg-transparent text-[10px] text-neutral-text-muted focus:outline-none border-none cursor-pointer"
+          >
+            <option value="todos">Todas las rutas</option>
+            {routeGroups.map((r) => (
+              <option key={r.id} value={r.id}>{r.nombre}</option>
+            ))}
+          </select>
+          {activeFilterCount > 0 && (
+            <button type="button" onClick={() => { setSearchQuery(''); setFilterStatus('todos'); setFilterRoute('todos'); }} className="ml-auto text-[10px] text-brand-gold-600 hover:underline">
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      </div>
       <div className="flex items-center justify-between border-b border-neutral-border px-4 py-3">
         <div>
           <p className="text-sm font-bold text-brand-ink-900">Guardias en Patrullaje</p>
-          <p className="text-xs text-neutral-text-muted">{guards.length} en el mapa</p>
+          <p className="text-xs text-neutral-text-muted">{displayedGuards.length} de {guards.length} en el mapa</p>
         </div>
       </div>
 
-      {guards.length === 0 ? (
+{displayedGuards.length === 0 ? (
         <div className="p-3">
-          <EmptyState icon={Users} title="Sin guardias patrullando en este momento." className="border-none" />
+          <EmptyState icon={Users} title="Sin guardias que coincidan con los filtros." className="border-none" />
         </div>
       ) : (
         <div className="scrollbar-hidden flex-1 overflow-y-auto">
           {/* Emergencia — fija arriba, sin colapsar, sin botón de eliminar (no es una ruta). */}
-          {emergenciaGuards.length > 0 && (
+          {emergenciaGuards.filter((g) => displayedGuards.some((dg) => dg.id === g.id)).length > 0 && (
             <div className="border-b border-neutral-border">
               <div className="flex items-center gap-1.5 bg-risk-critical/5 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-risk-critical">
                 <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-risk-critical motion-reduce:animate-none" aria-hidden="true" />
-                Emergencia ({emergenciaGuards.length})
+                Emergencia ({emergenciaGuards.filter((g) => displayedGuards.some((dg) => dg.id === g.id)).length})
               </div>
               <div className="divide-y divide-neutral-bg">
-                {emergenciaGuards.map((guard) => (
-                  <GuardRow key={guard.id} guard={guard} isSelected={guard.id === selectedId} onSelect={onSelect} onExpandFoto={setFotoExpandida} />
+                {emergenciaGuards.filter((g) => displayedGuards.some((dg) => dg.id === g.id)).map((guard) => (
+                  <GuardRow key={guard.id} guard={guard} isSelected={guard.id === selectedId} onSelect={onSelect} onExpandFoto={setFotoExpandida} rutaAsignada={guard.rutaAsignada ? { nombre: guard.rutaAsignada.nombre, color: guard.rutaAsignada.color } : undefined} desviado={desviaciones.has(guard.id)} />
                 ))}
               </div>
             </div>
@@ -296,6 +411,7 @@ export function PatrolRosterPanel({
             const isCollapsed = collapsed.has(route.id);
             const isConfirmingRoute = confirmingRouteId === route.id;
             const isCancellingRoute = cancellingRouteId === route.id;
+            const filteredMembers = members.filter((m) => displayedGuards.some((dg) => dg.id === m.guardiaId));
             return (
               <div key={route.id} className="border-b border-neutral-border">
                 <div className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-neutral-text">
@@ -303,7 +419,7 @@ export function PatrolRosterPanel({
                     {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: route.color }} aria-hidden="true" />
                     <span className="min-w-0 flex-1 truncate normal-case">{route.nombre}</span>
-                    <span className="shrink-0 text-[10.5px] font-semibold text-neutral-text-muted">({route.guards.length})</span>
+                    <span className="shrink-0 text-[10.5px] font-semibold text-neutral-text-muted">({filteredMembers.length}) · {route.guardiasEnRuta} en ruta</span>
                   </button>
                   {onCancelRoute &&
                     (isConfirmingRoute ? (
@@ -341,56 +457,63 @@ export function PatrolRosterPanel({
                 </div>
                 {!isCollapsed && (
                   <div className="divide-y divide-neutral-bg">
-                    {members.length === 0 ? (
-                      <p className="px-4 py-2.5 text-[11.5px] text-neutral-text-muted">Los guardias de esta ruta están en Emergencia.</p>
-                    ) : (
-                      members.map(({ patrullaId, guard }) => (
-                        <GuardRow
-                          key={guard.id}
-                          guard={guard}
-                          isSelected={guard.id === selectedId}
-                          onSelect={onSelect}
-                          onExpandFoto={setFotoExpandida}
-                          onRemoveFromRoute={onCancelGuardFromRoute ? () => handleConfirmRemoveGuard(patrullaId) : undefined}
-                          removing={cancellingPatrullaId === patrullaId}
-                          confirming={confirmingPatrullaId === patrullaId}
-                          onStartConfirm={() => setConfirmingPatrullaId(patrullaId)}
-                          onCancelConfirm={() => setConfirmingPatrullaId(null)}
-                        />
-                      ))
-                    )}
+{filteredMembers.length === 0 ? (
+                       <p className="px-4 py-2.5 text-[11.5px] text-neutral-text-muted">Los guardias de esta ruta están en Emergencia o no coinciden con los filtros.</p>
+                     ) : (
+                        filteredMembers.map(({ patrullaId, guard }) => (
+                           <GuardRow
+                             key={guard.id}
+                             guard={guard}
+                             isSelected={guard.id === selectedId}
+                             onSelect={onSelect}
+                             onExpandFoto={setFotoExpandida}
+                             onRemoveFromRoute={onCancelGuardFromRoute ? () => handleConfirmRemoveGuard(patrullaId) : undefined}
+                             removing={cancellingPatrullaId === patrullaId}
+                             confirming={confirmingPatrullaId === patrullaId}
+                             onStartConfirm={() => setConfirmingPatrullaId(patrullaId)}
+                             onCancelConfirm={() => setConfirmingPatrullaId(null)}
+                             rutaAsignada={guard.rutaAsignada ? { nombre: guard.rutaAsignada.nombre, color: guard.rutaAsignada.color } : undefined}
+                             desviado={desviaciones.has(guard.id)}
+                           />
+                        ))
+                     )}
                   </div>
                 )}
               </div>
             );
           })}
 
-          {/* General — guardias sin ruta asignada. Estándar, siempre existe, no se puede eliminar. */}
-          <div>
-            <button
-              type="button"
-              onClick={() => toggleCollapsed('general')}
-              className="flex w-full items-center gap-1.5 px-4 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-text-muted"
-            >
-              {collapsed.has('general') ? <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
-              <Route className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="flex-1 normal-case">General</span>
-              <span className="shrink-0 text-[10.5px] font-semibold">({generalGuards.length})</span>
-            </button>
-            {!collapsed.has('general') && (
-              <div className="divide-y divide-neutral-bg">
-                {generalGuards.length === 0 ? (
-                  <p className="px-4 py-2.5 text-[11.5px] text-neutral-text-muted">Todos los guardias tienen una ruta asignada.</p>
-                ) : (
-                  generalGuards.map((guard) => (
-                    <GuardRow key={guard.id} guard={guard} isSelected={guard.id === selectedId} onSelect={onSelect} onExpandFoto={setFotoExpandida} />
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+           {/* General — guardias sin ruta asignada. Estándar, siempre existe, no se puede eliminar. */}
+           {(() => {
+             const generalFiltered = displayedGuards.filter((g) => !routedGuardIds.has(g.id) && !g.hasSos);
+             return (
+               <div>
+                 <button
+                   type="button"
+                   onClick={() => toggleCollapsed('general')}
+                   className="flex w-full items-center gap-1.5 px-4 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-text-muted"
+                 >
+                   {collapsed.has('general') ? <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                   <Route className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                   <span className="flex-1 normal-case">General</span>
+                   <span className="shrink-0 text-[10.5px] font-semibold">({generalFiltered.length})</span>
+                 </button>
+                 {!collapsed.has('general') && (
+                   <div className="divide-y divide-neutral-bg">
+                     {generalFiltered.length === 0 ? (
+                       <p className="px-4 py-2.5 text-[11.5px] text-neutral-text-muted">Todos los guardias tienen una ruta asignada o no coinciden con los filtros.</p>
+                     ) : (
+                       generalFiltered.map((guard) => (
+                         <GuardRow key={guard.id} guard={guard} isSelected={guard.id === selectedId} onSelect={onSelect} onExpandFoto={setFotoExpandida} rutaAsignada={guard.rutaAsignada ? { nombre: guard.rutaAsignada.nombre, color: guard.rutaAsignada.color } : undefined} desviado={desviaciones.has(guard.id)} />
+                       ))
+                     )}
+                   </div>
+                 )}
+               </div>
+             );
+           })()}
         </div>
       )}
     </div>
   );
-}
+});

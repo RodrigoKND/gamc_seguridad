@@ -133,8 +133,8 @@ const ConfirmationMapPreview = memo(function ConfirmationMapPreview({ path, guar
   );
 });
 
-function RouteClickCapture({ onClick }: { onClick: (latlng: LatLng) => void }) {
-  useMapEvents({ click: (e) => onClick(e.latlng) });
+function RouteClickCapture({ onClick, disabled = false }: { onClick: (latlng: LatLng) => void; disabled?: boolean }) {
+  useMapEvents({ click: (e) => { if (!disabled) onClick(e.latlng) } });
   return null;
 }
 
@@ -164,6 +164,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
   const [guardarPlantilla, setGuardarPlantilla] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openSearch, setOpenSearch] = useState(false);
 
   // Un guardia en SOS, fuera de servicio o dado de baja (accountStatus
   // 'inactivo') no puede recibir una ruta nueva (bug reportado tras la
@@ -215,7 +216,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
     }
     let vigente = true;
     setCalculandoRuta(true);
-    calcularRutaPorCalles(puntos, puntos.length >= 3).then((resultado) => {
+    calcularRutaPorCalles(puntos, puntos.length >= 3, modalidad ?? 'coche').then((resultado) => {
       if (!vigente) return;
       setRutaCalculada({ path: resultado.path, siguioCalles: resultado.siguioCalles });
       setCalculandoRuta(false);
@@ -223,7 +224,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
     return () => {
       vigente = false;
     };
-  }, [plantillaSeleccionada, puntos]);
+  }, [plantillaSeleccionada, puntos, modalidad]);
 
   // El trazado activo: el ya-ruteado de la plantilla elegida, el recién
   // calculado por calles, o (mientras se calcula/si OSRM no respondió
@@ -267,7 +268,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
         const m = markerById.get(id);
         const punto = distribution[id];
         if (!m || !punto) return null;
-        const resultado = await calcularRutaPorCalles([{ lat: m.lat, lng: m.lng }, punto], false);
+        const resultado = await calcularRutaPorCalles([{ lat: m.lat, lng: m.lng }, punto], false, modalidad ?? 'coche');
         return [id, resultado.path] as const;
       }),
     ).then((pares) => {
@@ -281,8 +282,8 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
     return () => {
       vigente = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- markerById cambia de referencia en cada refresh en vivo del mapa; solo importa recalcular cuando el reparto (distribution) realmente cambia.
-  }, [distribution]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- markerById cambia de referencia en cada refresh en vivo del mapa; solo importa recalcular cuando el reparto (distribution) o la modalidad realmente cambian.
+  }, [distribution, modalidad]);
 
   function handleClose() {
     onClose();
@@ -296,7 +297,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
   function pickPlantilla(r: RutaPlantillaRow) {
     if (r.trazado.length < MIN_PUNTOS) return;
     setRutaPlantillaId(r.id);
-    setModalidad(null);
+    setModalidad(r.modalidad ?? 'coche');
     setNombre(r.nombre);
     setDescripcion(r.descripcion ?? '');
     setStep('guardias');
@@ -339,7 +340,15 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
 
     const placementList: GuardPlacement[] = selectedGuardIds
       .filter((id) => distribution[id])
-      .map((id) => ({ guardiaId: id, lat: distribution[id].lat, lng: distribution[id].lng }));
+      .map((id) => {
+        const m = markerById.get(id);
+        return {
+          guardiaId: id,
+          lat: distribution[id].lat,
+          lng: distribution[id].lng,
+          direccionActual: m?.ubicacionActual ?? m?.direccionActual ?? undefined,
+        };
+      });
 
     // Se manda `activePath` (el trazado YA ruteado por calles, potencialmente
     // decenas/cientos de puntos), no `puntos` (los 2-5 clics del Operador) —
@@ -576,52 +585,59 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
             </div>
           )}
 
-          {/* Paso 3 — trazado de la ruta */}
-          {step === 'ruta' && (
-            <div className="p-5">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[12.5px] text-neutral-text-muted">
-                  {plantillaSeleccionada
-                    ? 'Trazado de la plantilla seleccionada — no se puede editar acá.'
-                    : `Hacé clic en el mapa para marcar los puntos de la ruta, en orden (mínimo ${MIN_PUNTOS}, máximo ${MAX_PUNTOS}). El camino real por calles se calcula solo${puntos.length >= 3 ? ' y se cierra el circuito (vuelve al primer punto)' : ''}.`}
-                </p>
-                {!plantillaSeleccionada && (
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-neutral-bg px-2.5 py-1 text-[11px] font-semibold text-neutral-text">
-                      {puntos.length}/{MAX_PUNTOS}
-                    </span>
-                    <Button type="button" variant="secondary" onClick={undoLastPoint} disabled={puntos.length === 0} className="!px-2.5 !py-1.5">
-                      <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      Deshacer
-                    </Button>
-                    <Button type="button" variant="secondary" onClick={() => setPuntos([])} disabled={puntos.length === 0} className="!px-2.5 !py-1.5">
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      Reiniciar
-                    </Button>
-                  </div>
-                )}
-              </div>
+{/* Paso 3 — trazado de la ruta */}
+           {step === 'ruta' && (
+             <div className="p-5">
+               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                 <p className="text-[12.5px] text-neutral-text-muted">
+                   {plantillaSeleccionada
+                     ? 'Trazado de la plantilla seleccionada — no se puede editar acá.'
+                     : `Hacé clic en el mapa para marcar los puntos de la ruta, en orden (mínimo ${MIN_PUNTOS}, máximo ${MAX_PUNTOS}). El camino real por calles se calcula solo${puntos.length >= 3 ? ' y se cierra el circuito (vuelve al primer punto)' : ''}.`}
+                 </p>
+                 {!plantillaSeleccionada && (
+                   <div className="flex items-center gap-2">
+                     <span className="rounded-full bg-neutral-bg px-2.5 py-1 text-[11px] font-semibold text-neutral-text">
+                       {puntos.length}/{MAX_PUNTOS}
+                     </span>
+                     <Button type="button" variant="secondary" onClick={undoLastPoint} disabled={puntos.length === 0} className="!px-2.5 !py-1.5">
+                       <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                       Deshacer
+                     </Button>
+                     <Button type="button" variant="secondary" onClick={() => setPuntos([])} disabled={puntos.length === 0} className="!px-2.5 !py-1.5">
+                       <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                       Reiniciar
+                     </Button>
+                   </div>
+                 )}
+               </div>
 
-              {calculandoRuta && (
-                <p className="mb-2 text-[11.5px] text-brand-gold-700">Calculando el camino real por calles…</p>
-              )}
-              {!calculandoRuta && rutaCalculada && !rutaCalculada.siguioCalles && (
-                <p role="alert" className="mb-2 text-[11.5px] text-risk-medium">
-                  No se pudo calcular el camino por calles (servicio de ruteo no disponible) — se muestra una aproximación en línea recta.
-                </p>
-              )}
+               {calculandoRuta && (
+                 <p className="mb-2 text-[11.5px] text-brand-gold-700">Calculando el camino real por calles…</p>
+               )}
+               {!calculandoRuta && rutaCalculada && !rutaCalculada.siguioCalles && (
+                 <p role="alert" className="mb-2 text-[11.5px] text-risk-medium">
+                   No se pudo calcular el camino por calles (servicio de ruteo no disponible) — se muestra una aproximación en línea recta.
+                 </p>
+               )}
 
-              <div className="relative h-[380px] overflow-hidden rounded-lg border border-neutral-border">
-                <MapCanvas>
-                  <MapSearch />
-                  {!plantillaSeleccionada && <RouteClickCapture onClick={handleMapClick} />}
-                  {activePath.length >= 2 && (
-                    <Polyline positions={activePath.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#A97F52', weight: 4, opacity: 0.9 }} />
-                  )}
-                  {!plantillaSeleccionada &&
-                    puntos.map((p, i) => <Marker key={i} position={[p.lat, p.lng]} icon={numberedPointIcon(i)} />)}
-                </MapCanvas>
-              </div>
+               <div className="relative h-[380px] overflow-hidden rounded-lg border border-neutral-border">
+                 <MapCanvas>
+                   <MapSearch disabled={openSearch} onOpenChange={setOpenSearch} />
+                   {!plantillaSeleccionada && <RouteClickCapture onClick={handleMapClick} disabled={openSearch} />}
+                   {activePath.length >= 2 && (
+                     <Polyline positions={activePath.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#A97F52', weight: 4, opacity: 0.9 }} />
+                   )}
+                   {!plantillaSeleccionada &&
+                     puntos.map((p, i) => <Marker key={i} position={[p.lat, p.lng]} icon={numberedPointIcon(i)} />)}
+                   {/* Marcador de posición actual de cada guardia seleccionado */}
+                   {previewGuardPoints.map((g) => {
+                     if (!g.currentPosition) return null;
+                     return (
+                       <Marker key={`current-${g.id}`} position={[g.currentPosition.lat, g.currentPosition.lng]} icon={guardPointIcon(g.color, g.label, g.fotoUrl)} />
+                     );
+                   })}
+                 </MapCanvas>
+               </div>
 
               <div className="mt-4 flex gap-2.5">
                 <Button type="button" variant="secondary" onClick={() => setStep('guardias')} className="flex-1" disabled={isSubmitting}>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BatteryMedium, CheckCircle2, Clock, MapPin, Radio, Route, Users } from 'lucide-react';
+import { BatteryMedium, CheckCircle2, Clock, MapPin, Radio, Route, Users, AlertTriangle } from 'lucide-react';
 import { Drawer } from '@/components/ui/Drawer';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -12,6 +12,7 @@ import { useRelativeTime } from '@/lib/hooks/useRelativeTime';
 import type { GuardMarker } from '../types';
 import type { PatrullaRow } from '@/types/patrulla';
 import type { RouteGroup } from '../lib/routeGroups';
+import { projectOntoPath } from '../lib/routeGeometry';
 
 // RF-G3-09/10 (MASTER.md sección 7.3, 9 y 13.3): nombre, badge operativo,
 // ubicación en lenguaje natural, hora inicio/fin de turno, batería, último
@@ -115,6 +116,11 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
   const [clearError, setClearError] = useState<string | null>(null);
   const [fotoExpandida, setFotoExpandida] = useState(false);
   const ultimoSyncEnVivo = useRelativeTime(guard?.capturadoEnIso ?? new Date().toISOString(), guard?.ultimoSync ?? '—');
+  // Detectar si el guardia se desvió de su ruta
+  const distanciaAlTrazado = guard?.rutaAsignada && guard.rutaAsignada.puntos.length >= 2
+    ? projectOntoPath({ lat: guard.lat, lng: guard.lng }, guard.rutaAsignada.puntos).distanceFromStart
+    : null;
+  const estaEnRuta = distanciaAlTrazado !== null ? distanciaAlTrazado <= 50 : null;
 
   useEffect(() => {
     setIsClearing(false);
@@ -183,9 +189,30 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
       )}
       {guard && (
         <div className="animate-fade-in">
-          {isSos && (
+           {isSos && (
             <div className="mb-4 rounded-md bg-risk-critical px-3 py-2 text-center text-xs font-bold text-white">
               ⚠ SOS ACTIVO — ATENCIÓN INMEDIATA REQUERIDA
+            </div>
+          )}
+
+          {/* Indicador de desviación de ruta (RF-G3-09) */}
+          {estaEnRuta === false && guard.rutaAsignada && (
+            <div className="mb-4 rounded-md bg-risk-low/10 border border-risk-low/30 px-3 py-2.5">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-risk-low" aria-hidden="true" />
+                <p className="text-[11.5px] font-bold text-risk-low">FUERA DE RUTA ASIGNADA</p>
+              </div>
+              <p className="text-[11px] text-neutral-text-muted">
+                Distancia al trazado: {Math.round(distanciaAlTrazado!)}m — El guardia se ha desviado de su ruta.
+              </p>
+            </div>
+          )}
+          {estaEnRuta === true && guard.rutaAsignada && (
+            <div className="mb-4 rounded-md bg-risk-low/5 border border-risk-low/20 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-risk-low" aria-hidden="true" />
+                <p className="text-[11.5px] font-bold text-risk-low">EN RUTA — {Math.round(distanciaAlTrazado!)}m del inicio del trazado</p>
+              </div>
             </div>
           )}
 
@@ -222,7 +249,7 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
                 <BatteryMedium className="h-3.5 w-3.5" aria-hidden="true" />
                 BATERÍA
               </p>
-              <p className="text-lg font-bold text-neutral-text">{guard.bateria}%</p>
+              <p className="text-lg font-bold text-neutral-text">{guard.bateria !== null ? `${guard.bateria}%` : 'N/D'}</p>
             </div>
             <div className="rounded-lg border border-neutral-border p-3">
               <p className="mb-1.5 flex items-center gap-1.5 text-[11px] text-neutral-text-muted">
@@ -232,6 +259,29 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
               <p className="text-sm font-bold text-neutral-text">{ultimoSyncEnVivo}</p>
             </div>
           </div>
+
+          {/* Alerta de GPS desactualizado o deshabilitado (RF-G3-09) */}
+          {guard.gpsSinActualizacionSeg !== null && guard.gpsSinActualizacionSeg > 300 && (
+            <div className={`mb-4 rounded-md border px-3 py-2.5 ${
+              guard.gpsSinActualizacionSeg > 900
+                ? 'bg-risk-critical/10 border-risk-critical/30'
+                : 'bg-risk-low/10 border-risk-low/20'
+            }`}>
+              <div className="flex items-center gap-2">
+                <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <p className={`text-[11.5px] font-bold ${
+                  guard.gpsSinActualizacionSeg > 900 ? 'text-risk-critical' : 'text-risk-low'
+                }`}>
+                  {guard.gpsSinActualizacionSeg > 900
+                    ? '⚠ GPS SIN ACTUALIZAR — Posible dispositivo apagado o geolocalización desactivada'
+                    : '⚠ GPS desactualizado — Última posición hace más de 5 minutos'}
+                </p>
+              </div>
+              <p className="text-[11px] text-neutral-text-muted mt-1">
+                Hace {Math.round(guard.gpsSinActualizacionSeg / 60)} min sin reportar posición.
+              </p>
+            </div>
+          )}
 
           <div className="mb-5 flex items-center gap-2 text-[12.5px] text-neutral-text">
             <Clock className="h-4 w-4 shrink-0 text-neutral-text-muted" aria-hidden="true" />

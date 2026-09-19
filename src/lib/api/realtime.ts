@@ -31,6 +31,7 @@ export const REALTIME_EVENTS = {
   mandadoNuevo: 'mandado:nuevo',
   turnoIniciado: 'turno:iniciado',
   turnoFinalizado: 'turno:finalizado',
+  guardiaFueraDeRuta: 'guardia:fuera_de_ruta',
 } as const;
 
 // `auth` se pasa como FUNCIÓN (no un objeto estático) — socket.io-client la

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 import { useMap } from 'react-leaflet';
 
@@ -11,14 +11,14 @@ interface NominatimResult {
   place_id: number;
 }
 
-export function MapSearch() {
+export function MapSearch({ disabled = false, onOpenChange }: { disabled?: boolean; onOpenChange?: (open: boolean) => void }) {
   const map = useMap();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NominatimResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
-  async function handleSearch() {
+  const handleSearch = useCallback(async () => {
     const q = query.trim();
     if (!q) return;
     setLoading(true);
@@ -30,12 +30,13 @@ export function MapSearch() {
       const data: NominatimResult[] = await res.json();
       setResults(data);
       setOpen(true);
+      onOpenChange?.(true);
     } catch {
       setResults([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, [query, onOpenChange]);
 
   function selectResult(r: NominatimResult) {
     const lat = parseFloat(r.lat);
@@ -43,6 +44,13 @@ export function MapSearch() {
     map.flyTo([lat, lng], 16, { duration: 1.2 });
     setOpen(false);
     setResults([]);
+    onOpenChange?.(false);
+  }
+
+  function closeSearch() {
+    setOpen(false);
+    setResults([]);
+    onOpenChange?.(false);
   }
 
   return (
@@ -55,20 +63,20 @@ export function MapSearch() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSearch();
-            if (e.key === 'Escape') setOpen(false);
-          }}
-          placeholder="Buscar calle, plaza, zona… (ej. Plaza 14 de Septiembre)"
-          className="flex-1 bg-transparent text-[13px] text-neutral-text placeholder:text-neutral-text-muted focus:outline-none"
-        />
-        {query && (
-          <button type="button" onClick={() => { setQuery(''); setResults([]); setOpen(false); }} className="rounded p-1 hover:bg-neutral-bg">
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        )}
+if (e.key === 'Escape') closeSearch();
+           }}
+           placeholder="Buscar calle, plaza, zona… (ej. Plaza 14 de Septiembre)"
+           className="flex-1 bg-transparent text-[13px] text-neutral-text placeholder:text-neutral-text-muted focus:outline-none"
+         />
+         {query && (
+           <button type="button" onClick={closeSearch} className="rounded p-1 hover:bg-neutral-bg">
+             <X className="h-3.5 w-3.5" aria-hidden="true" />
+           </button>
+         )}
         <button
           type="button"
           onClick={handleSearch}
-          disabled={loading || !query.trim()}
+          disabled={loading || !query.trim() || disabled}
           className="rounded bg-brand-gold-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-gold-700 disabled:opacity-50"
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Buscar'}

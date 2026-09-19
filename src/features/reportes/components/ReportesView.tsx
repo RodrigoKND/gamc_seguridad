@@ -35,6 +35,8 @@ export function ReportesView() {
   const [hechos, setHechos] = useState<Hecho[]>([]);
   const [filters, setFilters] = useState<ReportFilters>({ from: '', to: '', epi: 'todos', tipo: 'todos' });
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   function load() {
@@ -79,6 +81,12 @@ export function ReportesView() {
     });
   }, [hechos, filters]);
 
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedHechos = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setCurrentPage(1); }, [filters]);
+
   return (
     <PageContainer>
       <div className="col-span-12 mb-1 flex flex-wrap items-start justify-between gap-3">
@@ -101,7 +109,7 @@ export function ReportesView() {
       </div>
 
       <div className="col-span-12 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-neutral-text-muted">{filtered.length} resultado(s) para exportar</p>
+        <p className="text-xs text-neutral-text-muted">{filtered.length} resultado(s) — página {currentPage} de {totalPages || 1}</p>
         <ExportMenu onExportExcel={() => exportExcel(filtered)} onExportPDF={() => exportPDF(hechosToPrint(filtered))} disabled={filtered.length === 0} />
       </div>
 
@@ -115,7 +123,28 @@ export function ReportesView() {
             <button type="button" onClick={load} className="mt-2 text-xs font-semibold text-risk-critical underline">Reintentar</button>
           </div>
         )}
-        {status === 'ready' && <ReportTable rows={filtered} />}
+        {status === 'ready' && <ReportTable rows={paginatedHechos} />}
+        {status === 'ready' && totalPages > 1 && (
+          <div className="col-span-12 flex items-center justify-center gap-2 mt-4">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="rounded-lg border border-neutral-border bg-white px-3 py-1.5 text-xs font-medium text-neutral-text hover:bg-neutral-bg disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <span className="text-xs text-neutral-text-muted">{currentPage} / {totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="rounded-lg border border-neutral-border bg-white px-3 py-1.5 text-xs font-medium text-neutral-text hover:bg-neutral-bg disabled:opacity-40"
+            >
+              Siguiente
+            </button>
+          </div>
+        )}
       </div>
     </PageContainer>
   );

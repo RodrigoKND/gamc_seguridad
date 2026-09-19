@@ -37,6 +37,7 @@ export interface GuardPlacement {
   guardiaId: string;
   lat: number;
   lng: number;
+  direccionActual?: string;
 }
 
 export interface RoutePoint {
@@ -126,6 +127,7 @@ export async function assignRouteAction(data: AssignRouteInput): Promise<AssignR
         epiId: data.epiId,
         trazado: data.puntos.map((p) => [p.lng, p.lat] as [number, number]),
         activa: Boolean(data.guardarComoPlantilla),
+        modalidad: data.modalidad,
       });
       rutaPlantillaId = ruta.id;
     } catch (err) {
@@ -162,6 +164,7 @@ export async function assignRouteAction(data: AssignRouteInput): Promise<AssignR
   const patrullas: PatrullaRow[] = [];
   try {
     for (const placement of data.placements) {
+      const marker = guardiasActuales.find((g): g is Guard => g !== null && g.id === placement.guardiaId);
       // eslint-disable-next-line no-await-in-loop -- una petición POST por guardia (el API no expone alta por lote).
       const patrulla = await crearPatrulla({
         guardiaId: placement.guardiaId,
@@ -173,6 +176,7 @@ export async function assignRouteAction(data: AssignRouteInput): Promise<AssignR
         poligonoGeojson: toGeoJsonPoint(placement),
         modalidad: data.modalidad,
         unidadId,
+        direccionActual: placement.direccionActual ?? marker?.ubicacionActual ?? undefined,
       });
       patrullas.push(patrulla);
     }

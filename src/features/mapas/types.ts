@@ -21,16 +21,25 @@ export interface GuardMarker {
   ubicacionActual: string;
   turnoInicio: string;
   turnoFin: string;
-  bateria: number;
+  bateria: number | null;
   ultimoSync: string;
   /** ISO crudo de `capturadoEn` — para recalcular "hace Xs" en vivo en el cliente sin re-fetch. */
   capturadoEnIso: string;
+  /** Tiempo en segundos desde el último GPS reportado. null si no hay telemetría. */
+  gpsSinActualizacionSeg: number | null;
   ruta: { lugar: string; hora: string }[];
   // Unidad de patrullaje actual (types/patrulla.ts PatrullaRow.unidadId) —
   // presente cuando el guardia comparte coche/moto/punto de servicio con
   // otro(s); PatrolLayer y UnitPerimeterLines lo usan para dibujarlos
   // relacionados (Caso B/C).
   unidadId?: string;
+  // Info de ruta asignada (RF-G3-09): nombre, color y puntos del trazado
+  rutaAsignada?: {
+    nombre: string;
+    color: string;
+    puntos: { lat: number; lng: number }[];
+  };
+  direccionActual?: string;
 }
 
 // Nota: las zonas críticas (círculos del mapa de calor + panel de Puntos

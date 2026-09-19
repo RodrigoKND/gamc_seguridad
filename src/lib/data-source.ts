@@ -308,38 +308,59 @@ function formatHora(value: string | Date): string {
 // llamar a getGuardias() aunque el caller ya tuviera el resultado, duplicando
 // 2 round-trips de red en cada carga/refresh del mapa.
 export const getGuardMarkers = cache(async (guardiasPrefetched?: Guard[]): Promise<GuardMarker[]> => {
-  const [ubicaciones, guardias] = await Promise.all([
-    apiFetch<ApiUbicacionGuardia[]>('/api/mapas/ubicaciones', { revalidate: 5 }),
+  const [ubicaciones, guardias, patrullas] = await Promise.all([
+    apiFetch<ApiUbicacionGuardia[]>('/api/mapas/ubicaciones', { revalidate: 15 }),
     guardiasPrefetched ?? getGuardias(),
+    apiFetch<ApiPatrulla[]>('/api/mapas/patrullas', { revalidate: 20 }).catch(() => [] as ApiPatrulla[]),
   ]);
   const dadosDeBaja = new Set(guardias.filter((g) => g.accountStatus === 'inactivo').map((g) => g.id));
   const fotoPorGuardia = new Map(guardias.map((g) => [g.id, g.fotoUrl]));
+  const patrullaPorGuardia = new Map(patrullas.map((p) => [p.guardiaId, p]));
+  const routeGroupsTemp = new Map<string, { nombre: string; trazado: unknown }>();
+  for (const p of patrullas) {
+    if (p.rutaPlantillaId && !routeGroupsTemp.has(p.rutaPlantillaId)) {
+      routeGroupsTemp.set(p.rutaPlantillaId, { nombre: p.rutaNombre ?? p.nombre ?? 'Ruta sin nombre', trazado: p.trazado });
+    }
+  }
   return ubicaciones
-    // Una alerta SOS activa NUNCA debe ocultarse del mapa, sin importar el
-    // estadoOperativo — antes un guardia con esSos=true pero ya marcado
-    // 'fuera_de_servicio' (por la desincronización conocida entre ambos
-    // campos) desaparecía del mapa en vez de mostrar la alerta.
     .filter((u) => (u.estadoOperativo !== 'fuera_de_servicio' || u.esSos) && !dadosDeBaja.has(u.guardiaId))
-    .map((u) => ({
-      id: u.guardiaId,
-      label: u.guardiaNombre.split(/\s+/).map((p) => p.charAt(0)).slice(0, 2).join('').toUpperCase(),
-      lat: u.lat,
-      lng: u.lng,
-      zone: epiDeCodigo(u.epiCodigo),
-      hasSos: u.esSos || u.estadoOperativo === 'emergencia',
-      nombre: u.guardiaNombre,
-      fotoUrl: fotoPorGuardia.get(u.guardiaId) ?? undefined,
-      operationalStatus: u.estadoOperativo as GuardMarker['operationalStatus'],
-      // Nunca lat/lng crudos en pantalla (pedido explícito 2026-09-14).
-      ubicacionActual: u.direccion ?? 'Ubicación no disponible',
-      turnoInicio: u.turnoInicio ? formatHora(u.turnoInicio) : '—',
-      turnoFin: '—',
-      bateria: u.bateriaPct ?? 0,
-      ultimoSync: formatRelative(u.capturadoEn),
-      capturadoEnIso: toApiDate(u.capturadoEn).toISOString(),
-      ruta: [],
-      unidadId: UNIDAD_POR_GUARDIA.get(u.guardiaId),
-    }));
+    .map((u) => {
+      const patrulla = patrullaPorGuardia.get(u.guardiaId);
+      let rutaAsignada: GuardMarker['rutaAsignada'] | undefined;
+      if (patrulla?.rutaPlantillaId) {
+        const rt = routeGroupsTemp.get(patrulla.rutaPlantillaId);
+        if (rt) {
+          const path: { lat: number; lng: number }[] = [];
+          const trazado = Array.isArray(rt.trazado) ? rt.trazado : [];
+          for (const [lng, lat] of trazado) {
+            path.push({ lat, lng });
+          }
+          rutaAsignada = { nombre: rt.nombre, color: '#A97F52', puntos: path };
+        }
+      }
+      return ({
+        id: u.guardiaId,
+        label: u.guardiaNombre.split(/\s+/).map((p) => p.charAt(0)).slice(0, 2).join('').toUpperCase(),
+        lat: u.lat,
+        lng: u.lng,
+        zone: epiDeCodigo(u.epiCodigo),
+        hasSos: u.esSos || u.estadoOperativo === 'emergencia',
+        nombre: u.guardiaNombre,
+        fotoUrl: fotoPorGuardia.get(u.guardiaId) ?? undefined,
+        operationalStatus: u.estadoOperativo as GuardMarker['operationalStatus'],
+        ubicacionActual: u.direccion ?? `${u.lat.toFixed(4)}, ${u.lng.toFixed(4)}`,
+        turnoInicio: u.turnoInicio ? formatHora(u.turnoInicio) : '—',
+        turnoFin: '—',
+        bateria: u.bateriaPct,
+        ultimoSync: formatRelative(u.capturadoEn),
+        capturadoEnIso: toApiDate(u.capturadoEn).toISOString(),
+        gpsSinActualizacionSeg: Math.round((Date.now() - new Date(u.capturadoEn).getTime()) / 1000),
+        ruta: [],
+        unidadId: UNIDAD_POR_GUARDIA.get(u.guardiaId),
+        direccionActual: u.direccion ?? undefined,
+        ...(rutaAsignada ? { rutaAsignada } : {}),
+      });
+    });
 });
 
 interface ApiZona {
@@ -379,6 +400,7 @@ interface ApiRuta {
   epiCodigo: string | null;
   trazado: unknown;
   activo?: boolean;
+  modalidad?: string;
 }
 
 // Una plantilla sin trazado válido (ej. fila vieja de antes del rediseño de
@@ -408,6 +430,7 @@ export const getRutasPlantilla = cache(async (): Promise<RutaPlantillaRow[]> => 
     epiId: epiDeCodigo(r.epiCodigo),
     trazado: trazadoValido(r.trazado) ?? [],
     activa: r.activo ?? true,
+    modalidad: r.modalidad as RutaPlantillaRow['modalidad'],
   }));
 });
 
@@ -419,16 +442,11 @@ interface ApiPatrulla {
   guardiaId: string;
   asignadoPorId: string;
   rutaPlantillaId: string | null;
-  // El backend ya embebe el nombre/trazado de la ruta compartida en cada
-  // fila de patrulla (mapas.service.ts:patrullasVigentes hace el join) —
-  // hace falta leerlo de ACÁ, no cruzarlo contra getRutasPlantilla(), porque
-  // ese GET filtra `activo=true` (solo plantillas reutilizables) y una ruta
-  // de una sola asignación (activo=false) nunca aparecería ahí aunque esté
-  // perfectamente vigente para los guardias que la tienen asignada hoy.
   rutaNombre: string | null;
   trazado: unknown;
   poligonoGeojson: unknown;
   epiCodigo: string | null;
+  direccionActual?: string;
 }
 
 function rowToPatrullaApi(row: ApiPatrulla): PatrullaRow {
@@ -444,10 +462,9 @@ function rowToPatrullaApi(row: ApiPatrulla): PatrullaRow {
     descripcion: row.descripcion ?? undefined,
     poligonoGeojson: (row.poligonoGeojson as GeoJsonPolygon | GeoJsonPoint | null) ?? { type: 'Polygon', coordinates: [] },
     estado: row.estado as PatrullaEstado,
-    // modalidad no existe en la BD real (types/patrulla.ts) — no hay de
-    // dónde leerla al recargar; 'coche' es el valor por defecto más común.
     modalidad: 'coche',
     unidadId: UNIDAD_POR_GUARDIA.get(row.guardiaId),
+    direccionActual: row.direccionActual,
   };
 }
 
@@ -470,6 +487,7 @@ export async function crearPatrulla(data: Omit<PatrullaRow, 'id' | 'estado'>): P
     method: 'POST',
     body: {
       guardiaId: data.guardiaId,
+      direccionActual: data.direccionActual ?? null,
       // epiId: se omite — el API lo toma del propio guardia si no se manda
       // (mapas.service.ts asignarPatrulla), y ahí es un uuid real, no el
       // slug de EpiZone que maneja el wizard.
@@ -494,6 +512,7 @@ export async function crearRutaPlantilla(data: Omit<RutaPlantillaRow, 'id'>): Pr
       descripcion: data.descripcion ?? null,
       trazado: data.trazado,
       activo: data.activa,
+      modalidad: data.modalidad ?? null,
     },
   });
   return {
@@ -503,6 +522,7 @@ export async function crearRutaPlantilla(data: Omit<RutaPlantillaRow, 'id'>): Pr
     epiId: epiDeCodigo(result.epiCodigo),
     trazado: trazadoValido(result.trazado) ?? data.trazado,
     activa: result.activo ?? data.activa,
+    modalidad: (result.modalidad as RutaPlantillaRow['modalidad']) ?? data.modalidad,
   };
 }
 
@@ -823,6 +843,14 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
     const bateriaBaja = ubicaciones.filter((u) => (u.bateriaPct ?? 100) < 20).slice(0, 3);
     for (const b of bateriaBaja) {
       list.push({ id: `bat-${b.guardiaId}`, title: `Batería baja — ${b.guardiaNombre} (${b.bateriaPct}%)`, timestamp: formatRelative(b.capturadoEn), read: false, guardiaId: b.guardiaId, kind: 'bateria' as const });
+    }
+    // Alerta GPS desactualizado (más de 10 min sin actualización)
+    const gpsStale = ubicaciones.filter((u) => {
+      const edad = Math.round((Date.now() - new Date(u.capturadoEn).getTime()) / 60000);
+      return edad > 10;
+    }).slice(0, 3);
+    for (const g of gpsStale) {
+      list.push({ id: `gps-${g.guardiaId}`, title: `GPS sin actualizar — ${g.guardiaNombre} (${Math.round((Date.now() - new Date(g.capturadoEn).getTime()) / 60000)}min)`, timestamp: formatRelative(g.capturadoEn), read: false, guardiaId: g.guardiaId, kind: 'bateria' as const });
     }
     for (const m of mandados.slice(0, 3)) {
       list.push({ id: `mandado-${m.id}`, title: `Tarea — ${m.descripcion.slice(0, 45)}`, timestamp: formatRelative(m.creadoEn), read: false, guardiaId: m.guardiaId, kind: 'hecho' as const });

@@ -1,11 +1,13 @@
 'use client';
 
+import React, { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
-import { Marker, Popup } from 'react-leaflet';
+import { Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { EPI_ZONE_HEX } from '@/types/epi';
 import { OPERATIONAL_STATUS_LABELS } from '@/features/guardias/types';
 import { safePhotoUrl } from '../lib/safeIconUrl';
+import { createMarkerAnimator } from '../lib/markerAnimator';
 import type { GuardMarker } from '../types';
 
 // RF/RNF: Tab Patrullaje en Vivo — RF-G1-01/02, RF-G3-09/10 (MASTER.md sección 7.3).
@@ -24,12 +26,20 @@ import type { GuardMarker } from '../types';
 // El radio de cluster es chico a propósito (40px) para que solo agrupe
 // puntos genuinamente cercanos, no guardias de la misma zona EPI que están
 // a varias cuadras.
+//
+// Movimiento fluido (pedido explícito: "que se sienta muy fluido... como
+// Uber", con muchos guardias conectados a la vez): el pin ya NO salta de
+// golpe a la nueva posición en cada ping — se interpola (markerAnimator.ts,
+// ver ahí el porqué de no poder animar con `setLatLng` directo dentro de un
+// cluster). Para que esto no dependa de re-renderizar los N marcadores en
+// cada ping de CUALQUIER guardia (antes: `guards` cambia de referencia en
+// cada ping → los N <Marker> recibían un `icon`/`position` nuevos → los N
+// se re-creaban en el DOM aunque solo 1 se movió), la posición se pasa una
+// sola vez al montar (GuardMapMarker está memoizado y el efecto de abajo
+// mueve el marcador imperativamente vía ref, no vía prop) y el ícono/popup
+// solo se recalculan si algo que de verdad se ve cambió (memo compara
+// campo por campo, no la referencia completa de `guard`).
 
-// Un guardia en SOS ya NO tapa la foto con un relleno rojo sólido — la
-// identidad (foto o iniciales) se mantiene visible siempre; la emergencia
-// se marca con un anillo rojo parpadeante alrededor (pedido explícito
-// 2026-09-14: "en lugar de hacer el pin del color rojo... que lo rodee un
-// borde rojo y parpadeante dejando ver la imagen").
 function createGuardIcon(guard: GuardMarker, isSelected: boolean) {
   const zoneColor = EPI_ZONE_HEX[guard.zone] ?? '#1A1A1A';
   const photoUrl = safePhotoUrl(guard.fotoUrl);
@@ -62,13 +72,111 @@ function createClusterIcon(cluster: L.MarkerCluster) {
   });
 }
 
+interface GuardMapMarkerProps {
+  guard: GuardMarker;
+  initialPosition: [number, number];
+  isSelected: boolean;
+  onSelectGuard?: (guard: GuardMarker) => void;
+  markerRef: (id: string, instance: L.Marker | null) => void;
+}
+
+// Memoizado campo a campo (no por referencia de `guard`): `guards` cambia
+// de array en CADA ping de CUALQUIER guardia (MapasView reemplaza el
+// array completo), así que comparar `prev.guard === next.guard` haría que
+// los N marcadores se re-crearan N veces por cada ping de 1 solo guardia.
+// lat/lng se excluyen a propósito — el movimiento lo maneja el efecto de
+// PatrolLayer vía el animador imperativo, no un re-render de este componente.
+const GuardMapMarker = React.memo(
+  function GuardMapMarker({ guard, initialPosition, isSelected, onSelectGuard, markerRef }: GuardMapMarkerProps) {
+    return (
+      <Marker
+        ref={(instance) => markerRef(guard.id, instance)}
+        position={initialPosition}
+        icon={createGuardIcon(guard, isSelected)}
+        // hasSos viaja en options (react-leaflet pasa todas las props no
+        // reconocidas al constructor de L.Marker) para que
+        // createClusterIcon pueda leerlo vía getAllChildMarkers() sin
+        // acoplarse a GuardMarker.
+        {...{ hasSos: guard.hasSos }}
+        eventHandlers={onSelectGuard ? { click: () => onSelectGuard(guard) } : undefined}
+      >
+        <Popup>
+          <p className="text-[13px] font-bold">{guard.nombre}</p>
+          <p className="text-xs text-neutral-text-muted">
+            {OPERATIONAL_STATUS_LABELS[guard.operationalStatus]} · {guard.ubicacionActual}
+          </p>
+          {guard.rutaAsignada && (
+            <p className="text-[11px] text-brand-gold-700 mt-1 font-medium">
+              🛤 {guard.rutaAsignada.nombre}
+            </p>
+          )}
+        </Popup>
+      </Marker>
+    );
+  },
+  (prev, next) =>
+    prev.guard.id === next.guard.id &&
+    prev.guard.zone === next.guard.zone &&
+    prev.guard.fotoUrl === next.guard.fotoUrl &&
+    prev.guard.label === next.guard.label &&
+    prev.guard.hasSos === next.guard.hasSos &&
+    prev.guard.nombre === next.guard.nombre &&
+    prev.guard.ubicacionActual === next.guard.ubicacionActual &&
+    prev.guard.operationalStatus === next.guard.operationalStatus &&
+    prev.guard.rutaAsignada?.nombre === next.guard.rutaAsignada?.nombre &&
+    prev.isSelected === next.isSelected &&
+    prev.onSelectGuard === next.onSelectGuard,
+);
+
 export interface PatrolLayerProps {
   guards: GuardMarker[];
   selectedId?: string | null;
   onSelectGuard?: (guard: GuardMarker) => void;
 }
 
-export function PatrolLayer({ guards, selectedId, onSelectGuard }: PatrolLayerProps) {
+export const PatrolLayer = React.memo(function PatrolLayer({ guards, selectedId, onSelectGuard }: PatrolLayerProps) {
+  const map = useMap();
+  const animator = useMemo(() => createMarkerAnimator(map), [map]);
+  const markersRef = useRef(new Map<string, L.Marker>());
+  const lastPosRef = useRef(new Map<string, { lat: number; lng: number }>());
+  const initialPosRef = useRef(new Map<string, [number, number]>());
+
+  useEffect(() => () => animator.destroy(), [animator]);
+
+  function setMarkerRef(id: string, instance: L.Marker | null) {
+    if (instance) markersRef.current.set(id, instance);
+    else markersRef.current.delete(id);
+  }
+
+  // Mueve (animado) cualquier guardia cuya posición real cambió desde el
+  // último render, y limpia el rastro de los que ya no están en la lista.
+  useEffect(() => {
+    const seen = new Set<string>();
+    for (const guard of guards) {
+      seen.add(guard.id);
+      const prev = lastPosRef.current.get(guard.id);
+      if (!prev) {
+        // Primera vez que se ve este guardia — ya quedó bien ubicado por
+        // `initialPosition` al montar, no hace falta animar.
+        lastPosRef.current.set(guard.id, { lat: guard.lat, lng: guard.lng });
+        continue;
+      }
+      if (prev.lat !== guard.lat || prev.lng !== guard.lng) {
+        const marker = markersRef.current.get(guard.id);
+        if (marker) animator.moveTo(guard.id, marker, guard.lat, guard.lng);
+        lastPosRef.current.set(guard.id, { lat: guard.lat, lng: guard.lng });
+      }
+    }
+    for (const id of Array.from(lastPosRef.current.keys())) {
+      if (!seen.has(id)) {
+        lastPosRef.current.delete(id);
+        initialPosRef.current.delete(id);
+        markersRef.current.delete(id);
+        animator.forget(id);
+      }
+    }
+  }, [guards, animator]);
+
   return (
     <MarkerClusterGroup
       maxClusterRadius={40}
@@ -77,26 +185,21 @@ export function PatrolLayer({ guards, selectedId, onSelectGuard }: PatrolLayerPr
       zoomToBoundsOnClick={false}
       iconCreateFunction={createClusterIcon}
     >
-      {guards.map((guard) => (
-        <Marker
-          key={guard.id}
-          position={[guard.lat, guard.lng]}
-          icon={createGuardIcon(guard, guard.id === selectedId)}
-          // hasSos viaja en options (react-leaflet pasa todas las props no
-          // reconocidas al constructor de L.Marker) para que
-          // createClusterIcon pueda leerlo vía getAllChildMarkers() sin
-          // acoplarse a GuardMarker.
-          {...{ hasSos: guard.hasSos }}
-          eventHandlers={onSelectGuard ? { click: () => onSelectGuard(guard) } : undefined}
-        >
-          <Popup>
-            <p className="text-[13px] font-bold">{guard.nombre}</p>
-            <p className="text-xs text-neutral-text-muted">
-              {OPERATIONAL_STATUS_LABELS[guard.operationalStatus]} · {guard.ubicacionActual}
-            </p>
-          </Popup>
-        </Marker>
-      ))}
+      {guards.map((guard) => {
+        if (!initialPosRef.current.has(guard.id)) {
+          initialPosRef.current.set(guard.id, [guard.lat, guard.lng]);
+        }
+        return (
+          <GuardMapMarker
+            key={guard.id}
+            guard={guard}
+            initialPosition={initialPosRef.current.get(guard.id)!}
+            isSelected={guard.id === selectedId}
+            onSelectGuard={onSelectGuard}
+            markerRef={setMarkerRef}
+          />
+        );
+      })}
     </MarkerClusterGroup>
   );
-}
+});
