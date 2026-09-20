@@ -3,6 +3,7 @@
 import { Polyline, Popup, Marker } from 'react-leaflet';
 import React from 'react';
 import type { RouteGroup } from '../lib/routeGroups';
+import { sampleCheckpoints } from '../lib/routeGeometry';
 import L from 'leaflet';
 
 // RF-G3-09 (rediseño 2026-09-14): dibuja cada ruta activa como una línea
@@ -32,6 +33,21 @@ function createCheckpointIcon(color: string) {
     html: `<div style="width:14px;height:14px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);transform:rotate(45deg)"></div>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
+  });
+}
+
+// Checkpoints NUMERADOS repartidos sobre TODO el trazado (no uno por
+// guardia): con 1 solo guardia el punto asignado queda pegado a su pin de
+// GPS y es indistinguible — "solo me aparece la línea" reportado
+// 2026-09-19 después de agregar el rombo por guardia. Esto usa el MISMO
+// `route.path` que ya dibuja la Polyline (que sí se ve), así que no
+// depende de que `poligonoGeojson` venga bien poblado por guardia.
+function createNumberedCheckpointIcon(color: string, index: number) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:20px;height:20px;border-radius:9999px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif">${index + 1}</div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
   });
 }
 
@@ -80,8 +96,22 @@ export const RouteLinesLayer = React.memo(function RouteLinesLayer({ routeGroups
           );
         }),
       )}
-      {/* Checkpoints: el punto estratégico asignado a cada guardia dentro
-          del trazado — antes nunca se dibujaba, solo la línea completa. */}
+      {/* Checkpoints numerados repartidos sobre TODO el trazado — visibles
+          sin importar cuántos guardias tenga la ruta. */}
+      {routeGroups.map((route) =>
+        route.path.length >= 2
+          ? sampleCheckpoints(route.path, 5).map((p, i) => (
+              <Marker key={`ckpt-${route.id}-${i}`} position={[p.lat, p.lng]} icon={createNumberedCheckpointIcon(route.color, i)}>
+                <Popup>
+                  <p className="text-[13px] font-bold">Checkpoint {i + 1} — {route.nombre}</p>
+                </Popup>
+              </Marker>
+            ))
+          : null,
+      )}
+      {/* Checkpoint por guardia: el punto estratégico que le tocó dentro
+          del trazado compartido — con 1 solo guardia puede coincidir con
+          su pin de GPS en vivo (rombo vs. círculo para distinguirlos). */}
       {routeGroups.map((route) =>
         route.guards.map((g) =>
           g.puntoAsignado ? (
@@ -91,8 +121,8 @@ export const RouteLinesLayer = React.memo(function RouteLinesLayer({ routeGroups
               icon={createCheckpointIcon(route.color)}
             >
               <Popup>
-                <p className="text-[13px] font-bold">Checkpoint — {g.nombre ?? g.guardiaId}</p>
-                <p className="text-xs text-neutral-text-muted">Punto asignado en {route.nombre}</p>
+                <p className="text-[13px] font-bold">Punto asignado — {g.nombre ?? g.guardiaId}</p>
+                <p className="text-xs text-neutral-text-muted">{route.nombre}</p>
               </Popup>
             </Marker>
           ) : null,

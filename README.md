@@ -113,4 +113,55 @@ Variables de entorno (`.env.example`): URL del backend (`NEXT_PUBLIC_API_BASE_UR
 
 Gestor de paquetes: **npm** (no mezclar con `pnpm`/`yarn`, hay `package-lock.json` comiteado).
 
+---
+
+## Rendimiento y tiempo real
+
+El Dashboard, el Mapa y la campanita de notificaciones dependen de dos canales que
+deben funcionar bien juntos: **push en vivo por Socket.io** (la vía normal) y
+**polling de respaldo** (red de seguridad si el socket se cae). Requisitos para que
+esto se sienta rápido — no son opcionales para producción con guardias reales en
+campo:
+
+### Hosting del frontend
+
+- Debe servir Server Actions/Route Handlers cerca de los usuarios (Cochabamba/
+  Bolivia) — en Vercel, elegir la región sudamericana disponible más cercana. Cada
+  Server Action de este proyecto (`src/lib/data-source.ts`) hace un round-trip
+  completo: navegador → frontend → backend (`gamc-api`) → base de datos, y de
+  vuelta — la latencia de cada tramo se suma.
+- El backend y el frontend deben estar en regiones cercanas entre sí por el mismo
+  motivo (ver requisitos de servidor en el README de `gamc-api`).
+
+### Cache: no servir datos viejos por accidente
+
+Este proyecto usa el Data Cache de Next.js (`revalidate` + `tags` en
+`src/lib/api/http.ts` y `src/lib/data-source.ts`) para no golpear la base de datos
+en cada render. Es un requisito de **correctitud**, no solo de velocidad: **toda
+mutación nueva que se agregue debe llamar `revalidateTag(...)` con el tag
+correspondiente** (ver el objeto `TAGS` en `data-source.ts`). Sin eso, la próxima
+lectura — incluso la disparada por un evento realtime — puede devolver la respuesta
+cacheada vieja durante todo el `revalidate` configurado, y algo recién
+resuelto/asignado/cambiado se ve "pegado" en la pantalla hasta que el TTL expira
+solo (bug real ya corregido una vez con este patrón: la resolución de un SOS tardaba
+en reflejarse).
+
+### Conexión del cliente (navegador)
+
+- El socket (`src/lib/api/realtime.ts`) conecta directo al dominio del backend, no
+  al del frontend — en producción esto cruza dominios (Vercel ↔ Render/Railway/
+  etc.), así que el backend necesita `CORS_ORIGINS` bien configurado y el navegador
+  del Operador necesita poder alcanzar ambos dominios sin un proxy/firewall
+  corporativo que bloquee WebSockets.
+- Si el socket no conecta (red restrictiva, proxy, etc.), el sistema sigue
+  funcionando por el polling de respaldo (30-60s según la pantalla) — más lento,
+  pero no roto. No hay push en vivo sin WebSockets habilitados en la red del
+  Operador.
+
+### Geolocalización
+
+La web nunca pide GPS al navegador — toda la geolocalización viene de la app móvil
+de los guardias, vía `gamc-api`. Los requisitos de precisión/frecuencia de esa
+geolocalización viven en el README de la app móvil (`appmunicipal`).
+
 

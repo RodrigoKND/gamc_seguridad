@@ -109,6 +109,21 @@ export function projectOntoPath(point: LatLng, path: LatLng[]): { point: LatLng;
   return { point: toLatLng(best.projected, refLat), distanceFromStart: best.cumulative };
 }
 
+/**
+ * Puntos de control repartidos parejo sobre el trazado (incluye siempre el
+ * inicio y el fin) — para dibujar "checkpoints" en el mapa sin depender de
+ * cuántos guardias tiene la ruta (con 1 solo guardia, el punto asignado
+ * por guardia queda pegado a su posición y es indistinguible del pin de
+ * GPS en vivo; esto da puntos de control reales a lo largo de TODO el
+ * trazado, sin importar cuántos guardias haya).
+ */
+export function sampleCheckpoints(path: LatLng[], count = 5): LatLng[] {
+  if (path.length < 2) return path.length === 1 ? [path[0]] : [];
+  const n = Math.max(2, Math.min(count, 10));
+  const total = pathLengthMeters(path);
+  return Array.from({ length: n }, (_, i) => pointAtDistance(path, (i / (n - 1)) * total));
+}
+
 export interface GuardForDistribution {
   id: string;
   /** Última posición real conocida (telemetría) — null si nunca reportó. */

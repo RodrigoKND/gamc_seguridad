@@ -429,6 +429,33 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
     [selectedGuardIds, guards, distribution, markerById],
   );
 
+  // Posición GPS actual de los guardias seleccionados, para el mapa del
+  // paso "ruta" — a propósito NO depende de `distribution` (ese reparto
+  // solo existe una vez que hay un trazado con MIN_PUNTOS dibujados). Sin
+  // esto, previewGuardPoints (que sí depende de distribution) llegaba
+  // vacío justo cuando el Operador recién entra a dibujar la ruta y
+  // todavía no marcó ningún punto — el bug reportado: "no me aparece el
+  // marcador del guardia ni me lleva a su dirección" pasaba exactamente
+  // en ese momento, cuando más se necesita ver dónde está el guardia.
+  const selectedGuardCurrentPositions = useMemo(
+    () =>
+      selectedGuardIds
+        .map((id, i) => {
+          const g = guards.find((guard) => guard.id === id);
+          const m = markerById.get(id);
+          if (!g || !m) return null;
+          return {
+            id,
+            label: guardInitials(g),
+            fotoUrl: g.fotoUrl,
+            color: ROUTE_COLOR_PALETTE[i % ROUTE_COLOR_PALETTE.length],
+            currentPosition: { lat: m.lat, lng: m.lng },
+          };
+        })
+        .filter((g): g is NonNullable<typeof g> => g !== null),
+    [selectedGuardIds, guards, markerById],
+  );
+
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Asignar Ruta de Patrullaje" widthClassName="max-w-[720px]" accent="gold">
       {step === 'exito' ? (
@@ -651,21 +678,22 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                  <MapCanvas>
                    <MapSearch disabled={openSearch} onOpenChange={setOpenSearch} />
                    {!plantillaSeleccionada && <RouteClickCapture onClick={handleMapClick} disabled={openSearch} />}
-                   <CenterOnGuards
-                     points={previewGuardPoints.map((g) => g.currentPosition).filter((p): p is RoutePoint => p !== null)}
-                   />
+                   <CenterOnGuards points={selectedGuardCurrentPositions.map((g) => g.currentPosition)} />
                    {activePath.length >= 2 && (
                      <Polyline positions={activePath.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#A97F52', weight: 4, opacity: 0.9 }} />
                    )}
                    {!plantillaSeleccionada &&
                      puntos.map((p, i) => <Marker key={i} position={[p.lat, p.lng]} icon={numberedPointIcon(i)} />)}
-                   {/* Marcador de posición actual de cada guardia seleccionado */}
-                   {previewGuardPoints.map((g) => {
-                     if (!g.currentPosition) return null;
-                     return (
-                       <Marker key={`current-${g.id}`} position={[g.currentPosition.lat, g.currentPosition.lng]} icon={guardPointIcon(g.color, g.label, g.fotoUrl)} />
-                     );
-                   })}
+                   {/* Marcador de posición actual de cada guardia seleccionado — visible
+                       desde que se abre este paso, aunque todavía no se haya dibujado
+                       ningún punto de la ruta. */}
+                   {selectedGuardCurrentPositions.map((g) => (
+                     <Marker
+                       key={`current-${g.id}`}
+                       position={[g.currentPosition.lat, g.currentPosition.lng]}
+                       icon={guardPointIcon(g.color, g.label, g.fotoUrl)}
+                     />
+                   ))}
                  </MapCanvas>
                </div>
 

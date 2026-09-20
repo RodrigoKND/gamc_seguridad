@@ -929,18 +929,31 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
       getMandados(3).catch(() => [] as Mandado[]),
       getPatrullas().catch(() => [] as PatrullaRow[]),
     ]);
+    // Cada entrada guarda su fecha real (`_ts`) además del `timestamp` ya
+    // formateado para mostrar — antes la lista se armaba concatenando por
+    // categoría (SOS, luego hechos, luego batería, GPS, mandados, fuera de
+    // ruta) sin mirar la fecha en absoluto, así que un SOS de hace horas
+    // podía aparecer arriba de un hecho reportado hace un minuto. Se
+    // ordena todo por `_ts` desc recién al final, antes de recortar al
+    // límite, y se descarta `_ts` del resultado (no es parte de
+    // AppNotification).
+    const conFecha: (AppNotification & { _ts: number })[] = [];
+
     const sos = ubicaciones.filter((u) => u.esSos).slice(0, 5);
-    const hechosRecientes = hechos.filter((h) => h.estado === 'reportado' || h.estado === 'en_revision').slice(0, 5);
-    const list: AppNotification[] = [
-      ...sos.map((u) => ({
+    for (const u of sos) {
+      conFecha.push({
         id: `sos-${u.guardiaId}`,
         title: `SOS — ${u.guardiaNombre} (${u.epiCodigo ?? '—'})`,
         timestamp: formatRelative(u.capturadoEn),
         read: false,
         guardiaId: u.guardiaId,
         kind: 'sos' as const,
-      })),
-      ...hechosRecientes.map((h) => ({
+        _ts: new Date(u.capturadoEn).getTime(),
+      });
+    }
+    const hechosRecientes = hechos.filter((h) => h.estado === 'reportado' || h.estado === 'en_revision').slice(0, 5);
+    for (const h of hechosRecientes) {
+      conFecha.push({
         id: h.id,
         title: `${h.tipoLabel}: ${h.descripcion.slice(0, 50)}`,
         timestamp: toDDMMAAAAHHMM(h.ocurridoEn),
@@ -948,11 +961,12 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
         hechoId: h.id,
         guardiaId: h.guardiaId,
         kind: 'hecho' as const,
-      })),
-    ];
+        _ts: new Date(h.ocurridoEn).getTime(),
+      });
+    }
     const bateriaBaja = ubicaciones.filter((u) => (u.bateriaPct ?? 100) < 20).slice(0, 3);
     for (const b of bateriaBaja) {
-      list.push({ id: `bat-${b.guardiaId}`, title: `Batería baja — ${b.guardiaNombre} (${b.bateriaPct}%)`, timestamp: formatRelative(b.capturadoEn), read: false, guardiaId: b.guardiaId, kind: 'bateria' as const });
+      conFecha.push({ id: `bat-${b.guardiaId}`, title: `Batería baja — ${b.guardiaNombre} (${b.bateriaPct}%)`, timestamp: formatRelative(b.capturadoEn), read: false, guardiaId: b.guardiaId, kind: 'bateria' as const, _ts: new Date(b.capturadoEn).getTime() });
     }
     // Alerta GPS desactualizado (más de 10 min sin actualización)
     const gpsStale = ubicaciones.filter((u) => {
@@ -960,10 +974,10 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
       return edad > 10;
     }).slice(0, 3);
     for (const g of gpsStale) {
-      list.push({ id: `gps-${g.guardiaId}`, title: `GPS sin actualizar — ${g.guardiaNombre} (${Math.round((Date.now() - new Date(g.capturadoEn).getTime()) / 60000)}min)`, timestamp: formatRelative(g.capturadoEn), read: false, guardiaId: g.guardiaId, kind: 'bateria' as const });
+      conFecha.push({ id: `gps-${g.guardiaId}`, title: `GPS sin actualizar — ${g.guardiaNombre} (${Math.round((Date.now() - new Date(g.capturadoEn).getTime()) / 60000)}min)`, timestamp: formatRelative(g.capturadoEn), read: false, guardiaId: g.guardiaId, kind: 'bateria' as const, _ts: new Date(g.capturadoEn).getTime() });
     }
     for (const m of mandados.slice(0, 3)) {
-      list.push({ id: `mandado-${m.id}`, title: `Tarea — ${m.descripcion.slice(0, 45)}`, timestamp: formatRelative(m.creadoEn), read: false, guardiaId: m.guardiaId, kind: 'hecho' as const });
+      conFecha.push({ id: `mandado-${m.id}`, title: `Tarea — ${m.descripcion.slice(0, 45)}`, timestamp: formatRelative(m.creadoEn), read: false, guardiaId: m.guardiaId, kind: 'hecho' as const, _ts: new Date(m.creadoEn).getTime() });
     }
     // Guardia fuera de ruta asignada: misma detección que ya corre en vivo
     // en el Mapa (MapasView.detectarDesviaciones) — se repite acá para que
@@ -983,17 +997,21 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
       const dist = projectOntoPath({ lat: u.lat, lng: u.lng }, puntos);
       const fueraDeRuta = dist.point && Math.hypot(dist.point.lat - u.lat, dist.point.lng - u.lng) * 111320 > METROS_ALERTA;
       if (fueraDeRuta) {
-        list.push({
+        conFecha.push({
           id: `ruta-${u.guardiaId}`,
           title: `Fuera de ruta — ${u.guardiaNombre} se desvió del trazado asignado`,
           timestamp: formatRelative(u.capturadoEn),
           read: false,
           guardiaId: u.guardiaId,
           kind: 'ruta' as const,
+          _ts: new Date(u.capturadoEn).getTime(),
         });
       }
     }
-    return list.slice(0, limit);
+    return conFecha
+      .sort((a, b) => b._ts - a._ts)
+      .slice(0, limit)
+      .map(({ _ts, ...n }) => n);
   } catch {
     return [];
   }
