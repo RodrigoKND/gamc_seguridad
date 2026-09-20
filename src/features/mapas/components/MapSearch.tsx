@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 import { useMap } from 'react-leaflet';
+import L from 'leaflet';
 
 interface NominatimResult {
   display_name: string;
@@ -13,10 +14,24 @@ interface NominatimResult {
 
 export function MapSearch({ disabled = false, onOpenChange }: { disabled?: boolean; onOpenChange?: (open: boolean) => void }) {
   const map = useMap();
+  const containerRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<NominatimResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // El buscador vive DENTRO del contenedor de Leaflet (useMap() lo exige) —
+  // sin esto, un click/scroll sobre el input o la lista de resultados
+  // burbujea hasta el mapa y Leaflet lo interpreta como un click en el
+  // mapa mismo (aparece un punto de ruta donde el operador solo quiso
+  // escribir, RF-G3-09). `disableClickPropagation` es la forma estándar
+  // de Leaflet de aislar un control HTML embebido del mapa que lo contiene.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    L.DomEvent.disableClickPropagation(el);
+    L.DomEvent.disableScrollPropagation(el);
+  }, []);
 
   const handleSearch = useCallback(async () => {
     const q = query.trim();
@@ -54,7 +69,7 @@ export function MapSearch({ disabled = false, onOpenChange }: { disabled?: boole
   }
 
   return (
-    <div className="absolute left-3 right-3 top-3 z-[600] sm:left-auto sm:w-72">
+    <div ref={containerRef} className="absolute left-3 right-3 top-3 z-[600] sm:left-auto sm:w-72">
       <div className="flex items-center gap-1 rounded-lg border border-neutral-border bg-white/95 px-2 py-1.5 shadow-md backdrop-blur">
         <Search className="h-4 w-4 shrink-0 text-neutral-text-muted" aria-hidden="true" />
         <input

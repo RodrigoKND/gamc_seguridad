@@ -123,21 +123,23 @@ const { name, value, options } = toResponseCookie(raw);
   }
 }
 
-async function bodyOf(response: Response): Promise<{ data?: unknown; error?: { code?: string; message?: string; details?: unknown } }> {
+interface ApiEnvelope {
+  data?: unknown;
+  meta?: { total?: number; page?: number; pageSize?: number };
+  error?: { code?: string; message?: string; details?: unknown };
+}
+
+async function bodyOf(response: Response): Promise<ApiEnvelope> {
   const text = await response.text();
   if (!text) return {};
   try {
-    return JSON.parse(text) as { data?: unknown; error?: { code?: string; message?: string; details?: unknown } };
+    return JSON.parse(text) as ApiEnvelope;
   } catch {
     return {};
   }
 }
 
-/**
- * Petición autenticada hacia el API con reintento único de refresh ante 401.
- * TODO: pasar por alto si el API aun no rotó el refresh en la misma request.
- */
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function attemptRequest(path: string, options: RequestOptions): Promise<ApiEnvelope> {
   const readCookies = async () =>
     (await cookies())
       .getAll()
@@ -171,5 +173,27 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     );
   }
 
+  return payload;
+}
+
+/**
+ * Petición autenticada hacia el API con reintento único de refresh ante 401.
+ * TODO: pasar por alto si el API aun no rotó el refresh en la misma request.
+ */
+export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const payload = await attemptRequest(path, options);
   return payload.data as T;
+}
+
+/**
+ * Variante paginada: algunos endpoints (guardias, hechos) devuelven
+ * `{ data: [...], meta: { total } }` cuando se les pasa page/pageSize —
+ * apiFetch normal descarta `meta` (solo devuelve `data`), así que las
+ * listas paginadas necesitan el total para pintar los controles de
+ * página. El envelope sigue siendo compatible con apiFetch: mismos
+ * endpoints, mismo `data`, esto solo lee el campo extra.
+ */
+export async function apiFetchPage<T>(path: string, options: RequestOptions = {}): Promise<{ data: T; total: number }> {
+  const payload = await attemptRequest(path, options);
+  return { data: payload.data as T, total: payload.meta?.total ?? 0 };
 }

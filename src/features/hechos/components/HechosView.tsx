@@ -1,22 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { History, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { ExportMenu } from '@/components/ui/ExportMenu';
+import { Pagination } from '@/components/ui/Pagination';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RISK_LEVEL_LABELS, RISK_LEVELS, type RiskLevel } from '@/types/risk';
-import { getHechosActivos, getMandados, type Mandado } from '@/lib/data-source';
+import { getHechosPage, getMandados, type Mandado } from '@/lib/data-source';
 import { canWrite } from '@/lib/permissions';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
 import type { AsyncStatus } from '@/features/dashboard/types';
 import { exportExcel } from '@/features/reportes/actions/exportExcel';
-import { normalizeSearch } from '@/lib/text';
 import { exportPDF, hechosToPrint } from '@/features/reportes/actions/exportPDF';
 import { HECHO_ESTADOS, HECHO_ESTADO_LABELS, type Hecho, type HechoEstado } from '../types';
 import { updateHechoEstadoAction } from '../actions/updateEstado';
@@ -33,79 +33,100 @@ import { IncidentDetailDrawer } from './IncidentDetailDrawer';
 // pantalla (/reportes, botón "Historial") es el archivo histórico
 // filtrable para exportación — no un ítem de nav aparte, la sección 7.2
 // funde ambos bajo un solo ítem de sidebar ("Reporte").
+//
+// Paginación real por servidor (2026-09-19: "falta paginación... tardan
+// demasiado"): igual que Guardias, esta tabla pide solo la página actual
+// con el filtro/búsqueda aplicado en el backend en vez de traer toda la
+// bitácora para filtrar/paginar en el navegador.
+
+const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 350;
 
 export function HechosView() {
   const { user } = useAuthSession();
   const canEditEstado = user ? canWrite(user.role, 'hechos') : false;
   const searchParams = useSearchParams();
 
-  const [hechos, setHechos] = useState<Hecho[]>([]);
+  const [rows, setRows] = useState<Hecho[]>([]);
+  const [total, setTotal] = useState(0);
   const [mandados, setMandados] = useState<Mandado[]>([]);
   const [status, setStatus] = useState<AsyncStatus>('loading');
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [estadoFilter, setEstadoFilter] = useState<HechoEstado | 'todos'>('todos');
   const [severidadFilter, setSeveridadFilter] = useState<RiskLevel | 'todos'>('todos');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
-  function loadHechos() {
-    setStatus('loading');
-    Promise.all([getHechosActivos(), getMandados(20).catch(() => [] as Mandado[])])
-      .then(([data, mands]) => {
-        setHechos(data);
-        setMandados(mands);
-        setStatus(data.length === 0 && mands.length === 0 ? 'empty' : 'ready');
-      })
-      .catch(() => setStatus('error'));
-  }
-
-  useEffect(loadHechos, []);
   useEffect(() => {
     const q = searchParams.get('q');
     if (q !== null) setQuery(q);
   }, [searchParams]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, estadoFilter, severidadFilter]);
+
+  function currentFilters() {
+    return {
+      q: debouncedQuery.trim() || undefined,
+      estado: estadoFilter === 'todos' ? undefined : estadoFilter,
+      nivelRiesgo: severidadFilter === 'todos' ? undefined : severidadFilter,
+    };
+  }
+
+  function load(quiet = false) {
+    if (!quiet) setStatus('loading');
+    Promise.all([
+      getHechosPage({ page, pageSize: PAGE_SIZE, ...currentFilters() }),
+      getMandados(20).catch(() => [] as Mandado[]),
+    ])
+      .then(([{ rows: data, total: t }, mands]) => {
+        setRows(data);
+        setTotal(t);
+        setMandados(mands);
+        setStatus((prev) => (quiet && prev !== 'loading' ? prev : t === 0 && mands.length === 0 ? 'empty' : 'ready'));
+      })
+      .catch(() => setStatus('error'));
+  }
+
+  useEffect(load, [page, debouncedQuery, estadoFilter, severidadFilter]);
+
   // Un hecho nuevo reportado desde el móvil (o un cambio de estado hecho
   // por otro operador) llega por socket.io — recarga silenciosa, sin pasar
   // por 'loading' para no parpadear la tabla ya poblada.
   const pendingRefresh = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function refreshHechosYMandados() {
-    getHechosActivos()
-      .then((data) => {
-        setHechos(data);
-        setStatus((prev) => (prev === 'loading' ? (data.length === 0 ? 'empty' : 'ready') : prev));
-      })
-      .catch(() => {});
-    getMandados(20).then(setMandados).catch(() => {});
-  }
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, () => {
     if (pendingRefresh.current) return;
     pendingRefresh.current = setTimeout(() => {
       pendingRefresh.current = null;
-      refreshHechosYMandados();
+      load(true);
     }, 500);
   });
-  useRealtimeEvent(REALTIME_EVENTS.mandadoNuevo, refreshHechosYMandados);
+  useRealtimeEvent(REALTIME_EVENTS.mandadoNuevo, () => load(true));
 
-  const filtered = useMemo(() => {
-    const q = normalizeSearch(query.trim());
-    return hechos.filter((h) => {
-      const matchesQuery = !q || normalizeSearch(h.id).includes(q) || normalizeSearch(h.ubicacion).includes(q);
-      const matchesEstado = estadoFilter === 'todos' || h.estado === estadoFilter;
-      const matchesSeveridad = severidadFilter === 'todos' || h.severidad === severidadFilter;
-      return matchesQuery && matchesEstado && matchesSeveridad;
-    });
-  }, [hechos, query, estadoFilter, severidadFilter]);
-
-  const selected = hechos.find((h) => h.id === selectedId) ?? null;
+  const selected = rows.find((h) => h.id === selectedId) ?? null;
 
   async function handleEstadoChange(id: string, estado: HechoEstado) {
-    const previous = hechos;
-    setHechos((prev) => prev.map((h) => (h.id === id ? { ...h, estado } : h)));
+    const previous = rows;
+    setRows((prev) => prev.map((h) => (h.id === id ? { ...h, estado } : h)));
 
     const result = await updateHechoEstadoAction(id, estado);
     if (!result.success) {
-      setHechos(previous); // el Server Action rechazó el cambio — revierte la UI optimista
+      setRows(previous); // el Server Action rechazó el cambio — revierte la UI optimista
     }
+  }
+
+  // Exportar es sobre TODO lo que matchea el filtro actual, no solo la
+  // página visible — se pide aparte al momento de exportar.
+  async function exportAllFiltered(): Promise<Hecho[]> {
+    const { rows: all } = await getHechosPage({ page: 1, pageSize: 500, ...currentFilters() });
+    return all;
   }
 
   return (
@@ -158,11 +179,16 @@ export function HechosView() {
 
         <div className="flex-1" />
 
-        <ExportMenu onExportExcel={() => exportExcel(filtered)} onExportPDF={() => exportPDF(hechosToPrint(filtered))} disabled={filtered.length === 0} />
+        <ExportMenu
+          onExportExcel={() => exportAllFiltered().then(exportExcel)}
+          onExportPDF={() => exportAllFiltered().then((all) => exportPDF(hechosToPrint(all)))}
+          disabled={total === 0}
+        />
       </div>
 
       <div className="col-span-12">
-        <IncidentTable hechos={filtered} status={status} onRetry={loadHechos} onSelect={(hecho) => setSelectedId(hecho.id)} />
+        <IncidentTable hechos={rows} status={status} onRetry={() => load()} onSelect={(hecho) => setSelectedId(hecho.id)} />
+        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
       </div>
 
       {mandados.length > 0 && (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, MapPin, X } from 'lucide-react';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
@@ -48,9 +48,24 @@ export function GlobalSosBanner() {
     return () => clearInterval(iv);
   }, []);
 
+  // guardiaUbicacion llega en CADA ping GPS de TODO el personal en
+  // servicio (cada ~45-90s por guardia) — sin agrupar, este banner (más
+  // el resto de listeners del mismo evento en toda la app) disparaba un
+  // fetch por cada ping de cada guardia, aportando a la sensación de
+  // "el sistema pide datos todo el tiempo". sosNuevo/guardiaEstado son
+  // eventos poco frecuentes y urgentes — esos sí recargan al instante.
+  const pendingUbicacion = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function loadSosDebounced() {
+    if (pendingUbicacion.current) return;
+    pendingUbicacion.current = setTimeout(() => {
+      pendingUbicacion.current = null;
+      loadSos();
+    }, 4000);
+  }
+
   useRealtimeEvent(REALTIME_EVENTS.sosNuevo, loadSos);
   useRealtimeEvent(REALTIME_EVENTS.guardiaEstado, loadSos);
-  useRealtimeEvent(REALTIME_EVENTS.guardiaUbicacion, loadSos);
+  useRealtimeEvent(REALTIME_EVENTS.guardiaUbicacion, loadSosDebounced);
 
   const visible = sosList.filter((s) => !dismissedIds.has(s.guardiaId));
   if (visible.length === 0) return null;

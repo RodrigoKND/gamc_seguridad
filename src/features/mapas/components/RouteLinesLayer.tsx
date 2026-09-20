@@ -22,6 +22,19 @@ function createGuardPositionIcon(color: string) {
   });
 }
 
+// Checkpoint = el punto ESTRATÉGICO que le tocó a este guardia dentro del
+// trazado compartido (patrulla.poligono_geojson) — distinto del punto GPS
+// en vivo de arriba. Forma de rombo (vs. el círculo del GPS) para que se
+// distingan de un vistazo aunque coincidan en el mismo lugar.
+function createCheckpointIcon(color: string) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);transform:rotate(45deg)"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
 export interface RouteLinesLayerProps {
   routeGroups: RouteGroup[];
 }
@@ -38,7 +51,17 @@ export const RouteLinesLayer = React.memo(function RouteLinesLayer({ routeGroups
           >
             <Popup>
               <p className="text-[13px] font-bold">{route.nombre}</p>
-              <p className="text-xs text-neutral-text-muted">{route.guards.length} guardia(s) asignado(s) · {route.guardiasEnRuta} en ruta</p>
+              <p className="text-xs text-neutral-text-muted">{route.guardiasEnRuta} de {route.guards.length} en ruta</p>
+              {/* Antes solo decía "N guardia(s) asignado(s)" sin decir
+                  QUIÉN — pedido explícito 2026-09-19: "debería aparecer
+                  qué guardia fue asignado a esa ruta". */}
+              <ul className="mt-1 space-y-0.5">
+                {route.guards.map((g) => (
+                  <li key={g.guardiaId} className="text-xs text-neutral-text">
+                    • {g.nombre ?? g.guardiaId}
+                  </li>
+                ))}
+              </ul>
             </Popup>
           </Polyline>
         ) : null,
@@ -47,12 +70,33 @@ export const RouteLinesLayer = React.memo(function RouteLinesLayer({ routeGroups
       {routeGroups.map((route) =>
         route.guards.map((g) => {
           if (g.lat == null || g.lng == null) return null;
-          // Encontrar el punto más cercano de la ruta al guardia
-          const closestPoint = route.path.length > 0 ? route.path[0] : null;
-          return closestPoint ? (
-            <Marker key={`guard-${g.guardiaId}`} position={[g.lat, g.lng]} icon={createGuardPositionIcon(route.color)} />
-          ) : null;
+          return (
+            <Marker key={`guard-${g.guardiaId}`} position={[g.lat, g.lng]} icon={createGuardPositionIcon(route.color)}>
+              <Popup>
+                <p className="text-[13px] font-bold">{g.nombre ?? g.guardiaId}</p>
+                <p className="text-xs text-neutral-text-muted">Posición GPS en vivo · {route.nombre}</p>
+              </Popup>
+            </Marker>
+          );
         }),
+      )}
+      {/* Checkpoints: el punto estratégico asignado a cada guardia dentro
+          del trazado — antes nunca se dibujaba, solo la línea completa. */}
+      {routeGroups.map((route) =>
+        route.guards.map((g) =>
+          g.puntoAsignado ? (
+            <Marker
+              key={`checkpoint-${g.guardiaId}`}
+              position={[g.puntoAsignado.lat, g.puntoAsignado.lng]}
+              icon={createCheckpointIcon(route.color)}
+            >
+              <Popup>
+                <p className="text-[13px] font-bold">Checkpoint — {g.nombre ?? g.guardiaId}</p>
+                <p className="text-xs text-neutral-text-muted">Punto asignado en {route.nombre}</p>
+              </Popup>
+            </Marker>
+          ) : null,
+        ),
       )}
     </>
   );

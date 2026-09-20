@@ -10,7 +10,29 @@ import type { Guard } from '@/features/guardias/types';
 import type { Hecho } from '@/features/hechos/types';
 import type { GuardMarker } from '@/features/mapas/types';
 import type { HechoPorDiaPoint, HechoPorTipoItem, HechoPorZonaItem } from '@/features/dashboard/types';
-import { apiFetch } from '@/lib/api/http';
+import { revalidateTag } from 'next/cache';
+import { apiFetch, apiFetchPage } from '@/lib/api/http';
+import { groupPatrullasByRuta } from '@/features/mapas/lib/routeGroups';
+import { projectOntoPath } from '@/features/mapas/lib/routeGeometry';
+
+// Tags de revalidación on-demand (Next.js Data Cache). Los GET con
+// `revalidate: N` quedan cacheados N segundos SIN importar que llegue un
+// push por socket o que el propio Operador dispare una mutación — antes
+// ninguna Server Action invalidaba ese cache, así que después de resolver
+// un SOS o cambiar el estado de un hecho, la siguiente lectura (incluso la
+// disparada por el evento realtime) podía devolver la respuesta vieja
+// hasta que el TTL expirara solo. Bug reportado 2026-09-19: la modal de
+// resolución de SOS "parpadeaba"/reaparecía y el aviso tardaba en
+// desaparecer — exactamente ese cache sirviendo datos viejos. Cada
+// mutación de abajo revalida los tags de lo que pudo cambiar.
+const TAGS = {
+  guardias: 'guardias',
+  hechos: 'hechos',
+  ubicaciones: 'ubicaciones',
+  patrullas: 'patrullas',
+  rutas: 'rutas',
+  dashboardKpi: 'dashboard-kpi',
+} as const;
 
 // ---------------------------------------------------------------------------
 // Guardias / Usuarios / Dashboard — conectados al backend real (gamc-api).
@@ -130,13 +152,51 @@ function rowToGuardApi(row: ApiGuardia, reportesCount: number): Guard {
 
 export const getGuardias = cache(async (): Promise<Guard[]> => {
   const [guardias, hechos] = await Promise.all([
-    apiFetch<ApiGuardia[]>('/api/guardias', { revalidate: 15 }),
-    apiFetch<ApiHechoMini[]>('/api/hechos', { revalidate: 30 }).catch(() => [] as ApiHechoMini[]),
+    apiFetch<ApiGuardia[]>('/api/guardias', { revalidate: 15, tags: [TAGS.guardias] }),
+    apiFetch<ApiHechoMini[]>('/api/hechos', { revalidate: 30, tags: [TAGS.hechos] }).catch(() => [] as ApiHechoMini[]),
   ]);
   const reportesPorGuardia = new Map<string, number>();
   for (const h of hechos) reportesPorGuardia.set(h.guardiaId, (reportesPorGuardia.get(h.guardiaId) ?? 0) + 1);
   return guardias.map((g) => rowToGuardApi(g, reportesPorGuardia.get(g.id) ?? 0));
 });
+
+export interface GuardiasPageParams {
+  page: number;
+  pageSize: number;
+  q?: string;
+  epiCodigo?: string;
+  estadoOperativo?: string;
+  estado?: string;
+}
+
+// Variante paginada de getGuardias — la tabla de /guardias ya no trae la
+// base completa en cada carga/refresh (pedido explícito 2026-09-19: "falta
+// paginación... tardan demasiado"). El backend ya ordena en_servicio /
+// emergencia primero (ver listGuardias), así que acá no hace falta
+// reordenar. reportesPorGuardia sigue viniendo de /api/hechos completo
+// (tope real 500, mismo límite que ya tenía esta cuenta antes) — no hay
+// forma barata de agregarlo por guardia sin un endpoint de agregación
+// nuevo, y no es el costo que hacía lenta esta pantalla.
+export async function getGuardiasPage(params: GuardiasPageParams): Promise<{ rows: Guard[]; total: number }> {
+  const qs = new URLSearchParams();
+  qs.set('page', String(params.page));
+  qs.set('pageSize', String(params.pageSize));
+  if (params.q) qs.set('q', params.q);
+  if (params.epiCodigo) qs.set('epiCodigo', params.epiCodigo);
+  if (params.estadoOperativo) qs.set('estadoOperativo', params.estadoOperativo);
+  if (params.estado) qs.set('estado', params.estado);
+  // La tabla principal de Guardias nunca muestra dados de baja (regla que
+  // antes vivía solo en isDadoDeBaja, client-side sobre la lista completa).
+  else qs.set('excluirInactivos', '1');
+
+  const [{ data: guardias, total }, hechos] = await Promise.all([
+    apiFetchPage<ApiGuardia[]>(`/api/guardias?${qs.toString()}`, { tags: [TAGS.guardias] }),
+    apiFetch<ApiHechoMini[]>('/api/hechos', { revalidate: 30, tags: [TAGS.hechos] }).catch(() => [] as ApiHechoMini[]),
+  ]);
+  const reportesPorGuardia = new Map<string, number>();
+  for (const h of hechos) reportesPorGuardia.set(h.guardiaId, (reportesPorGuardia.get(h.guardiaId) ?? 0) + 1);
+  return { rows: guardias.map((g) => rowToGuardApi(g, reportesPorGuardia.get(g.id) ?? 0)), total };
+}
 
 export async function getGuardiaById(id: string): Promise<Guard | null> {
   const row = await apiFetch<ApiGuardia | null>(`/api/guardias/${encodeURIComponent(id)}`);
@@ -235,15 +295,42 @@ function toDDMMAAAAHHMM(value: string | Date): string {
 }
 
 export const getHechosActivos = cache(async (): Promise<Hecho[]> => {
-  const rows = await apiFetch<ApiHecho[]>('/api/hechos', { revalidate: 15 });
+  const rows = await apiFetch<ApiHecho[]>('/api/hechos', { revalidate: 15, tags: [TAGS.hechos] });
   return rows.map(rowToHechoApi);
 });
+
+export interface HechosPageParams {
+  page: number;
+  pageSize: number;
+  q?: string;
+  /** Vocabulario de la vista (abierto/en_proceso/resuelto) — se traduce antes de llamar al API. */
+  estado?: Hecho['estado'];
+  nivelRiesgo?: Hecho['severidad'];
+}
+
+// Variante paginada de getHechosActivos — mismo motivo que
+// getGuardiasPage: la tabla de /hechos (Reportes) traía la lista entera
+// del backend (hasta 200 filas) en cada carga/refresh para después
+// paginar en el navegador.
+export async function getHechosPage(params: HechosPageParams): Promise<{ rows: Hecho[]; total: number }> {
+  const qs = new URLSearchParams();
+  qs.set('page', String(params.page));
+  qs.set('pageSize', String(params.pageSize));
+  if (params.q) qs.set('q', params.q);
+  if (params.estado) qs.set('estado', HECHO_ESTADO_A_API[params.estado]);
+  if (params.nivelRiesgo) qs.set('nivelRiesgo', params.nivelRiesgo);
+
+  const { data: rows, total } = await apiFetchPage<ApiHecho[]>(`/api/hechos?${qs.toString()}`, { tags: [TAGS.hechos] });
+  return { rows: rows.map(rowToHechoApi), total };
+}
 
 export async function updateHechoEstado(id: string, estado: Hecho['estado']): Promise<void> {
   await apiFetch(`/api/hechos/${encodeURIComponent(id)}/estado`, {
     method: 'PATCH',
     body: { estado: HECHO_ESTADO_A_API[estado] },
   });
+  revalidateTag(TAGS.hechos);
+  revalidateTag(TAGS.dashboardKpi);
 }
 
 function formatRelative(value: string | Date): string {
@@ -309,9 +396,9 @@ function formatHora(value: string | Date): string {
 // 2 round-trips de red en cada carga/refresh del mapa.
 export const getGuardMarkers = cache(async (guardiasPrefetched?: Guard[]): Promise<GuardMarker[]> => {
   const [ubicaciones, guardias, patrullas] = await Promise.all([
-    apiFetch<ApiUbicacionGuardia[]>('/api/mapas/ubicaciones', { revalidate: 15 }),
+    apiFetch<ApiUbicacionGuardia[]>('/api/mapas/ubicaciones', { revalidate: 15, tags: [TAGS.ubicaciones] }),
     guardiasPrefetched ?? getGuardias(),
-    apiFetch<ApiPatrulla[]>('/api/mapas/patrullas', { revalidate: 20 }).catch(() => [] as ApiPatrulla[]),
+    apiFetch<ApiPatrulla[]>('/api/mapas/patrullas', { revalidate: 20, tags: [TAGS.patrullas] }).catch(() => [] as ApiPatrulla[]),
   ]);
   const dadosDeBaja = new Set(guardias.filter((g) => g.accountStatus === 'inactivo').map((g) => g.id));
   const fotoPorGuardia = new Map(guardias.map((g) => [g.id, g.fotoUrl]));
@@ -422,7 +509,7 @@ function trazadoValido(raw: unknown): TrazadoPuntos | null {
 }
 
 export const getRutasPlantilla = cache(async (): Promise<RutaPlantillaRow[]> => {
-  const rows = await apiFetch<ApiRuta[]>('/api/mapas/rutas', { revalidate: 60 });
+  const rows = await apiFetch<ApiRuta[]>('/api/mapas/rutas', { revalidate: 60, tags: [TAGS.rutas] });
   return rows.map((r) => ({
     id: r.id,
     nombre: r.nombre,
@@ -469,7 +556,7 @@ function rowToPatrullaApi(row: ApiPatrulla): PatrullaRow {
 }
 
 export const getPatrullas = cache(async (): Promise<PatrullaRow[]> => {
-  const rows = await apiFetch<ApiPatrulla[]>('/api/mapas/patrullas', { revalidate: 10 });
+  const rows = await apiFetch<ApiPatrulla[]>('/api/mapas/patrullas', { revalidate: 10, tags: [TAGS.patrullas] });
   return rows.map(rowToPatrullaApi);
 });
 
@@ -498,6 +585,9 @@ export async function crearPatrulla(data: Omit<PatrullaRow, 'id' | 'estado'>): P
     },
   });
   if (data.unidadId) UNIDAD_POR_GUARDIA.set(data.guardiaId, data.unidadId);
+  revalidateTag(TAGS.patrullas);
+  revalidateTag(TAGS.ubicaciones);
+  revalidateTag(TAGS.guardias);
   return { ...rowToPatrullaApi(result), modalidad: data.modalidad, unidadId: data.unidadId };
 }
 
@@ -515,6 +605,7 @@ export async function crearRutaPlantilla(data: Omit<RutaPlantillaRow, 'id'>): Pr
       modalidad: data.modalidad ?? null,
     },
   });
+  revalidateTag(TAGS.rutas);
   return {
     id: result.id,
     nombre: result.nombre,
@@ -533,14 +624,21 @@ export async function crearRutaPlantilla(data: Omit<RutaPlantillaRow, 'id'>): Pr
 // (su pin depende solo de telemetría/estadoOperativo, nunca de la ruta) —
 // lo que desaparece es la línea de la ruta y su agrupación en el panel.
 export async function cancelarRuta(rutaPlantillaId: string): Promise<{ rutaPlantillaId: string; cancelados: number }> {
-  return apiFetch(`/api/mapas/rutas/${encodeURIComponent(rutaPlantillaId)}/cancelar`, { method: 'PATCH' });
+  const result = await apiFetch<{ rutaPlantillaId: string; cancelados: number }>(`/api/mapas/rutas/${encodeURIComponent(rutaPlantillaId)}/cancelar`, { method: 'PATCH' });
+  revalidateTag(TAGS.rutas);
+  revalidateTag(TAGS.patrullas);
+  revalidateTag(TAGS.ubicaciones);
+  return result;
 }
 
 // Complemento (2026-09-14): saca a UN guardia de una ruta compartida sin
 // tocar a los demás — `patrullaId` es la fila propia de ese guardia dentro
 // de la ruta (PatrullaRow.id, no el id de la ruta).
 export async function cancelarPatrulla(patrullaId: string): Promise<{ patrullaId: string; guardiaId: string }> {
-  return apiFetch(`/api/mapas/patrullas/${encodeURIComponent(patrullaId)}/cancelar`, { method: 'PATCH' });
+  const result = await apiFetch<{ patrullaId: string; guardiaId: string }>(`/api/mapas/patrullas/${encodeURIComponent(patrullaId)}/cancelar`, { method: 'PATCH' });
+  revalidateTag(TAGS.patrullas);
+  revalidateTag(TAGS.ubicaciones);
+  return result;
 }
 
 export interface HeatmapPoint { lat: number; lng: number; nivelRiesgo: string }
@@ -614,6 +712,7 @@ export async function updateGuardiaEstado(id: string, estado: GuardiaRow['estado
     method: 'PATCH',
     body: { estado },
   });
+  revalidateTag(TAGS.guardias);
   return row ? rowToGuardApi(row, 0) : null;
 }
 
@@ -627,6 +726,14 @@ export async function updateGuardiaEstadoOperativo(id: string, estadoOperativo: 
     method: 'PATCH',
     body: { estadoOperativo },
   });
+  // Resolver un SOS (o cualquier cambio de estado operativo) toca guardias,
+  // ubicaciones (esSos/estadoOperativo en el mapa) y el KPI del Dashboard —
+  // sin esto el Operador veía la alerta seguir "pendiente" hasta que el
+  // TTL del cache expirara solo (bug reportado: la tarjeta/aviso tardaba
+  // en desaparecer al marcar como resuelto).
+  revalidateTag(TAGS.guardias);
+  revalidateTag(TAGS.ubicaciones);
+  revalidateTag(TAGS.dashboardKpi);
   return row ? rowToGuardApi(row, 0) : null;
 }
 
@@ -645,6 +752,7 @@ export async function updateGuardiaBiografia(
       ...(patch.epiId !== undefined ? { epiCodigo: EPI_SLUG_A_CODIGO[patch.epiId as EpiZone] ?? null } : {}),
     },
   });
+  revalidateTag(TAGS.guardias);
   return row ? rowToGuardApi(row, 0) : null;
 }
 
@@ -680,6 +788,7 @@ export async function crearGuardia(data: {
       epiCodigo: EPI_SLUG_A_CODIGO[data.epi],
     },
   });
+  revalidateTag(TAGS.guardias);
   return { guardia: rowToGuardApi(result.guardia, 0), usuario: result.usuario, passwordTemporal: result.passwordTemporal };
 }
 
@@ -757,7 +866,7 @@ export const getDashboardKpis = cache(async (): Promise<{
   guardiasEnServicio: number;
   sosPendientes: number;
 }> => {
-  return apiFetch('/api/dashboard/kpi', { revalidate: 10 });
+  return apiFetch('/api/dashboard/kpi', { revalidate: 10, tags: [TAGS.dashboardKpi] });
 });
 
 export const getDashboardHechosPorDia = cache(async (dias = 7): Promise<HechoPorDiaPoint[]> => {
@@ -783,7 +892,7 @@ export const getDashboardHechosPorZona = cache(async (): Promise<HechoPorZonaIte
   }));
 });
 
-export interface AppNotification { id: string; title: string; timestamp: string; read?: boolean; guardiaId?: string; hechoId?: string; kind: 'sos' | 'bateria' | 'hecho' }
+export interface AppNotification { id: string; title: string; timestamp: string; read?: boolean; guardiaId?: string; hechoId?: string; kind: 'sos' | 'bateria' | 'hecho' | 'ruta' }
 
 export interface Mandado {
   id: string;
@@ -814,10 +923,11 @@ export const getMandados = cache(async (limit = 50): Promise<Mandado[]> => {
 
 export const getNotificaciones = cache(async (limit = 10): Promise<AppNotification[]> => {
   try {
-    const [ubicaciones, hechos, mandados] = await Promise.all([
-      apiFetch<ApiUbicacionGuardia[]>('/api/mapas/ubicaciones', { revalidate: 10 }).catch(() => [] as ApiUbicacionGuardia[]),
-      apiFetch<ApiHecho[]>('/api/hechos', { revalidate: 15 }).catch(() => [] as ApiHecho[]),
+    const [ubicaciones, hechos, mandados, patrullas] = await Promise.all([
+      apiFetch<ApiUbicacionGuardia[]>('/api/mapas/ubicaciones', { revalidate: 10, tags: [TAGS.ubicaciones] }).catch(() => [] as ApiUbicacionGuardia[]),
+      apiFetch<ApiHecho[]>('/api/hechos', { revalidate: 15, tags: [TAGS.hechos] }).catch(() => [] as ApiHecho[]),
       getMandados(3).catch(() => [] as Mandado[]),
+      getPatrullas().catch(() => [] as PatrullaRow[]),
     ]);
     const sos = ubicaciones.filter((u) => u.esSos).slice(0, 5);
     const hechosRecientes = hechos.filter((h) => h.estado === 'reportado' || h.estado === 'en_revision').slice(0, 5);
@@ -854,6 +964,34 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
     }
     for (const m of mandados.slice(0, 3)) {
       list.push({ id: `mandado-${m.id}`, title: `Tarea — ${m.descripcion.slice(0, 45)}`, timestamp: formatRelative(m.creadoEn), read: false, guardiaId: m.guardiaId, kind: 'hecho' as const });
+    }
+    // Guardia fuera de ruta asignada: misma detección que ya corre en vivo
+    // en el Mapa (MapasView.detectarDesviaciones) — se repite acá para que
+    // también avise por la campanita a un Operador que no tiene esa
+    // pestaña abierta (RF-G3-09, pedido explícito: "se sale de su ruta").
+    const markersMap = new Map(ubicaciones.map((u) => [u.guardiaId, { lat: u.lat, lng: u.lng }]));
+    const rutaPorGuardia = new Map<string, { lat: number; lng: number }[]>();
+    for (const grupo of groupPatrullasByRuta(patrullas, markersMap)) {
+      for (const g of grupo.guards) {
+        if (grupo.path.length >= 2 && !rutaPorGuardia.has(g.guardiaId)) rutaPorGuardia.set(g.guardiaId, grupo.path);
+      }
+    }
+    const METROS_ALERTA = 50;
+    for (const u of ubicaciones) {
+      const puntos = rutaPorGuardia.get(u.guardiaId);
+      if (!puntos || puntos.length < 2) continue;
+      const dist = projectOntoPath({ lat: u.lat, lng: u.lng }, puntos);
+      const fueraDeRuta = dist.point && Math.hypot(dist.point.lat - u.lat, dist.point.lng - u.lng) * 111320 > METROS_ALERTA;
+      if (fueraDeRuta) {
+        list.push({
+          id: `ruta-${u.guardiaId}`,
+          title: `Fuera de ruta — ${u.guardiaNombre} se desvió del trazado asignado`,
+          timestamp: formatRelative(u.capturadoEn),
+          read: false,
+          guardiaId: u.guardiaId,
+          kind: 'ruta' as const,
+        });
+      }
     }
     return list.slice(0, limit);
   } catch {

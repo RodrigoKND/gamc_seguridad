@@ -14,6 +14,8 @@ import { DashboardDetailDrawer, type DetailData } from './DashboardDetailDrawer'
 import { getDashboardHechosPorDia, getDashboardHechosPorTipo, getDashboardHechosPorZona, getDashboardKpis, getHechosActivos, getGuardias } from '@/lib/data-source';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
+import { updateHechoEstadoAction } from '@/features/hechos/actions/updateEstado';
+import { clearSosAction } from '@/features/mapas/actions/clearSos';
 import type { HechoPorDiaPoint, HechoPorTipoItem, HechoPorZonaItem, KpiCardData } from '../types';
 
 function buildKpiItems(kpis: { hechosHoy: number; hechosEnRevision: number; guardiasEnServicio: number; sosPendientes: number }): KpiCardData[] {
@@ -101,6 +103,41 @@ export function DashboardClient({ denied }: { denied?: string }) {
     setDetail({ title: `Zona: ${item.zone}`, subtitle: `${filtered.length} hechos`, hechos: filtered });
   }
 
+  // Resolver directo desde el drawer del Dashboard — antes había que ir a
+  // /hechos o /mapas para poder cerrar un pendiente, sin ninguna acción
+  // disponible en la propia tarjeta "En Revisión"/"Alertas SOS".
+  //
+  // Optimista (igual que MapasView.handleClearSos, mismo bug ya documentado
+  // ahí: "tarda mucho en desaparecer"): se quita de la lista ANTES de
+  // esperar la respuesta del servidor, con rollback si falla — así el
+  // drawer no se queda mostrando el botón "Resolviendo…" ni el ítem viejo
+  // durante el round-trip. El cache de Next ya se invalida en la Server
+  // Action (revalidateTag), esto es además la respuesta instantánea en el
+  // propio drawer sin esperar ese refetch.
+  async function handleResolveHecho(id: string): Promise<boolean> {
+    const previous = detail;
+    setDetail((prev) => (prev?.hechos ? { ...prev, hechos: prev.hechos.filter((h) => h.id !== id) } : prev));
+    const result = await updateHechoEstadoAction(id, 'resuelto');
+    if (result.success) {
+      load();
+    } else {
+      setDetail(previous);
+    }
+    return result.success;
+  }
+
+  async function handleResolveSos(guardiaId: string): Promise<boolean> {
+    const previous = detail;
+    setDetail((prev) => (prev?.guards ? { ...prev, guards: prev.guards.filter((g) => g.id !== guardiaId) } : prev));
+    const result = await clearSosAction(guardiaId);
+    if (result.success) {
+      load();
+    } else {
+      setDetail(previous);
+    }
+    return result.success;
+  }
+
   useEffect(() => { load(); }, []);
   // Respaldo por si el socket compartido (RealtimeProvider) no está
   // disponible (API caído, red bloqueada) — el push en vivo de abajo es la
@@ -137,7 +174,12 @@ export function DashboardClient({ denied }: { denied?: string }) {
       <ChartCard title="Hechos por Zona — toca una barra" subtitle="Zonas EPI" status={status} className="col-span-12 lg:col-span-6">
         <HechosPorZonaChart data={hechosPorZona} onSelect={handleZonaSelect} />
       </ChartCard>
-      <DashboardDetailDrawer data={detail} onClose={() => setDetail(null)} />
+      <DashboardDetailDrawer
+        data={detail}
+        onClose={() => setDetail(null)}
+        onResolveHecho={handleResolveHecho}
+        onResolveSos={handleResolveSos}
+      />
     </PageContainer>
   );
 }

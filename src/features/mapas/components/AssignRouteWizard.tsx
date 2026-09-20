@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Marker, Polyline, useMapEvents } from 'react-leaflet';
+import { Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import type { LatLng } from 'leaflet';
 import L from 'leaflet';
 import {
@@ -135,6 +135,33 @@ const ConfirmationMapPreview = memo(function ConfirmationMapPreview({ path, guar
 
 function RouteClickCapture({ onClick, disabled = false }: { onClick: (latlng: LatLng) => void; disabled?: boolean }) {
   useMapEvents({ click: (e) => { if (!disabled) onClick(e.latlng) } });
+  return null;
+}
+
+// Antes el mapa del paso "ruta" siempre abría centrado en el centro por
+// defecto de la ciudad (MapCanvas) — el Operador tenía que buscar a mano
+// dónde estaba el guardia antes de poder trazar la ruta. Con esto, en
+// cuanto se conocen las posiciones GPS actuales de los guardias
+// seleccionados, el mapa se centra/ajusta solo. Solo corre una vez por
+// montaje (el paso "ruta" remonta MapCanvas cada vez que se entra a él)
+// para no pelear con el pan/zoom manual del Operador mientras dibuja.
+function CenterOnGuards({ points }: { points: RoutePoint[] }) {
+  const map = useMap();
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (done || points.length === 0) return;
+    if (points.length === 1) {
+      map.flyTo([points[0].lat, points[0].lng], 16, { duration: 1 });
+    } else {
+      map.flyToBounds(
+        points.map((p) => [p.lat, p.lng]) as [number, number][],
+        { padding: [48, 48], maxZoom: 16, duration: 1 },
+      );
+    }
+    setDone(true);
+  }, [done, points, map]);
+
   return null;
 }
 
@@ -624,6 +651,9 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                  <MapCanvas>
                    <MapSearch disabled={openSearch} onOpenChange={setOpenSearch} />
                    {!plantillaSeleccionada && <RouteClickCapture onClick={handleMapClick} disabled={openSearch} />}
+                   <CenterOnGuards
+                     points={previewGuardPoints.map((g) => g.currentPosition).filter((p): p is RoutePoint => p !== null)}
+                   />
                    {activePath.length >= 2 && (
                      <Polyline positions={activePath.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#A97F52', weight: 4, opacity: 0.9 }} />
                    )}

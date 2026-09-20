@@ -98,7 +98,7 @@ export function MapasView() {
   const [patrullas, setPatrullas] = useState<PatrullaRow[]>([]);
   const [assignModal, setAssignModal] = useState<{ open: boolean; guardId?: string }>({ open: false });
   const [desviaciones, setDesviaciones] = useState<Map<string, { lat: number; lng: number; distanciaM: number }>>(new Map());
-  const markersMap = useMemo(() => new Map(markers.map((m) => [m.id, { lat: m.lat, lng: m.lng }])), [markers]);
+  const markersMap = useMemo(() => new Map(markers.map((m) => [m.id, { lat: m.lat, lng: m.lng, nombre: m.nombre }])), [markers]);
   const routeGroups = useMemo(() => groupPatrullasByRuta(patrullas, markersMap), [patrullas, markersMap]);
   // Mapa de ruta por guardia para detectar desviación
   const rutaPorGuardia = useMemo(() => {
@@ -206,7 +206,7 @@ export function MapasView() {
   // el pin en el mapa de inmediato sin esperar al fetch de /ubicaciones (que
   // también se dispara arriba). Evita el "no aparece hasta recargar" y hace
   // que el seguimiento se sienta fluido.
-  useRealtimeEvent<{ guardiaId: string; lat: number; lng: number; esSos?: boolean; estadoOperativo?: string; capturadoEn?: string }>(
+  useRealtimeEvent<{ guardiaId: string; lat: number; lng: number; bateriaPct?: number | null; esSos?: boolean; estadoOperativo?: string; capturadoEn?: string }>(
     REALTIME_EVENTS.guardiaUbicacion,
     (payload) => {
       if (!payload?.guardiaId || typeof payload.lat !== 'number' || typeof payload.lng !== 'number') return;
@@ -223,6 +223,12 @@ export function MapasView() {
           ...cur,
           lat: payload.lat,
           lng: payload.lng,
+          // Reportado 2026-09-19: "la batería ya funciona pero no me
+          // actualiza automático, tengo que recargar" — faltaba mergear el
+          // % de batería en esta actualización optimista (el resto de
+          // campos ya lo hacía), así que solo se veía fresco tras el poll
+          // completo de 60s o un F5.
+          bateria: payload.bateriaPct !== undefined ? payload.bateriaPct : cur.bateria,
           hasSos: payload.esSos ?? cur.hasSos,
           operationalStatus: (payload.estadoOperativo as GuardMarker['operationalStatus']) ?? cur.operationalStatus,
           capturadoEnIso: payload.capturadoEn ? new Date(payload.capturadoEn).toISOString() : cur.capturadoEnIso,

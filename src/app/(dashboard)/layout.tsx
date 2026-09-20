@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
@@ -135,7 +135,21 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       getNotificaciones(10).then((d: any) => setNotifications(applyRead(d))).catch(() => {}),
     );
   }
-  useRealtimeEvent(REALTIME_EVENTS.guardiaUbicacion, refreshNotifications);
+  // guardiaUbicacion llega en cada ping GPS de cada guardia en servicio —
+  // sin agrupar, cada ping disparaba 4 fetches en paralelo (ubicaciones +
+  // hechos + mandados + patrullas) solo para la campanita, sumado a lo
+  // mismo que hacían el Dashboard, el banner de SOS y el propio Mapa. Esa
+  // acumulación de recargas paralelas por cada ping es buena parte de la
+  // sensación de "el sistema pide datos todo el tiempo".
+  const pendingNotifUbicacion = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function refreshNotificationsDebounced() {
+    if (pendingNotifUbicacion.current) return;
+    pendingNotifUbicacion.current = setTimeout(() => {
+      pendingNotifUbicacion.current = null;
+      refreshNotifications();
+    }, 4000);
+  }
+  useRealtimeEvent(REALTIME_EVENTS.guardiaUbicacion, refreshNotificationsDebounced);
   useRealtimeEvent(REALTIME_EVENTS.sosNuevo, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.mandadoNuevo, refreshNotifications);

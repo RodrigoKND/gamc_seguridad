@@ -30,6 +30,17 @@ export interface RouteGroupMember {
   /** Última posición GPS conocida de este guardia en la ruta. */
   lat?: number;
   lng?: number;
+  nombre?: string;
+  /**
+   * Punto estratégico ASIGNADO a este guardia dentro del trazado
+   * compartido (patrulla.poligono_geojson, ver types/patrulla.ts) —
+   * distinto de `lat`/`lng` (posición GPS en vivo). Antes esto nunca se
+   * leía en el Mapa: solo se dibujaba la línea de la ruta y el punto GPS
+   * en vivo, nunca el "checkpoint" que le tocó a cada guardia (pedido
+   * explícito 2026-09-19: "me aparece la línea trazada pero debería
+   * aparecerme igual los checkpoints marcados").
+   */
+  puntoAsignado?: { lat: number; lng: number };
 }
 
 export interface RouteGroup {
@@ -42,16 +53,26 @@ export interface RouteGroup {
   guardiasEnRuta: number;
 }
 
-export function groupPatrullasByRuta(patrullas: PatrullaRow[], markersMap?: Map<string, { lat: number; lng: number }>): RouteGroup[] {
+export function groupPatrullasByRuta(patrullas: PatrullaRow[], markersMap?: Map<string, { lat: number; lng: number; nombre?: string }>): RouteGroup[] {
   const estadosActivos = new Set(['asignada', 'en_curso']);
   const byRuta = new Map<string, { nombre: string; trazado: PatrullaRow['trazado']; guards: RouteGroupMember[] }>();
 
   for (const p of patrullas) {
     if (!p.rutaPlantillaId || !estadosActivos.has(p.estado)) continue;
     const entry = byRuta.get(p.rutaPlantillaId) ?? { nombre: p.rutaNombre ?? p.nombre ?? 'Ruta sin nombre', trazado: p.trazado, guards: [] };
-    const lat = markersMap?.get(p.guardiaId)?.lat;
-    const lng = markersMap?.get(p.guardiaId)?.lng;
-    entry.guards.push({ guardiaId: p.guardiaId, patrullaId: p.id, lat, lng });
+    const marcador = markersMap?.get(p.guardiaId);
+    const puntoAsignado =
+      p.poligonoGeojson?.type === 'Point' && Array.isArray(p.poligonoGeojson.coordinates)
+        ? { lat: p.poligonoGeojson.coordinates[1], lng: p.poligonoGeojson.coordinates[0] }
+        : undefined;
+    entry.guards.push({
+      guardiaId: p.guardiaId,
+      patrullaId: p.id,
+      lat: marcador?.lat,
+      lng: marcador?.lng,
+      nombre: marcador?.nombre,
+      puntoAsignado,
+    });
     byRuta.set(p.rutaPlantillaId, entry);
   }
 

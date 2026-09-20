@@ -20,7 +20,7 @@ export interface TopbarNotification {
   read?: boolean;
   guardiaId?: string;
   hechoId?: string;
-  kind?: 'sos' | 'bateria' | 'hecho' | 'turno';
+  kind?: 'sos' | 'bateria' | 'hecho' | 'turno' | 'ruta';
 }
 
 export interface TopbarProps {

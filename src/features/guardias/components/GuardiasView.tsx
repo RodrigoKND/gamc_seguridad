@@ -1,22 +1,22 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { ExportMenu } from '@/components/ui/ExportMenu';
+import { Pagination } from '@/components/ui/Pagination';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { getGuardias } from '@/lib/data-source';
+import { getGuardias, getGuardiasPage } from '@/lib/data-source';
 import { canWrite } from '@/lib/permissions';
-import { normalizeSearch } from '@/lib/text';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
 import { exportPDF, guardiasToPrint } from '@/features/reportes/actions/exportPDF';
 import type { AsyncStatus } from '@/features/dashboard/types';
 import { EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
-import { OPERATIONAL_STATUS_LABELS, guardFullName, isDadoDeBaja, type Guard, type OperationalStatus } from '../types';
+import { OPERATIONAL_STATUS_LABELS, type Guard, type OperationalStatus } from '../types';
 import { exportGuardiasExcel } from '../actions/exportGuardias';
 import { GuardTable } from './GuardTable';
 import { GuardEditModal } from './GuardEditModal';
@@ -29,35 +29,72 @@ import { GuardCatalogModal } from './GuardCatalogModal';
 // Gating por rol (MASTER.md sección 15.1): Super Admin/Admin editan y
 // activan/desactivar, sin botón de crear (vive en Generar Credenciales,
 // sección 15.2). Operador ve la tabla completamente de solo lectura.
+//
+// Paginación real por servidor (2026-09-19: "falta paginación... tardan
+// demasiado"): la tabla ya no trae la base completa de guardias en cada
+// carga — pide solo la página actual con el filtro/búsqueda aplicado en
+// el backend (que además ya ordena en_servicio/emergencia primero, ver
+// guardias.service.ts). El Catálogo y la Exportación sí necesitan el
+// universo completo — se piden aparte, al vuelo, no en cada render de la
+// tabla.
+
+const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 350;
 
 export function GuardiasView() {
   const { user } = useAuthSession();
   const canEdit = user ? canWrite(user.role, 'guardias') : false;
   const searchParams = useSearchParams();
 
-  const [guards, setGuards] = useState<Guard[]>([]);
+  const [rows, setRows] = useState<Guard[]>([]);
+  const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<AsyncStatus>('loading');
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [operationalFilter, setOperationalFilter] = useState<OperationalStatus | 'todos'>('todos');
   const [epiFilter, setEpiFilter] = useState<EpiZone | 'todos'>('todos');
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [catalogGuards, setCatalogGuards] = useState<Guard[]>([]);
   const [editingGuard, setEditingGuard] = useState<Guard | null>(null);
+  const [page, setPage] = useState(1);
 
-  function loadGuards() {
-    setStatus('loading');
-    getGuardias()
-      .then((data) => {
-        setGuards(data);
-        setStatus(data.length === 0 ? 'empty' : 'ready');
-      })
-      .catch(() => setStatus('error'));
-  }
-
-  useEffect(loadGuards, []);
   useEffect(() => {
     const q = searchParams.get('q');
     if (q !== null) setQuery(q);
   }, [searchParams]);
+
+  // Debounce de la búsqueda: cada tecla no debe disparar un fetch propio.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  // Resetear a la página 1 cuando cambia el filtro/búsqueda — si no, se
+  // puede quedar en una página que ya no existe para el nuevo resultado.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, operationalFilter, epiFilter]);
+
+  function currentFilters() {
+    return {
+      q: debouncedQuery.trim() || undefined,
+      estadoOperativo: operationalFilter === 'todos' ? undefined : operationalFilter,
+      epiCodigo: epiFilter === 'todos' ? undefined : epiFilter,
+    };
+  }
+
+  function load(quiet = false) {
+    if (!quiet) setStatus('loading');
+    getGuardiasPage({ page, pageSize: PAGE_SIZE, ...currentFilters() })
+      .then(({ rows: data, total: t }) => {
+        setRows(data);
+        setTotal(t);
+        setStatus((prev) => (quiet && prev !== 'loading' ? prev : t === 0 ? 'empty' : 'ready'));
+      })
+      .catch(() => setStatus('error'));
+  }
+
+  useEffect(load, [page, debouncedQuery, operationalFilter, epiFilter]);
 
   // Tiempo real: un guardia nuevo (Generar Credenciales), un cambio de
   // estado de cuenta/operativo, o su ubicación, llegan por socket.io en vez
@@ -70,27 +107,26 @@ export function GuardiasView() {
     if (pendingRefresh.current) return;
     pendingRefresh.current = setTimeout(() => {
       pendingRefresh.current = null;
-      getGuardias()
-        .then((data) => {
-          setGuards(data);
-          setStatus((prev) => (prev === 'loading' ? (data.length === 0 ? 'empty' : 'ready') : prev));
-        })
-        .catch(() => {});
+      load(true);
     }, 800);
   }
   useRealtimeEvent(REALTIME_EVENTS.guardiaEstado, scheduleQuietRefresh);
   useRealtimeEvent(REALTIME_EVENTS.guardiaUbicacion, scheduleQuietRefresh);
 
-  const filtered = useMemo(() => {
-    const q = normalizeSearch(query.trim());
-    return guards.filter((g) => {
-      if (isDadoDeBaja(g)) return false;
-      const matchesQuery = !q || normalizeSearch(guardFullName(g)).includes(q) || normalizeSearch(g.epi).includes(q) || normalizeSearch(g.ci).includes(q);
-      const matchesOperational = operationalFilter === 'todos' || g.operationalStatus === operationalFilter;
-      const matchesEpi = epiFilter === 'todos' || g.epi === epiFilter;
-      return matchesQuery && matchesOperational && matchesEpi;
-    });
-  }, [guards, query, operationalFilter, epiFilter]);
+  // El Catálogo es un directorio buscable de TODOS los guardias (no solo
+  // la página actual) — se carga bajo demanda, solo cuando el Operador
+  // realmente lo abre, no en cada visita a /guardias.
+  function openCatalog() {
+    setIsCatalogOpen(true);
+    getGuardias().then(setCatalogGuards).catch(() => {});
+  }
+
+  // La exportación también es sobre TODO lo que matchea el filtro actual,
+  // no solo la página visible — se pide aparte al momento de exportar.
+  async function exportAllFiltered(): Promise<Guard[]> {
+    const { rows: all } = await getGuardiasPage({ page: 1, pageSize: 500, ...currentFilters() });
+    return all;
+  }
 
   return (
     <PageContainer>
@@ -141,19 +177,24 @@ export function GuardiasView() {
 
         <div className="flex-1" />
 
-        <ExportMenu onExportExcel={() => exportGuardiasExcel(filtered)} onExportPDF={() => exportPDF(guardiasToPrint(filtered))} disabled={filtered.length === 0} />
-        <Button variant="secondary" onClick={() => setIsCatalogOpen(true)}>
+        <ExportMenu
+          onExportExcel={() => exportAllFiltered().then(exportGuardiasExcel)}
+          onExportPDF={() => exportAllFiltered().then((all) => exportPDF(guardiasToPrint(all)))}
+          disabled={total === 0}
+        />
+        <Button variant="secondary" onClick={openCatalog}>
           Ver Catálogo
         </Button>
       </div>
 
       <div className="col-span-12">
         <GuardTable
-          guards={filtered}
+          guards={rows}
           status={status}
-          onRetry={loadGuards}
+          onRetry={() => load()}
           onEdit={canEdit ? (guard) => setEditingGuard(guard) : undefined}
         />
+        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
       </div>
 
       {canEdit && (
@@ -162,7 +203,8 @@ export function GuardiasView() {
           onClose={() => setEditingGuard(null)}
           guard={editingGuard}
           onSaved={(updated) => {
-            setGuards((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+            setRows((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+            setCatalogGuards((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
             setEditingGuard(updated);
           }}
         />
@@ -170,7 +212,7 @@ export function GuardiasView() {
       <GuardCatalogModal
         isOpen={isCatalogOpen}
         onClose={() => setIsCatalogOpen(false)}
-        guards={guards}
+        guards={catalogGuards}
         onEdit={
           canEdit
             ? (guard) => {
