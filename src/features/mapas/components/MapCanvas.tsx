@@ -29,7 +29,7 @@ export function MapCanvas({ children }: MapCanvasProps) {
       center={[mapConfig.defaultCenter.lat, mapConfig.defaultCenter.lng]}
       zoom={mapConfig.defaultZoom}
       scrollWheelZoom
-      className="h-full w-full isolate [&_.leaflet-pane]:!z-[400] [&_.leaflet-top]:!z-[500] [&_.leaflet-bottom]:!z-[500]"
+      className="h-full w-full isolate [&_.leaflet-top]:!z-[500] [&_.leaflet-bottom]:!z-[500]"
     >
       <TileLayer url={mapConfig.tileUrl} attribution={mapConfig.tileAttribution} maxZoom={18} />
       {children}

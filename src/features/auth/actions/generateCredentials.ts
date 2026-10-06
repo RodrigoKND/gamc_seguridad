@@ -66,6 +66,7 @@ export interface GenerateUserCredentialsInput {
   telefono: string;
   email: string;
   role: Exclude<UserRole, 'super_admin'>;
+  epi: EpiZone;
 }
 
 export async function generateUserCredentialsAction(data: GenerateUserCredentialsInput): Promise<CredentialsResult> {

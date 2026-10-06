@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Route, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { getGuardias, getGuardMarkers, getPatrullas, getRutasPlantilla, getZonasCriticas } from '@/lib/data-source';
+import { getGuardias, getGuardMarkers, getJurisdiccion, getPatrullas, getRutasPlantilla, getZonasCriticas } from '@/lib/data-source';
 import { canWrite } from '@/lib/permissions';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
 import { useRealtimeSocket } from '@/lib/realtime/RealtimeProvider';
@@ -23,6 +23,8 @@ import { RouteLinesLayer } from './RouteLinesLayer';
 import { TelemetryDrawer } from './TelemetryDrawer';
 import { AssignRouteWizard } from './AssignRouteWizard';
 import { UnitPerimeterLines } from './UnitPerimeterLines';
+import { EpiJurisdictionLayer, EpiJurisdictionLegend } from './EpiJurisdictionLayer';
+import { puedeEditarEn, type Jurisdiccion } from '../lib/jurisdiccion';
 import { useRealtimeMap } from '../hooks/useRealtimeMap';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
@@ -98,6 +100,18 @@ export function MapasView() {
   const [patrullas, setPatrullas] = useState<PatrullaRow[]>([]);
   const [assignModal, setAssignModal] = useState<{ open: boolean; guardId?: string }>({ open: false });
   const [desviaciones, setDesviaciones] = useState<Map<string, { lat: number; lng: number; distanciaM: number }>>(new Map());
+  // Jurisdicción por EPI (2026-10-05): capa "cristal" + límites de edición.
+  const [jurisdiccion, setJurisdiccion] = useState<Jurisdiccion | null>(null);
+  const [jurisdiccionCargando, setJurisdiccionCargando] = useState(true);
+  const [jurisdiccionError, setJurisdiccionError] = useState<string | null>(null);
+  const [avisoAccion, setAvisoAccion] = useState<string | null>(null);
+  const puedeEditarGuardia = useCallback((g: GuardMarker) => puedeEditarEn(jurisdiccion, g.zone), [jurisdiccion]);
+  const epiPropiaConPoligono = Boolean(
+    jurisdiccion?.miEpi && jurisdiccion.epis.find((epi) => epi.zone === jurisdiccion.miEpi)?.poligono,
+  );
+  const puedeGestionarRutas = Boolean(
+    canAssignRoute && jurisdiccion && (!jurisdiccion.restringido || epiPropiaConPoligono),
+  );
   const markersMap = useMemo(() => new Map(markers.map((m) => [m.id, { lat: m.lat, lng: m.lng, nombre: m.nombre }])), [markers]);
   const routeGroups = useMemo(() => groupPatrullasByRuta(patrullas, markersMap), [patrullas, markersMap]);
   // Mapa de ruta por guardia para detectar desviación
@@ -113,25 +127,6 @@ export function MapasView() {
     return map;
   }, [routeGroups]);
 
-  // Detectar desviación de ruta (RF-G3-09): cada vez que llegan
-  // ubicaciones nuevas por socket o caché, verifica si algún guardia
-  // con ruta asignada está a más de 50m del trazado.
-  const prevMarkerPositions = useRef<Map<string, { lat: number; lng: number }>>(new Map());
-
-  function detectarDesviaciones(): void {
-    const nuevas: Map<string, { lat: number; lng: number; distanciaM: number }> = new Map();
-    const METROS_ALERTA = 50;
-    for (const m of markers) {
-      const rutaInfo = rutaPorGuardia.get(m.id);
-      if (!rutaInfo || rutaInfo.puntos.length < 2) continue;
-      const dist = projectOntoPath({ lat: m.lat, lng: m.lng }, rutaInfo.puntos);
-      if (dist.distanceFromStart > METROS_ALERTA || (dist.point && Math.hypot(dist.point.lat - m.lat, dist.point.lng - m.lng) > METROS_ALERTA / 111320)) {
-        nuevas.set(m.id, { lat: m.lat, lng: m.lng, distanciaM: Math.round(dist.distanceFromStart) });
-      }
-    }
-    setDesviaciones(nuevas);
-  }
-
   function loadMapData(force = false) {
     if (!force && mapDataCache && Date.now() - mapDataCache.loadedAt < MAP_DATA_CACHE_TTL_MS) {
       setGuards(mapDataCache.guards);
@@ -145,24 +140,51 @@ export function MapasView() {
     // getGuardMarkers reusa esta misma lista en vez de volver a pedir
     // /api/guardias internamente (evita duplicar el fetch en cada carga).
     const guardiasPromise = getGuardias();
-    guardiasPromise.then(setGuards);
     const markersPromise = guardiasPromise.then((gs) => getGuardMarkers(gs));
-    markersPromise.then(setMarkers);
     const zonasPromise = getZonasCriticas();
-    zonasPromise.then(setZonas);
     const rutasPromise = getRutasPlantilla();
-    rutasPromise.then(setRutas);
     const patrullasPromise = getPatrullas();
-    patrullasPromise.then(setPatrullas);
 
     Promise.all([guardiasPromise, markersPromise, zonasPromise, rutasPromise, patrullasPromise]).then(
       ([guards, markers, zonas, rutas, patrullas]) => {
+        setGuards(guards);
+        setMarkers(markers);
+        setZonas(zonas);
+        setRutas(rutas);
+        setPatrullas(patrullas);
         mapDataCache = { guards, markers, zonas, rutas, patrullas, loadedAt: Date.now() };
       },
+      () => setAvisoAccion('No se pudieron cargar los datos del mapa. Recarga la página para reintentar.'),
     );
   }
 
   useEffect(() => loadMapData(false), []);
+  useEffect(() => {
+    let vigente = true;
+    setJurisdiccionCargando(true);
+    setJurisdiccionError(null);
+    getJurisdiccion()
+      .then((data) => {
+        if (!vigente) return;
+        setJurisdiccion(data);
+        if (data.restringido && !data.miEpi) {
+          setJurisdiccionError('Tu cuenta no tiene una EPI asignada. No puedes crear, asignar ni cancelar rutas.');
+        } else if (data.restringido && !data.epis.find((epi) => epi.zone === data.miEpi)?.poligono) {
+          setJurisdiccionError('Tu EPI no tiene un polígono de jurisdicción cargado. Las acciones de rutas quedan bloqueadas hasta configurar sus límites.');
+        }
+      })
+      .catch(() => {
+        if (!vigente) return;
+        setJurisdiccion(null);
+        setJurisdiccionError('No se pudo cargar la jurisdicción por EPI. Las acciones de rutas quedan bloqueadas por seguridad.');
+      })
+      .finally(() => {
+        if (vigente) setJurisdiccionCargando(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   // Recarga completa DEBOUNCED (pedido explícito: "muchos guardias
   // conectados... que se sienta fluido"): si varios guardias arrancan
@@ -253,9 +275,25 @@ export function MapasView() {
     return () => clearInterval(iv);
   }, [isSocketConnected]);
 
-  // Detectar desviación de ruta cada vez que cambian los markers
+  // Detectar desviación de ruta cada vez que cambian los markers. Se mide
+  // la distancia PERPENDICULAR al trazado; `distanceFromStart` indica el
+  // avance a lo largo de la ruta y no es una desviación (usarlo aquí hacía
+  // que casi todo guardia a más de 50 m del inicio apareciera fuera de ruta).
   useEffect(() => {
-    detectarDesviaciones();
+    const nuevas = new Map<string, { lat: number; lng: number; distanciaM: number }>();
+    const METROS_ALERTA = 50;
+    for (const m of markers) {
+      const rutaInfo = rutaPorGuardia.get(m.id);
+      if (!rutaInfo || rutaInfo.puntos.length < 2) continue;
+      const proyectado = projectOntoPath({ lat: m.lat, lng: m.lng }, rutaInfo.puntos).point;
+      const deltaLatM = (proyectado.lat - m.lat) * 111_320;
+      const deltaLngM = (proyectado.lng - m.lng) * 111_320 * Math.cos((m.lat * Math.PI) / 180);
+      const distanciaM = Math.hypot(deltaLatM, deltaLngM);
+      if (distanciaM > METROS_ALERTA) {
+        nuevas.set(m.id, { lat: m.lat, lng: m.lng, distanciaM: Math.round(distanciaM) });
+      }
+    }
+    setDesviaciones(nuevas);
   }, [markers, rutaPorGuardia]);
 
   // Escuchar evento de desviación de ruta del backend (más allá de
@@ -312,6 +350,7 @@ export function MapasView() {
       loadMapData(true);
       return true;
     }
+    setAvisoAccion(result.error ?? 'No se pudo cancelar la ruta.');
     return false;
   }
 
@@ -323,6 +362,7 @@ export function MapasView() {
       loadMapData(true);
       return true;
     }
+    setAvisoAccion(result.error ?? 'No se pudo sacar al guardia de la ruta.');
     return false;
   }
 
@@ -367,9 +407,15 @@ export function MapasView() {
           </div>
 
           {activeTab === 'patrullaje' && canAssignRoute && (
-            <Button variant="secondary" onClick={() => setAssignModal({ open: true })} className="ml-auto">
+            <Button
+              variant="secondary"
+              onClick={() => setAssignModal({ open: true })}
+              disabled={!puedeGestionarRutas}
+              title={jurisdiccionCargando ? 'Cargando jurisdicción…' : jurisdiccionError ?? undefined}
+              className="ml-auto"
+            >
               <Route className="h-3.5 w-3.5" aria-hidden="true" />
-              Asignar Ruta
+              {jurisdiccionCargando ? 'Cargando EPI…' : 'Asignar Ruta'}
             </Button>
           )}
         </div>
@@ -390,6 +436,7 @@ export function MapasView() {
           <MapCanvas>
             <MapSearch />
             <MapFocus target={focusTarget} />
+            <EpiJurisdictionLayer jurisdiccion={jurisdiccion} ajustarVista />
             {activeTab === 'patrullaje' && (
               <>
                 <RouteLinesLayer routeGroups={routeGroups} />
@@ -401,6 +448,20 @@ export function MapasView() {
               <HeatmapLayer zonas={zonas} onSelectZona={(zona) => setSelectedZonaId(zona.id)} />
             )}
            </MapCanvas>
+           {activeTab !== 'futuro' && <EpiJurisdictionLegend jurisdiccion={jurisdiccion} />}
+           {jurisdiccionError && activeTab !== 'futuro' && (
+             <div role="alert" className="absolute right-3 top-3 z-[600] flex max-w-[360px] items-start gap-2 rounded-lg border border-risk-critical/30 bg-white px-3 py-2 text-xs text-risk-critical shadow">
+               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+               <span>{jurisdiccionError}</span>
+             </div>
+           )}
+           {avisoAccion && (
+             <div role="alert" className="absolute left-1/2 top-3 z-[600] flex max-w-[90%] -translate-x-1/2 items-center gap-2 rounded-lg border border-risk-critical/30 bg-white px-3 py-2 text-xs text-risk-critical shadow">
+               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+               <span>{avisoAccion}</span>
+               <button type="button" onClick={() => setAvisoAccion(null)} className="ml-1 font-semibold hover:underline">Cerrar</button>
+             </div>
+           )}
            {activeTab === 'futuro' && <FutureLayerPlaceholder />}
          </div>
 
@@ -445,9 +506,10 @@ export function MapasView() {
                 selectedId={selectedGuard?.id ?? null}
                 onSelect={selectGuardFromPanel}
                 routeGroups={routeGroups}
-                onCancelRoute={canAssignRoute ? handleCancelRoute : undefined}
-                onCancelGuardFromRoute={canAssignRoute ? handleCancelGuardFromRoute : undefined}
+                onCancelRoute={puedeGestionarRutas ? handleCancelRoute : undefined}
+                onCancelGuardFromRoute={puedeGestionarRutas ? handleCancelGuardFromRoute : undefined}
                 desviaciones={desviaciones}
+                puedeEditar={puedeEditarGuardia}
               />
             )}
             {activeTab === 'calor' && (
@@ -461,7 +523,7 @@ export function MapasView() {
         guard={selectedGuard}
         onClose={() => setSelectedGuard(null)}
         onAssignRoute={
-          canAssignRoute
+          puedeGestionarRutas && (!selectedGuard || puedeEditarGuardia(selectedGuard))
             ? (guardId) => {
                 setSelectedGuard(null);
                 setAssignModal({ open: true, guardId });
@@ -473,13 +535,14 @@ export function MapasView() {
         routeGroups={routeGroups}
       />
 
-      {canAssignRoute && (
+      {puedeGestionarRutas && (
         <AssignRouteWizard
           isOpen={assignModal.open}
           onClose={() => setAssignModal({ open: false })}
           guards={guards}
           markers={markers}
           rutas={rutas}
+          jurisdiccion={jurisdiccion}
           preselectedGuardId={assignModal.guardId}
           onAssigned={() => loadMapData(true)}
         />

@@ -34,7 +34,14 @@ export function LoginForm() {
     setStatus('loading');
     setErrorMessage(null);
 
-    const result = await login({ identifier, password });
+    let result;
+    try {
+      result = await login({ identifier, password });
+    } catch {
+      setStatus('error');
+      setErrorMessage('No se pudo conectar. Recarga la página e intenta iniciar sesión nuevamente.');
+      return;
+    }
 
     if (result.success) {
       setStatus('success');
@@ -81,7 +88,9 @@ export function LoginForm() {
         <Input
           label="Usuario o correo institucional"
           name="identifier"
-          type="email"
+          type="text"
+          autoCapitalize="none"
+          spellCheck={false}
           autoComplete="username"
           placeholder="nombre.apellido@cochabamba.bo"
           required

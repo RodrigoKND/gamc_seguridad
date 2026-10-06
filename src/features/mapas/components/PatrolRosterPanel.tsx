@@ -199,6 +199,12 @@ export interface PatrolRosterPanelProps {
   onCancelGuardFromRoute?: (patrullaId: string) => Promise<boolean>;
   /** Mapa de guardias que se han desviado de su ruta. */
   desviaciones?: Map<string, { lat: number; lng: number; distanciaM: number }>;
+  /**
+   * Jurisdicción por EPI (2026-10-05): ¿el usuario puede modificar la ruta de
+   * este guardia? Sin la prop, todo es editable (super_admin). Una ruta solo
+   * se puede cancelar entera si TODOS sus guardias son de su EPI.
+   */
+  puedeEditar?: (guard: GuardMarker) => boolean;
 }
 
 export const PatrolRosterPanel = memo(function PatrolRosterPanel({
@@ -209,6 +215,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
   onCancelRoute,
   onCancelGuardFromRoute,
   desviaciones = new Map(),
+  puedeEditar,
 }: PatrolRosterPanelProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [fotoExpandida, setFotoExpandida] = useState<{ src: string; alt: string } | null>(null);
@@ -273,13 +280,6 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
   );
 
   const routedGuardIds = useMemo(() => new Set(routeGroups.flatMap((r) => r.guards.map((m) => m.guardiaId))), [routeGroups]);
-  const generalGuards = useMemo(
-    () =>
-      guards
-        .filter((g) => !g.hasSos && !routedGuardIds.has(g.id))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre)),
-    [guards, routedGuardIds],
-  );
 
   // Búsqueda y filtros
   const guardedBySearch = useMemo(() => {
@@ -412,6 +412,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
             const isConfirmingRoute = confirmingRouteId === route.id;
             const isCancellingRoute = cancellingRouteId === route.id;
             const filteredMembers = members.filter((m) => displayedGuards.some((dg) => dg.id === m.guardiaId));
+            const rutaEditable = !puedeEditar || members.every((m) => puedeEditar(m.guard));
             return (
               <div key={route.id} className="border-b border-neutral-border">
                 <div className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-neutral-text">
@@ -421,7 +422,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
                     <span className="min-w-0 flex-1 truncate normal-case">{route.nombre}</span>
                     <span className="shrink-0 text-[10.5px] font-semibold text-neutral-text-muted">({filteredMembers.length}) · {route.guardiasEnRuta} en ruta</span>
                   </button>
-                  {onCancelRoute &&
+                  {onCancelRoute && rutaEditable &&
                     (isConfirmingRoute ? (
                       <span className="flex shrink-0 items-center gap-1">
                         <span className="text-[10.5px] font-normal normal-case text-neutral-text-muted">¿Cancelar?</span>
@@ -467,7 +468,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
                              isSelected={guard.id === selectedId}
                              onSelect={onSelect}
                              onExpandFoto={setFotoExpandida}
-                             onRemoveFromRoute={onCancelGuardFromRoute ? () => handleConfirmRemoveGuard(patrullaId) : undefined}
+                             onRemoveFromRoute={onCancelGuardFromRoute && (!puedeEditar || puedeEditar(guard)) ? () => handleConfirmRemoveGuard(patrullaId) : undefined}
                              removing={cancellingPatrullaId === patrullaId}
                              confirming={confirmingPatrullaId === patrullaId}
                              onStartConfirm={() => setConfirmingPatrullaId(patrullaId)}

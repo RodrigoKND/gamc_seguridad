@@ -5,8 +5,10 @@ import { Check, Copy } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { generateUserCredentialsAction } from '../actions/generateCredentials';
 import { USER_ROLE_LABELS, type UserRole } from '../types';
+import { EPI_ZONES, EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
 
 // RF-01, RF-03 (MASTER.md sección 7.3 y 15.4). Alta de Operador/Administrador
 // — MISMO formulario y lógica que GuardCreateModal: nombres/apellidos/
@@ -57,6 +59,7 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
       apellidoMaterno: String(formData.get('apellidoMaterno') ?? '').trim(),
       telefono: String(formData.get('telefono') ?? '').trim(),
       email: String(formData.get('email') ?? '').trim(),
+      epi: String(formData.get('epi') ?? '') as EpiZone,
     };
 
     if (existingEmails.some((existing) => existing.toLowerCase() === data.email.toLowerCase())) {
@@ -158,6 +161,14 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
               required
               disabled={phase === 'loading'}
             />
+          </div>
+          <div className="mb-4">
+            <Select label="EPI / Jurisdicción asignada" name="epi" accent="rose" required disabled={phase === 'loading'} defaultValue="">
+              <option value="" disabled>Seleccione una EPI</option>
+              {EPI_ZONES.map((epi) => (
+                <option key={epi} value={epi}>EPI {EPI_ZONE_LABELS[epi]}</option>
+              ))}
+            </Select>
           </div>
 
           <div className="flex gap-2.5">
