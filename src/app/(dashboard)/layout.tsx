@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Topbar } from '@/components/layout/Topbar';
+import type { TopbarNotification } from '@/components/layout/Topbar';
 import { PrintReport } from '@/features/reportes/components/PrintReport';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
 import { USER_ROLE_LABELS, type AuthenticatedUser } from '@/features/auth/types';
@@ -57,7 +58,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user, isLoaded, isRefreshing, logout } = useAuthSession() as ReturnType<typeof useAuthSession> & { isRefreshing?: boolean };
   const READ_KEY = 'gamc_notif_read';
-  const [notifications, setNotifications] = useState<{ id: string; title: string; timestamp: string; read?: boolean; guardiaId?: string; hechoId?: string; kind?: string }[]>([]);
+  const [notifications, setNotifications] = useState<TopbarNotification[]>([]);
   const [notifStatus, setNotifStatus] = useState<'idle' | 'loading' | 'error'>('loading');
 
   useEffect(() => {
@@ -97,7 +98,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
-  function handleNotifClick(n: any) {
+  function handleNotifClick(n: TopbarNotification) {
     markOneRead(n.id);
     if (n.guardiaId) router.push(`/mapas?guardiaId=${n.guardiaId}`);
     else if (n.hechoId) router.push(`/hechos?q=${n.hechoId}`);
@@ -111,7 +112,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       try {
         setNotifStatus('loading');
         const { getNotificaciones } = await import('@/lib/data-source');
-        const data: any = await getNotificaciones(10);
+        const data = await getNotificaciones(10);
         if (!cancelled) {
           setNotifications(applyRead(data));
           setNotifStatus('idle');
@@ -132,7 +133,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   function refreshNotifications() {
     import('@/lib/data-source').then(({ getNotificaciones }) =>
-      getNotificaciones(10).then((d: any) => setNotifications(applyRead(d))).catch(() => {}),
+      getNotificaciones(10).then((d) => setNotifications(applyRead(d))).catch(() => {}),
     );
   }
   // guardiaUbicacion llega en cada ping GPS de cada guardia en servicio —
@@ -154,12 +155,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.mandadoNuevo, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.turnoIniciado, refreshNotifications);
-  useRealtimeEvent(REALTIME_EVENTS.turnoFinalizado as any, (payload: any) => {
+  useRealtimeEvent<{ guardiaNombre?: string; guardiaId?: string; turnoId?: string }>(REALTIME_EVENTS.turnoFinalizado, (payload) => {
     const nombre = payload?.guardiaNombre ?? payload?.guardiaId?.slice(0, 6) ?? 'Guardia';
     const id = `turno-${payload?.turnoId ?? Date.now()}`;
     const title = `Turno finalizado — ${nombre} finalizó su servicio`;
     setNotifications((prev) => {
-      const next = [{ id, title, timestamp: 'Ahora', read: false, guardiaId: payload?.guardiaId, kind: 'turno' }, ...prev];
+      const next: TopbarNotification[] = [{ id, title, timestamp: 'Ahora', read: false, guardiaId: payload?.guardiaId, kind: 'turno' }, ...prev];
       // Evitar duplicados y limitar a 10
       const seen = new Set<string>();
       const dedup = next.filter((n) => (seen.has(n.id) ? false : (seen.add(n.id), true))).slice(0, 10);
@@ -171,8 +172,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   // no mostramos "Invitado" — eso era lo que confundía: el refresh seguía vigente
   // pero el perfil había expirado y el hook aún no había recuperado.
   const authUser = user ?? (isLoaded ? FALLBACK_USER : { id: '__loading', name: 'Cargando…', identifier: '', role: 'operador_monitoreo' as const });
-  const isSessionResolving = !isLoaded || Boolean(isRefreshing);
-
   const title = PAGE_TITLES[pathname ?? ''] ?? 'Dashboard';
 
   useEffect(() => {
@@ -204,12 +203,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           onOpenMobileMenu={() => setIsMobileOpen(true)}
           user={{ name: authUser.name, role: USER_ROLE_LABELS[authUser.role] }}
           onLogout={handleLogout}
-          notifications={notifications as any}
+          notifications={notifications}
           notificationsStatus={notifStatus}
           onRetryNotifications={() => {
             setNotifStatus('loading');
             import('@/lib/data-source').then(({ getNotificaciones }) =>
-              getNotificaciones(10).then((d: any) => setNotifications(applyRead(d))).then(() => setNotifStatus('idle')).catch(() => setNotifStatus('error')),
+              getNotificaciones(10).then((d) => setNotifications(applyRead(d))).then(() => setNotifStatus('idle')).catch(() => setNotifStatus('error')),
             );
           }}
           onNotificationClick={handleNotifClick}

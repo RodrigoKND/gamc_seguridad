@@ -11,9 +11,11 @@ function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : undefined;
 }
 
-function hasRefreshCookie(): boolean {
+function hasSessionHint(): boolean {
   if (typeof document === 'undefined') return false;
-  return document.cookie.split('; ').some((row) => row.trim().startsWith('gamc_refresh='));
+  // El refresh es HttpOnly: solo el servidor puede comprobarlo. XSRF
+  // comparte su duración y permite intentar recuperar el perfil perdido.
+  return document.cookie.split('; ').some((row) => row.trim().startsWith('gamc_xsrf='));
 }
 
 function clearClientCookie(name: string): void {
@@ -65,7 +67,7 @@ export function useAuthSession() {
 
   async function attemptRecovery(): Promise<boolean> {
     if (recoveringRef.current) return false;
-    if (!hasRefreshCookie()) return false;
+    if (!hasSessionHint()) return false;
     recoveringRef.current = true;
     setIsRefreshing(true);
     try {
@@ -94,7 +96,7 @@ export function useAuthSession() {
         if (parsed) {
           setUser(parsed);
           setIsLoaded(true);
-        } else if (hasRefreshCookie()) {
+        } else if (hasSessionHint()) {
           // Perfil vacío pero refresh vigente → intenta recuperar sin mostrar Invitado
           const ok = await attemptRecovery();
           if (!cancelled) {
@@ -118,14 +120,14 @@ export function useAuthSession() {
       if (document.visibilityState === 'visible') {
         syncFromCookie().then((p) => {
           if (p) setUser(p);
-          else if (hasRefreshCookie() && !recoveringRef.current) attemptRecovery();
+          else if (hasSessionHint() && !recoveringRef.current) attemptRecovery();
         });
       }
     };
     const onFocus = () => {
       syncFromCookie().then((p) => {
         if (p) setUser(p);
-        else if (hasRefreshCookie()) attemptRecovery();
+        else if (hasSessionHint()) attemptRecovery();
       });
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -135,7 +137,7 @@ export function useAuthSession() {
     const pollIv = setInterval(() => {
       syncFromCookie().then((p) => {
         if (p && p.id !== user?.id) setUser(p);
-        if (!p && hasRefreshCookie() && isLoaded) attemptRecovery();
+        if (!p && hasSessionHint() && isLoaded) attemptRecovery();
       });
     }, 15000);
 

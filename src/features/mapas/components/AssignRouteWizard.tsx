@@ -20,6 +20,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
+import { puedeEditarEn, puntoPermitido, trazadoPermitido, type Jurisdiccion } from '../lib/jurisdiccion';
+import { EpiJurisdictionLayer } from './EpiJurisdictionLayer';
 import { OPERATIONAL_STATUS_BADGE_CLASS, OPERATIONAL_STATUS_LABELS, guardFullName, guardInitials, type Guard } from '@/features/guardias/types';
 import {
   PATRULLA_MODALIDAD_CAPACIDAD,
@@ -171,11 +173,19 @@ export interface AssignRouteWizardProps {
   guards: Guard[];
   markers: GuardMarker[];
   rutas: RutaPlantillaRow[];
+  /** Jurisdicción por EPI. `null` bloquea edición hasta que el API responda. */
+  jurisdiccion?: Jurisdiccion | null;
   preselectedGuardId?: string;
   onAssigned: () => void;
 }
 
-export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, preselectedGuardId, onAssigned }: AssignRouteWizardProps) {
+export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas: todasLasRutas, jurisdiccion = null, preselectedGuardId, onAssigned }: AssignRouteWizardProps) {
+  // Jurisdicción (2026-10-05): un Operador/Admin solo ve plantillas y
+  // guardias de su EPI (el backend lo vuelve a validar).
+  const rutas = useMemo(
+    () => todasLasRutas.filter((r) => puedeEditarEn(jurisdiccion, r.epiId as EpiZone)),
+    [todasLasRutas, jurisdiccion],
+  );
   const [entryMode, setEntryMode] = useState<EntryMode>('nueva');
   const [step, setStep] = useState<Step>('inicio');
   const [modalidad, setModalidad] = useState<PatrullaModalidad | null>(null);
@@ -199,7 +209,9 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
   // 'en_servicio' (o, en el caso de baja, nunca hasta reactivar la cuenta).
   // assignRoute.ts repite esta misma validación en el servidor por si el
   // estado cambia mientras el wizard sigue abierto.
-  const assignableGuards = guards.filter((g) => g.operationalStatus === 'en_servicio' && g.accountStatus !== 'inactivo');
+  const assignableGuards = guards.filter(
+    (g) => g.operationalStatus === 'en_servicio' && g.accountStatus !== 'inactivo' && puedeEditarEn(jurisdiccion, g.epi),
+  );
   const markerById = useMemo(() => new Map(markers.map((m) => [m.id, m])), [markers]);
 
   useEffect(() => {
@@ -265,7 +277,13 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
     () => (plantillaSeleccionada ? trazadoToPuntos(plantillaSeleccionada.trazado) : (rutaCalculada?.path ?? puntos)),
     [plantillaSeleccionada, rutaCalculada, puntos],
   );
-  const pathReady = puntos.length >= MIN_PUNTOS || Boolean(plantillaSeleccionada);
+  // El backend rechaza (403) un trazado que sale de la EPI del usuario —
+  // se avisa acá, antes de confirmar, en vez de fallar al guardar.
+  const trazadoFueraDeEpi = useMemo(
+    () => activePath.length >= 2 && !trazadoPermitido(jurisdiccion, activePath),
+    [activePath, jurisdiccion],
+  );
+  const pathReady = (puntos.length >= MIN_PUNTOS || Boolean(plantillaSeleccionada)) && !trazadoFueraDeEpi;
 
   const distribution: Placements = useMemo(() => {
     if (!pathReady || selectedGuardIds.length === 0) return {};
@@ -331,13 +349,21 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
   }
 
   function toggleGuard(id: string, index: number, shiftKey: boolean) {
+    const guardia = assignableGuards.find((g) => g.id === id);
+    // Una ruta siempre pertenece a una sola EPI, incluso si quien opera es
+    // super_admin y puede trabajar en todas. Evita mezclar guardias de
+    // distintas jurisdicciones usando la EPI del primero seleccionado.
+    if (!guardia || (epiId && guardia.epi !== epiId)) return;
     setSelectedGuardIds((prev) => {
       const isSelected = prev.includes(id);
       let next = prev;
 
       if (shiftKey && lastCheckedIndex !== null) {
         const [from, to] = [lastCheckedIndex, index].sort((a, b) => a - b);
-        const rangeIds = assignableGuards.slice(from, to + 1).map((g) => g.id);
+        const rangeIds = assignableGuards
+          .slice(from, to + 1)
+          .filter((g) => !epiId || g.epi === epiId)
+          .map((g) => g.id);
         const merged = new Set(prev);
         rangeIds.forEach((rid) => merged.add(rid));
         next = Array.from(merged);
@@ -352,6 +378,12 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
 
   function handleMapClick(latlng: LatLng) {
     if (plantillaSeleccionada || puntos.length >= MAX_PUNTOS) return;
+    if (!puntoPermitido(jurisdiccion, latlng)) {
+      const mia = jurisdiccion?.miEpi ? `EPI ${EPI_ZONE_LABELS[jurisdiccion.miEpi]}` : 'tu EPI';
+      setError(`Ese punto está fuera de tu jurisdicción (${mia}). Marca puntos dentro del área resaltada.`);
+      return;
+    }
+    setError(null);
     setPuntos((prev) => [...prev, { lat: latlng.lat, lng: latlng.lng }]);
   }
 
@@ -590,7 +622,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                 <ul className="scrollbar-hidden flex max-h-[360px] flex-col divide-y divide-neutral-bg overflow-y-auto rounded-lg border border-neutral-border">
                   {assignableGuards.map((guard, index) => {
                     const isChecked = selectedGuardIds.includes(guard.id);
-                    const isDisabled = !isChecked && selectedGuardIds.length >= capacidad;
+                    const isDisabled = !isChecked && (selectedGuardIds.length >= capacidad || Boolean(epiId && guard.epi !== epiId));
                     return (
                       <li key={guard.id}>
                         <button
@@ -668,6 +700,11 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                {calculandoRuta && (
                  <p className="mb-2 text-[11.5px] text-primary-800">Calculando el camino real por calles…</p>
                )}
+               {!calculandoRuta && trazadoFueraDeEpi && (
+                 <p role="alert" className="mb-2 text-[11.5px] text-risk-critical">
+                   El camino por calles sale de tu jurisdicción ({jurisdiccion?.miEpi ? `EPI ${EPI_ZONE_LABELS[jurisdiccion.miEpi]}` : 'tu EPI'}). Mueve o quita puntos cercanos al borde.
+                 </p>
+               )}
                {!calculandoRuta && rutaCalculada && !rutaCalculada.siguioCalles && (
                  <p role="alert" className="mb-2 text-[11.5px] text-risk-medium">
                    No se pudo calcular el camino por calles (servicio de ruteo no disponible) — se muestra una aproximación en línea recta.
@@ -677,6 +714,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                <div className="relative h-[380px] overflow-hidden rounded-lg border border-neutral-border">
                  <MapCanvas>
                    <MapSearch disabled={openSearch} onOpenChange={setOpenSearch} />
+                   <EpiJurisdictionLayer jurisdiccion={jurisdiccion} soloPropia />
                    {!plantillaSeleccionada && <RouteClickCapture onClick={handleMapClick} disabled={openSearch} />}
                    <CenterOnGuards points={selectedGuardCurrentPositions.map((g) => g.currentPosition)} />
                    {activePath.length >= 2 && (
@@ -702,7 +740,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                   Atrás
                 </Button>
                 <Button type="button" variant="brand" onClick={() => setStep('confirmacion')} disabled={!pathReady} className="flex-1">
-                  {pathReady ? 'Siguiente' : `Marque al menos ${MIN_PUNTOS} puntos`}
+                  {pathReady ? 'Siguiente' : trazadoFueraDeEpi ? 'Fuera de tu EPI' : `Marque al menos ${MIN_PUNTOS} puntos`}
                 </Button>
               </div>
             </div>

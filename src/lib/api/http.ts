@@ -62,7 +62,7 @@ export function toResponseCookie(raw: string): { name: string; value: string; op
     const t = Date.parse(String(options.expires));
     if (Number.isFinite(t)) out.expires = new Date(Math.max(t, 0));
   }
-  if (options.httpOnly === true) out.httpOnly = true;
+  if (options.httponly === true) out.httpOnly = true;
   if (options.secure === true) out.secure = true;
   if (options.samesite === 'lax') out.sameSite = 'lax';
   if (options.samesite === 'strict') out.sameSite = 'strict';

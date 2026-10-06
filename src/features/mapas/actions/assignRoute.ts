@@ -98,6 +98,13 @@ export async function assignRouteAction(data: AssignRouteInput): Promise<AssignR
   }
 
   const guardiasActuales = await Promise.all(data.placements.map((p) => getGuardiaById(p.guardiaId)));
+  if (guardiasActuales.some((g) => !g)) {
+    return { success: false, error: 'Uno de los guardias seleccionados ya no está disponible.' };
+  }
+  const otraEpi = guardiasActuales.find((g): g is Guard => Boolean(g && g.epi !== data.epiId));
+  if (otraEpi) {
+    return { success: false, error: `${guardFullName(otraEpi)} pertenece a otra EPI. Una ruta solo puede agrupar guardias de la misma jurisdicción.` };
+  }
   const fueraDeServicio = guardiasActuales.find((g): g is Guard => g?.operationalStatus === 'fuera_de_servicio');
   if (fueraDeServicio) {
     return { success: false, error: `${guardFullName(fueraDeServicio)} está fuera de servicio y no puede recibir una ruta.` };
@@ -165,7 +172,6 @@ export async function assignRouteAction(data: AssignRouteInput): Promise<AssignR
   try {
     for (const placement of data.placements) {
       const marker = guardiasActuales.find((g): g is Guard => g !== null && g.id === placement.guardiaId);
-      // eslint-disable-next-line no-await-in-loop -- una petición POST por guardia (el API no expone alta por lote).
       const patrulla = await crearPatrulla({
         guardiaId: placement.guardiaId,
         operadorId,

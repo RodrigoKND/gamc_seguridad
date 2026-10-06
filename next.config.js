@@ -3,6 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
+  // Cambia las URL de assets locales que antes quedaron cacheadas un año.
+  ...(process.env.NODE_ENV === 'development' ? { deploymentId: 'local-epi-cache-fix-1' } : {}),
   // Fija la raíz del proyecto explícitamente: hay otro lockfile (bun.lock) en
   // una carpeta ancestral que hace que Next.js infiera mal el workspace root.
   outputFileTracingRoot: __dirname,
@@ -28,10 +30,6 @@ const nextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
         ],
-      },
-      {
-        source: '/_next/static/:path*',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
     ];
   },
