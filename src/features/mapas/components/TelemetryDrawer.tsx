@@ -96,7 +96,7 @@ function RouteStreets({ path }: { path: { lat: number; lng: number }[] }) {
       {streets.map((s, i) => (
         <li key={i} className="flex gap-2.5">
           <span className="flex flex-col items-center">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-brand-gold-600" />
+            <span className="h-2 w-2 shrink-0 rounded-full bg-primary-700" />
             {i < streets.length - 1 && <span className="w-px flex-1 bg-neutral-border" />}
           </span>
           <div className="pb-3">
@@ -154,7 +154,7 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
       widthClassName="w-[400px]"
       headerClassName={[
         'text-white',
-        isSos ? 'bg-risk-critical animate-pulse-emergency' : 'bg-brand-ink-900',
+        isSos ? 'bg-risk-critical animate-pulse-emergency' : 'bg-primary-900',
       ].join(' ')}
       header={
         guard && (
@@ -323,9 +323,9 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
             return (
               <div className="rounded-lg border border-neutral-border bg-white p-3">
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: group?.color ?? '#A97F52' }} aria-hidden="true" />
-                  <p className="text-xs font-bold text-brand-ink-900">RUTA ASIGNADA</p>
-                  <span className={['ml-auto rounded px-1.5 py-0.5 text-[10px] font-semibold', patrulla.estado === 'en_curso' ? 'bg-risk-low/10 text-risk-low' : 'bg-brand-gold-600/10 text-brand-gold-700'].join(' ')}>
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: group?.color ?? '#C2335D' }} aria-hidden="true" />
+                  <p className="text-xs font-bold text-primary-900">RUTA ASIGNADA</p>
+                  <span className={['ml-auto rounded px-1.5 py-0.5 text-[10px] font-semibold', patrulla.estado === 'en_curso' ? 'bg-risk-low/10 text-risk-low' : 'bg-primary-100 text-primary-800'].join(' ')}>
                     {patrulla.estado === 'en_curso' ? 'En curso' : 'Asignada'}
                   </span>
                 </div>
@@ -355,12 +355,12 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
 
           {guard.ruta.length > 0 && (
             <>
-              <p className="mb-2.5 mt-4 text-xs font-bold text-brand-ink-900">BREADCRUMB HISTÓRICO</p>
+              <p className="mb-2.5 mt-4 text-xs font-bold text-primary-900">BREADCRUMB HISTÓRICO</p>
               <ol className="flex flex-col">
                 {guard.ruta.map((pt, index) => (
                   <li key={index} className="flex gap-2.5">
                     <span className="flex flex-col items-center">
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-brand-gold-600" />
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary-700" />
                       {index < guard.ruta.length - 1 && <span className="w-px flex-1 bg-neutral-border" />}
                     </span>
                     <div className="pb-4">

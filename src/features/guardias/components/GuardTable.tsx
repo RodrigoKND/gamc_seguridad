@@ -90,7 +90,7 @@ export function GuardTable({ guards, status, onRetry, onEdit }: GuardTableProps)
                             setFotoExpandida({ src: guard.fotoUrl!, alt: `Foto de ${guardFullName(guard)}` })
                           }
                           aria-label={`Ampliar foto de ${guardFullName(guard)}`}
-                          className="shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600 focus-visible:ring-offset-2"
+                          className="shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element -- foto remota del backend */}
                           <img
@@ -100,7 +100,7 @@ export function GuardTable({ guards, status, onRetry, onEdit }: GuardTableProps)
                           />
                         </button>
                       ) : (
-                        <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-brand-navy-800 text-[11.5px] font-bold text-brand-gold-500">
+                        <span className="avatar-initials h-[34px] w-[34px] text-[11.5px]">
                           {guardInitials(guard)}
                         </span>
                       )}
@@ -121,7 +121,7 @@ export function GuardTable({ guards, status, onRetry, onEdit }: GuardTableProps)
                     <GuardStatusBadges accountStatus={guard.accountStatus} operationalStatus={guard.operationalStatus} />
                   </td>
                   <td className="px-3.5 py-3">
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-neutral-bg px-1.5 text-[11px] font-semibold text-neutral-text">
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-100 px-1.5 text-[11px] font-semibold text-primary-800">
                       {guard.reportesCount}
                     </span>
                   </td>
@@ -131,7 +131,7 @@ export function GuardTable({ guards, status, onRetry, onEdit }: GuardTableProps)
                         type="button"
                         onClick={() => onEdit(guard)}
                         aria-label={`Editar ${guardFullName(guard)}`}
-                        className="rounded-md p-1.5 text-neutral-text-muted transition-colors duration-200 hover:bg-neutral-bg hover:text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600 focus-visible:ring-offset-2"
+                        className="rounded-md p-1.5 text-neutral-text-muted transition-colors duration-200 hover:bg-neutral-bg hover:text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
                       >
                         <Pencil className="h-4 w-4" aria-hidden="true" />
                       </button>

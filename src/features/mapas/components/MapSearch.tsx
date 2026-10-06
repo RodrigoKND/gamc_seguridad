@@ -92,7 +92,7 @@ if (e.key === 'Escape') closeSearch();
           type="button"
           onClick={handleSearch}
           disabled={loading || !query.trim() || disabled}
-          className="rounded bg-brand-gold-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand-gold-700 disabled:opacity-50"
+          className="rounded bg-primary-900 px-2.5 py-1 text-xs font-semibold text-white transition-colors duration-200 hover:bg-primary-950 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Buscar'}
         </button>

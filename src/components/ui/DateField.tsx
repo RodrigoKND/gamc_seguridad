@@ -103,7 +103,7 @@ export function DateField({
               'w-full appearance-none rounded-md border bg-white px-2 py-2 pr-6 text-sm',
               day ? 'text-neutral-text' : 'text-neutral-text-muted',
               'transition-colors duration-200',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-500 focus-visible:ring-offset-2',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
               'border-neutral-border',
             ].join(' ')}
@@ -134,7 +134,7 @@ export function DateField({
               'w-full appearance-none rounded-md border bg-white px-2 py-2 pr-6 text-sm',
               month ? 'text-neutral-text' : 'text-neutral-text-muted',
               'transition-colors duration-200',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-500 focus-visible:ring-offset-2',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
               'border-neutral-border',
             ].join(' ')}
@@ -165,7 +165,7 @@ export function DateField({
               'w-full appearance-none rounded-md border bg-white px-2 py-2 pr-6 text-sm',
               year ? 'text-neutral-text' : 'text-neutral-text-muted',
               'transition-colors duration-200',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-500 focus-visible:ring-offset-2',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
               'disabled:cursor-not-allowed disabled:opacity-50',
               'border-neutral-border',
             ].join(' ')}

@@ -17,8 +17,8 @@ import { generateGuardCredentialsAction } from '@/features/auth/actions/generate
 // usuario/contraseña, que se muestran una única vez en la pantalla de
 // confirmación. Error de CI duplicado: inline bajo el campo, sin cerrar
 // el modal (MASTER.md sección 10). Exclusivo de Generar Credenciales — migrado
-// a la paleta 2026 el 2026-09-06 (MASTER.md sección 4): Modal/Input/Select
-// con accent="gold", Button variant="ink".
+// a la paleta Innova el 2026-09-06 (MASTER.md sección 4): Modal/Input/Select
+// con accent="rose", Button variant="brand".
 //
 // Bug real corregido 2026-09-14: este modal calculaba credenciales FALSAS
 // en el cliente y mostraba "éxito" de inmediato, mientras la persistencia
@@ -116,7 +116,7 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Registrar Nuevo Guardia" accent="gold" dismissible={phase !== 'success'}>
+    <Modal isOpen={isOpen} onClose={handleClose} title="Registrar Nuevo Guardia" accent="rose" dismissible={phase !== 'success'}>
       {phase === 'success' && credentials ? (
         <div className="animate-fade-in p-6">
           <div className="mb-3.5 flex justify-center">
@@ -124,12 +124,12 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
               <Check className="h-6 w-6 text-risk-low" aria-hidden="true" />
             </span>
           </div>
-          <p className="mb-1 text-center text-base font-semibold text-brand-ink-900">
+          <p className="mb-1 text-center text-base font-semibold text-primary-900">
             Guardia registrado con éxito
           </p>
           <p className="mb-4 text-center text-[12.5px] text-neutral-text-muted">{createdName}</p>
 
-          <div className="mb-4 rounded-lg border-l-[3px] border-brand-gold-500 bg-neutral-bg p-3.5">
+          <div className="mb-4 rounded-lg border-l-[3px] border-accent-500 bg-neutral-bg p-3.5">
             <div className="mb-2 flex items-center justify-between text-[12.5px]">
               <span className="text-neutral-text-muted">Usuario temporal</span>
               <span className="font-mono font-semibold text-neutral-text">{credentials.usuario}</span>
@@ -150,7 +150,7 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
             El guardia deberá cambiar su contraseña en el primer inicio de sesión (obligatorio, no editable)
           </label>
 
-          <Button variant="ink" onClick={handleClose} className="w-full">
+          <Button variant="brand" onClick={handleClose} className="w-full">
             Cerrar
           </Button>
         </div>
@@ -163,20 +163,20 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
           )}
 
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Primer Nombre" name="primerNombre" accent="gold" required disabled={phase === 'loading'} />
-            <Input label="Segundo Nombre" name="segundoNombre" accent="gold" disabled={phase === 'loading'} />
+            <Input label="Primer Nombre" name="primerNombre" accent="rose" required disabled={phase === 'loading'} />
+            <Input label="Segundo Nombre" name="segundoNombre" accent="rose" disabled={phase === 'loading'} />
           </div>
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Apellido Paterno" name="apellidoPaterno" accent="gold" required disabled={phase === 'loading'} />
-            <Input label="Apellido Materno" name="apellidoMaterno" accent="gold" required disabled={phase === 'loading'} />
+            <Input label="Apellido Paterno" name="apellidoPaterno" accent="rose" required disabled={phase === 'loading'} />
+            <Input label="Apellido Materno" name="apellidoMaterno" accent="rose" required disabled={phase === 'loading'} />
           </div>
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Cédula de Identidad" name="ci" placeholder="0000000" accent="gold" required disabled={phase === 'loading'} />
+            <Input label="Cédula de Identidad" name="ci" placeholder="0000000" accent="rose" required disabled={phase === 'loading'} />
             <DateField label="Fecha de Nacimiento" name="fechaNacimiento" required disabled={phase === 'loading'} />
           </div>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Teléfono" name="telefono" placeholder="+591 7XX XXXXX" accent="gold" required disabled={phase === 'loading'} />
-            <Select label="EPI / Distrito asignado" name="epi" accent="gold" required disabled={phase === 'loading'} defaultValue="">
+            <Input label="Teléfono" name="telefono" placeholder="+591 7XX XXXXX" accent="rose" required disabled={phase === 'loading'} />
+            <Select label="EPI / Distrito asignado" name="epi" accent="rose" required disabled={phase === 'loading'} defaultValue="">
               <option value="" disabled>
                 Seleccione una EPI
               </option>
@@ -192,7 +192,7 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
             <Button type="button" variant="secondary" onClick={handleClose} className="flex-1" disabled={phase === 'loading'}>
               Cancelar
             </Button>
-            <Button type="submit" variant="ink" isLoading={phase === 'loading'} className="flex-1">
+            <Button type="submit" variant="brand" isLoading={phase === 'loading'} className="flex-1">
               Generar Credenciales
             </Button>
           </div>

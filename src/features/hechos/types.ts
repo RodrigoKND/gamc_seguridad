@@ -17,7 +17,7 @@ export const HECHO_ESTADO_LABELS: Record<HechoEstado, string> = {
 
 export const HECHO_ESTADO_BADGE_CLASS: Record<HechoEstado, string> = {
   abierto: 'bg-risk-high/10 text-risk-high',
-  en_proceso: 'bg-brand-blue-600/10 text-brand-blue-600',
+  en_proceso: 'bg-primary-700/10 text-primary-700',
   resuelto: 'bg-risk-low/10 text-risk-low',
 };
 

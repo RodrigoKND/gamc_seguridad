@@ -4,26 +4,25 @@ import { forwardRef, useId, type InputHTMLAttributes, type ReactNode } from 'rea
 
 // Input primitivo compartido — no duplicar por feature (MASTER.md sección
 // 6). Label visible siempre (ux: input-labels — nunca solo placeholder),
-// error inline bajo el campo (ux: error-placement), foco con anillo azul
-// por defecto (MASTER.md sección 9). `accent="gold"` y `icon` son opt-in
-// para pantallas ya migradas a la paleta 2026 (por ahora, Login) — no
-// cambian el comportamiento por defecto de los consumidores existentes.
+// error inline bajo el campo (ux: error-placement), foco con anillo púrpura
+// por defecto (MASTER.md sección 9). `accent="rose"` (anillo accent-500, rosa Innova) e
+// `icon` son opt-in para formularios de marca (Login, credenciales, guardias).
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   helperText?: string;
   icon?: ReactNode;
-  accent?: 'blue' | 'gold';
+  accent?: 'purple' | 'rose';
 }
 
-const RING_CLASSES: Record<'blue' | 'gold', string> = {
-  blue: 'focus-visible:ring-brand-blue-600',
-  gold: 'focus-visible:ring-brand-gold-600',
+const RING_CLASSES: Record<'purple' | 'rose', string> = {
+  purple: 'focus-visible:ring-primary-700',
+  rose: 'focus-visible:ring-accent-500',
 };
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, icon, accent = 'blue', required, className = '', id, ...rest }, ref) => {
+  ({ label, error, helperText, icon, accent = 'purple', required, className = '', id, ...rest }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
     const errorId = error ? `${inputId}-error` : undefined;

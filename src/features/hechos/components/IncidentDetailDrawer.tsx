@@ -42,7 +42,7 @@ export function IncidentDetailDrawer({ hecho, onClose, onEstadoChange }: Inciden
         hecho && (
           <div className="flex items-center gap-2.5">
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-brand-navy-950">{hecho.tipo}</p>
+              <p className="truncate text-sm font-bold text-primary-900">{hecho.tipo}</p>
               <p className="truncate text-xs text-neutral-text-muted">{hecho.timestamp}</p>
             </div>
             <Badge className={RISK_LEVEL_BADGE_CLASS[hecho.severidad]}>{RISK_LEVEL_LABELS[hecho.severidad]}</Badge>
@@ -52,7 +52,7 @@ export function IncidentDetailDrawer({ hecho, onClose, onEstadoChange }: Inciden
     >
       {hecho && (
         <div className="animate-fade-in">
-          <p className="mb-1.5 text-xs font-bold text-brand-navy-950">ESTADO DEL HECHO</p>
+          <p className="mb-1.5 text-xs font-bold text-primary-900">ESTADO DEL HECHO</p>
           {onEstadoChange ? (
             <Select
               aria-label="Cambiar estado del hecho"
@@ -72,10 +72,10 @@ export function IncidentDetailDrawer({ hecho, onClose, onEstadoChange }: Inciden
             </Badge>
           )}
 
-          <p className="mb-1.5 text-xs font-bold text-brand-navy-950">NARRATIVA</p>
+          <p className="mb-1.5 text-xs font-bold text-primary-900">NARRATIVA</p>
           <p className="mb-5 text-[13px] leading-relaxed text-neutral-text">{hecho.narrativa}</p>
 
-          <p className="mb-2 text-xs font-bold text-brand-navy-950">UBICACIÓN</p>
+          <p className="mb-2 text-xs font-bold text-primary-900">UBICACIÓN</p>
           <IncidentLocationMap lat={hecho.lat} lng={hecho.lng} />
           {/* Nunca lat/lng crudos en pantalla (pedido explícito 2026-09-14) —
               el mini-mapa de arriba ya ubica el punto exacto visualmente. */}
@@ -83,12 +83,12 @@ export function IncidentDetailDrawer({ hecho, onClose, onEstadoChange }: Inciden
             {hecho.ubicacion} · EPI {hecho.epi}
           </p>
 
-          <p className="mb-1.5 text-xs font-bold text-brand-navy-950">UNIDAD DE RESPUESTA ASIGNADA</p>
+          <p className="mb-1.5 text-xs font-bold text-primary-900">UNIDAD DE RESPUESTA ASIGNADA</p>
           <p className="mb-5 text-[13px] text-neutral-text">{hecho.unidadAsignada}</p>
 
           {hecho.evidencias.length > 0 && (
             <>
-              <p className="mb-2 text-xs font-bold text-brand-navy-950">EVIDENCIA</p>
+              <p className="mb-2 text-xs font-bold text-primary-900">EVIDENCIA</p>
               <EvidenceCarousel evidencias={hecho.evidencias} />
             </>
           )}

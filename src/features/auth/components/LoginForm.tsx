@@ -15,8 +15,8 @@ import type { LoginStatus } from '../types';
 // solo Super Admin. Estados obligatorios: default, loading, error, éxito
 // (MASTER.md sección 8). Toggle mostrar/ocultar contraseña
 // (ux: password-toggle). Autocomplete habilitado para permitir gestores de
-// contraseñas (ux: accessible-authentication). Inputs con `accent="gold"`
-// (paleta 2026, MASTER.md sección 4).
+// contraseñas (ux: accessible-authentication). Inputs con `accent="rose"`
+// (paleta Innova, MASTER.md sección 4).
 
 export function LoginForm() {
   const router = useRouter();
@@ -60,19 +60,19 @@ export function LoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full max-w-[420px] rounded-2xl border border-neutral-border bg-white p-9 shadow-[0_1px_2px_rgba(15,15,15,0.04),0_20px_40px_-16px_rgba(15,15,15,0.12)]"
+      className="w-full max-w-[420px] rounded-2xl border border-neutral-border bg-white p-9 shadow-[0_1px_2px_rgba(77,59,134,0.06),0_20px_40px_-16px_rgba(77,59,134,0.18)]"
     >
-      <div className="mb-6 flex items-center gap-2.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-ink-900/[0.06] text-brand-ink-900">
-          <ShieldCheck className="h-[18px] w-[18px]" aria-hidden="true" />
+      <div className="mb-6 flex items-center gap-3">
+        <span className="icon-badge h-10 w-10">
+          <ShieldCheck className="h-5 w-5" aria-hidden="true" />
         </span>
         <div>
-          <h1 className="text-lg font-semibold leading-tight text-brand-ink-900">Iniciar sesión</h1>
+          <h1 className="text-lg font-semibold leading-tight text-primary-900">Iniciar sesión</h1>
           <p className="text-xs text-neutral-text-muted">Dirección de Seguridad Ciudadana</p>
         </div>
       </div>
 
-      <p className="mb-6 rounded-lg bg-neutral-bg px-3.5 py-3 text-[12.5px] leading-relaxed text-neutral-text-muted">
+      <p className="mb-6 rounded-lg border border-primary-100 bg-primary-50 px-3.5 py-3 text-[12.5px] leading-relaxed text-neutral-text-muted">
         Este panel es de uso exclusivo del personal autorizado del GAMC. El acceso no autorizado será
         registrado y reportado.
       </p>
@@ -86,7 +86,7 @@ export function LoginForm() {
           placeholder="nombre.apellido@cochabamba.bo"
           required
           disabled={isLoading || isSuccess}
-          accent="gold"
+          accent="rose"
           icon={<Mail className="h-4 w-4" aria-hidden="true" />}
         />
       </div>
@@ -100,7 +100,7 @@ export function LoginForm() {
           placeholder="••••••••"
           required
           disabled={isLoading || isSuccess}
-          accent="gold"
+          accent="rose"
           icon={<KeyRound className="h-4 w-4" aria-hidden="true" />}
           className="pr-10"
         />
@@ -108,7 +108,7 @@ export function LoginForm() {
           type="button"
           onClick={() => setPasswordVisible((v) => !v)}
           aria-label={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-          className="absolute right-2.5 top-[30px] rounded-md p-1 text-neutral-text-muted transition-colors duration-200 hover:text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2"
+          className="absolute right-2.5 top-[30px] rounded-md p-1 text-neutral-text-muted transition-colors duration-200 hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
         >
           {passwordVisible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
         </button>
@@ -134,12 +134,12 @@ export function LoginForm() {
         </div>
       )}
 
-      <Button type="submit" variant="ink" isLoading={isLoading} disabled={isSuccess} className="mt-6 w-full py-2.5">
+      <Button type="submit" variant="brand" isLoading={isLoading} disabled={isSuccess} className="mt-6 w-full py-2.5">
         {isLoading ? 'Verificando…' : 'Ingresar'}
       </Button>
 
       <div className="mt-4 text-center">
-        <a href="#" className="text-xs font-medium text-brand-gold-700 hover:text-brand-ink-900">
+        <a href="#" className="rounded text-xs font-medium text-primary-800 underline-offset-2 transition-colors duration-200 hover:text-primary-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2">
           ¿Olvidó su contraseña? Contacte a Sistemas GAMC
         </a>
       </div>

@@ -133,7 +133,7 @@ export function HechosView() {
     <PageContainer>
       <div className="col-span-12 mb-1 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-4xl font-bold text-brand-navy-950">Reportes</h1>
+          <h1 className="text-4xl font-bold text-primary-900">Reportes</h1>
           <p className="mt-0.5 text-sm text-neutral-text-muted">
             Reportes enviados por los guardias de campo, con acción sobre su estado
           </p>
@@ -155,7 +155,7 @@ export function HechosView() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar por código o dirección…"
             aria-label="Buscar por código o dirección"
-            className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-[12.5px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600"
+            className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-[12.5px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           />
         </div>
 
@@ -204,7 +204,7 @@ export function HechosView() {
                   <p className="truncate text-sm font-medium text-neutral-text">{m.descripcion}</p>
                   <p className="text-xs text-neutral-text-muted">{m.guardiaNombre ?? m.guardiaId} — {new Date(m.creadoEn).toLocaleString('es-BO')} — {m.lat.toFixed(4)}, {m.lng.toFixed(4)}</p>
                 </div>
-                <a href={`https://www.google.com/maps?q=${m.lat},${m.lng}`} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md border border-brand-gold-600 px-2.5 py-1 text-xs font-semibold text-brand-gold-600 hover:bg-brand-gold-600 hover:text-white">Ver en mapa</a>
+                <a href={`https://www.google.com/maps?q=${m.lat},${m.lng}`} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md border border-primary-300 px-2.5 py-1 text-xs font-semibold text-primary-800 transition-colors duration-200 hover:border-primary-700 hover:bg-primary-700 hover:text-white">Ver en mapa</a>
               </li>
             ))}
           </ul>

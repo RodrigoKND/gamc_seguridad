@@ -334,7 +334,7 @@ export function MapasView() {
           value={activeTab}
           onChange={(event) => setActiveTab(event.target.value as MapTab)}
           aria-label="Vista del Módulo de Mapas"
-          className="block h-12 w-full border-none bg-transparent text-sm font-medium text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 sm:hidden"
+          className="block h-12 w-full border-none bg-transparent text-sm font-medium text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 sm:hidden"
         >
           {TABS.map((tab) => (
             <option key={tab.id} value={tab.id}>
@@ -343,7 +343,7 @@ export function MapasView() {
           ))}
         </select>
 
-        {/* Tabs en desktop — activo: border-b-2 border-brand-gold-600 (paleta 2026, MASTER.md sección 4/10) */}
+        {/* Tabs en desktop — activo: border-b-2 border-accent-600 (paleta Innova, MASTER.md sección 4/10) */}
         <div className="hidden h-12 items-center gap-1 sm:flex">
           <div role="tablist" aria-label="Vistas del Módulo de Mapas" className="flex h-full items-center gap-1">
             {TABS.map((tab) => (
@@ -355,9 +355,9 @@ export function MapasView() {
                 onClick={() => setActiveTab(tab.id)}
                 className={[
                   'border-b-2 px-3 py-2 text-sm font-medium transition-colors duration-200',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
                   activeTab === tab.id
-                    ? 'border-brand-gold-600 text-brand-gold-600'
+                    ? 'border-accent-600 text-accent-600'
                     : 'border-transparent text-neutral-text-muted hover:text-neutral-text',
                 ].join(' ')}
               >
