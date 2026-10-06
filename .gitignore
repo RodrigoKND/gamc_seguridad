@@ -12,6 +12,8 @@
 # Producción
 /build
 /deploy/
+/deploy.zip
+/README_deploy.md
 
 # Variables de entorno — nunca commitear valores reales (MASTER.md sección 6: lib/).
 .env
