@@ -67,7 +67,7 @@ export function ExportMenu({ onExportExcel, onExportPDF, disabled }: ExportMenuP
               setIsOpen(false);
               onExportExcel();
             }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600 focus-visible:ring-offset-2"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
           >
             <FileSpreadsheet className="h-4 w-4 text-risk-low" aria-hidden="true" />
             Excel
@@ -79,7 +79,7 @@ export function ExportMenu({ onExportExcel, onExportPDF, disabled }: ExportMenuP
               setIsOpen(false);
               onExportPDF();
             }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600 focus-visible:ring-offset-2"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
           >
             <FileText className="h-4 w-4 text-risk-critical" aria-hidden="true" />
             PDF

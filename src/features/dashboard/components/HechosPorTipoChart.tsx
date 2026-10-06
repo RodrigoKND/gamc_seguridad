@@ -9,11 +9,11 @@ import type { HechoPorTipoItem } from '../types';
 // define una paleta categórica para "tipo de hecho" (los tokens risk-*/epi-*
 // están reservados a severidad y territorio — sección 4).
 //
-// Migrado de la rampa secuencial de brand-blue-600 a la paleta 2026 (MASTER.md
-// sección 4): en vez de 5 tonos de un mismo azul (donde los 5 compiten por
-// atención por igual), la categoría de mayor participación se resalta en
-// brand-gold-600 — el dorado como "esto es lo que domina" — y el resto usa una
-// rampa neutra descendente en brand-ink. Luminosidad monótona y separación de
+// Paleta Innova (MASTER.md sección 4): en vez de 5 tonos de un mismo hue
+// (donde los 5 compiten por atención por igual), la categoría de mayor
+// participación se resalta en accent-500 — el rosa de acento como "esto es
+// lo que domina" (3.46:1 sobre blanco, ≥3:1 para marcas de datos) — y el
+// resto usa una rampa púrpura descendente (primary-900 → 800 → 700 → 500). Luminosidad monótona y separación de
 // contraste verificadas a mano (ver MASTER.md sección 4, tabla de contraste);
 // la etiqueta de texto siempre visible por barra hace que el color nunca sea
 // el único portador del dato (dataviz: "secondary encoding: direct labels").
@@ -21,7 +21,7 @@ import type { HechoPorTipoItem } from '../types';
 // Entrada animada (portado desde refactor/dashboard-design): cada fila entra
 // en cascada (animate-rise-up) y su barra crece desde la izquierda
 // (animate-grow-bar) — respeta prefers-reduced-motion vía globals.css.
-const RAMP = ['#A97F52', '#262624', '#4A4740', '#6E6B63', '#948F86'];
+const RAMP = ['#E8567F', '#4D3B86', '#5A4794', '#6B559F', '#8C78BF'];
 
 export interface HechosPorTipoChartProps {
   data: HechoPorTipoItem[];
@@ -40,7 +40,7 @@ export function HechosPorTipoChart({ data, onSelect }: HechosPorTipoChartProps) 
           role={onSelect ? 'button' : undefined}
           tabIndex={onSelect ? 0 : undefined}
           onKeyDown={onSelect ? (e) => { if (e.key === 'Enter') onSelect(item); } : undefined}
-          className={`flex animate-rise-up items-center gap-3 ${onSelect ? 'cursor-pointer rounded-md px-1 py-1 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600' : ''}`}
+          className={`flex animate-rise-up items-center gap-3 ${onSelect ? 'cursor-pointer rounded-md px-1 py-1 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700' : ''}`}
           style={{ animationDelay: `${100 + i * 70}ms` }}
         >
           <span className="w-28 shrink-0 truncate text-sm text-neutral-text-muted">{item.tipo}</span>

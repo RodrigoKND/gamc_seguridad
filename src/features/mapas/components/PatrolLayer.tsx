@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
+import { Route } from 'lucide-react';
 import { Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { EPI_ZONE_HEX } from '@/types/epi';
@@ -41,7 +42,7 @@ import type { GuardMarker } from '../types';
 // campo por campo, no la referencia completa de `guard`).
 
 function createGuardIcon(guard: GuardMarker, isSelected: boolean) {
-  const zoneColor = EPI_ZONE_HEX[guard.zone] ?? '#1A1A1A';
+  const zoneColor = EPI_ZONE_HEX[guard.zone] ?? '#4D3B86';
   const photoUrl = safePhotoUrl(guard.fotoUrl);
   const fill = photoUrl
     ? `background-image:url('${photoUrl}');background-size:cover;background-position:center;`
@@ -49,8 +50,8 @@ function createGuardIcon(guard: GuardMarker, isSelected: boolean) {
   const label = photoUrl ? '' : guard.label;
   const pulseClass = guard.hasSos ? 'animate-pulse' : '';
   const ringStyle = guard.hasSos
-    ? (isSelected ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #DC2626,0 0 0 9px #A97F52;' : 'box-shadow:0 0 0 3px #fff,0 0 0 6px #DC2626;')
-    : (isSelected ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #A97F52;' : 'box-shadow:0 1px 4px rgba(0,0,0,.35);');
+    ? (isSelected ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #DC2626,0 0 0 9px #E8567F;' : 'box-shadow:0 0 0 3px #fff,0 0 0 6px #DC2626;')
+    : (isSelected ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #E8567F;' : 'box-shadow:0 1px 4px rgba(58,44,107,.35);');
 
   return L.divIcon({
     className: '',
@@ -63,10 +64,10 @@ function createGuardIcon(guard: GuardMarker, isSelected: boolean) {
 function createClusterIcon(cluster: L.MarkerCluster) {
   const count = cluster.getChildCount();
   const hasSos = cluster.getAllChildMarkers().some((m: L.Marker) => (m.options as { hasSos?: boolean }).hasSos);
-  const bg = hasSos ? '#DC2626' : '#1A1A1A';
+  const bg = hasSos ? '#DC2626' : '#6B559F';
   return L.divIcon({
     className: '',
-    html: `<div style="width:34px;height:34px;border-radius:9999px;background:${bg};border:2.5px solid #C59B6D;box-shadow:0 1px 4px rgba(0,0,0,.35);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif">${count}</div>`,
+    html: `<div style="width:34px;height:34px;border-radius:9999px;background:${bg};border:2.5px solid #E8567F;box-shadow:0 1px 4px rgba(0,0,0,.35);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif">${count}</div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17],
   });
@@ -106,8 +107,9 @@ const GuardMapMarker = React.memo(
             {OPERATIONAL_STATUS_LABELS[guard.operationalStatus]} · {guard.ubicacionActual}
           </p>
           {guard.rutaAsignada && (
-            <p className="text-[11px] text-brand-gold-700 mt-1 font-medium">
-              🛤 {guard.rutaAsignada.nombre}
+            <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-primary-800">
+              <Route className="h-3 w-3 shrink-0" aria-hidden="true" />
+              {guard.rutaAsignada.nombre}
             </p>
           )}
         </Popup>

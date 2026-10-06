@@ -6,10 +6,11 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react';
 // RF/RNF: Grupo 4 (Dashboard Estadístico) — reglas de componentes MASTER.md sección 10.
 // Botón primitivo compartido — no duplicar por feature (MASTER.md sección 6).
 
-// 'ink': variante de la paleta 2026 (MASTER.md sección 4) — botón primario
-// para pantallas ya migradas (por ahora, Login). 'primary' se mantiene sin
-// cambios para no alterar el resto de la plataforma, todavía en brand-blue-600.
-export type ButtonVariant = 'primary' | 'ink' | 'secondary' | 'destructive';
+// Paleta Innova (MASTER.md sección 4): 'primary' = púrpura medio
+// (primary-700, el tono de la barra de Innova) para acciones generales;
+// 'brand' = púrpura profundo (primary-900) con anillo primary-700, para el
+// CTA principal de formularios/modales de marca (Login, credenciales, wizard).
+export type ButtonVariant = 'primary' | 'brand' | 'secondary' | 'destructive';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -17,12 +18,12 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-brand-blue-600 text-white hover:opacity-90 focus-visible:ring-brand-blue-600',
-  ink: 'bg-brand-ink-900 text-white hover:bg-brand-ink-800 focus-visible:ring-brand-gold-600',
+  primary: 'bg-primary-700 text-white hover:opacity-90 focus-visible:ring-primary-700',
+  brand: 'bg-primary-900 text-white hover:bg-primary-800 focus-visible:ring-primary-700',
   secondary:
-    'bg-white text-brand-navy-950 border border-neutral-border hover:bg-neutral-bg focus-visible:ring-brand-blue-600',
+    'bg-white text-primary-900 border border-neutral-border hover:bg-neutral-bg focus-visible:ring-primary-700',
   // destructive: reservado exclusivamente a SOS/eliminar, nunca decorativo (MASTER.md sección 10).
-  destructive: 'bg-risk-critical text-white hover:opacity-90 focus-visible:ring-brand-blue-600',
+  destructive: 'bg-risk-critical text-white hover:opacity-90 focus-visible:ring-primary-700',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(

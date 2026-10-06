@@ -422,7 +422,7 @@ export const getGuardMarkers = cache(async (guardiasPrefetched?: Guard[]): Promi
           for (const [lng, lat] of trazado) {
             path.push({ lat, lng });
           }
-          rutaAsignada = { nombre: rt.nombre, color: '#A97F52', puntos: path };
+          rutaAsignada = { nombre: rt.nombre, color: '#C2335D', puntos: path };
         }
       }
       return ({

@@ -5,12 +5,12 @@ import type { KpiCardData } from '../types';
 // RF/RNF: Dashboard Estadístico — Grupo 4 (MASTER.md sección 7.3).
 //
 // Métrica en estilo "hoja de registro" (portado desde refactor/dashboard-
-// design, adaptado a la paleta 2026 — MASTER.md sección 4): sin íconos ni
+// design, adaptado a la paleta Innova — MASTER.md sección 4): sin íconos ni
 // chips de color — el número grande (KPI principal, sección 3) es el
 // protagonista, la etiqueta a la izquierda y el periodo en versalitas a la
-// derecha; el delta va bajo una hairline con la flecha en brand-gold-600
-// (único acento de color permitido — brand-gold-500 no pasa 3:1 sobre
-// blanco, ver tabla de contraste de la sección 4).
+// derecha; el delta va bajo una hairline con la flecha en accent-600
+// (único acento de color permitido; 5.35:1 sobre blanco — ver tabla de
+// contraste de la sección 4).
 //
 // variant="card": celda suelta con marco propio (borde + sombra + hover).
 // variant="cell": celda dentro de la cinta de KpiGrid — el marco lo dibuja
@@ -54,9 +54,9 @@ export function KpiCard({ data, index = 0, isLoading = false, variant = 'card', 
       onKeyDown={clickable ? (e) => { if (e.key === 'Enter') onClick?.(); } : undefined}
       className={[
         cell
-          ? 'animate-rise-up p-6 transition-colors duration-200 hover:bg-brand-gold-100/40'
+          ? 'animate-rise-up p-6 transition-colors duration-200 hover:bg-primary-50'
           : 'animate-rise-up rounded-2xl border border-neutral-border bg-white p-6 shadow-sm transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg',
-        clickable ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600' : '',
+        clickable ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700' : '',
       ].join(' ')}
       style={{ animationDelay: `${index * 70}ms` }}
     >
@@ -73,7 +73,7 @@ export function KpiCard({ data, index = 0, isLoading = false, variant = 'card', 
 
       {deltaLabel && (
         <p className="mt-5 flex items-center gap-1.5 border-t border-neutral-border pt-3 text-xs text-neutral-text-muted">
-          <DeltaIcon className="h-3.5 w-3.5 text-brand-gold-600" aria-hidden="true" />
+          <DeltaIcon className="h-3.5 w-3.5 text-accent-600" aria-hidden="true" />
           <span className="font-medium text-neutral-text">{deltaLabel}</span>
         </p>
       )}

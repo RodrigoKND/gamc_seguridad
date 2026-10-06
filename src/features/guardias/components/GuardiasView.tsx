@@ -132,7 +132,7 @@ export function GuardiasView() {
     <PageContainer>
       <div className="col-span-12 mb-1 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-brand-navy-950">Guardias</h1>
+          <h1 className="text-4xl font-bold text-primary-900">Guardias</h1>
           <p className="mt-0.5 text-sm text-neutral-text-muted">
             Personal de patrullaje activo por Estación Policial Integral
           </p>
@@ -148,7 +148,7 @@ export function GuardiasView() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar por nombre o EPI…"
             aria-label="Buscar por nombre o EPI"
-            className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-[12.5px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600"
+            className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-[12.5px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
           />
         </div>
 

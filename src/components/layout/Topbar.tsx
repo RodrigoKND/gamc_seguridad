@@ -9,7 +9,7 @@ import { ErrorBanner } from '@/components/feedback/ErrorBanner';
 
 // RF/RNF: Dashboard Shell — Grupo 4 (MASTER.md sección 7.3).
 // Altura 64px, hamburguesa en móvil (MASTER.md sección 7.1). Migrado a la
-// paleta 2026 el 2026-09-06 (MASTER.md sección 4): barra "flotante" con
+// paleta Innova el 2026-09-06 (MASTER.md sección 4): barra "flotante" con
 // margen, esquinas redondeadas y vidrio (backdrop-blur) en vez de una franja
 // pegada al borde — más moderno sin perder la jerarquía sticky.
 
@@ -75,12 +75,12 @@ export function Topbar({
   }
 
   return (
-    <header className="sticky top-3 z-[1080] m-3 flex h-16 items-center gap-4 rounded-2xl border border-neutral-border/70 bg-white/75 px-4 shadow-[0_1px_2px_rgba(15,15,15,0.03),0_8px_24px_-12px_rgba(15,15,15,0.12)] backdrop-blur-md lg:m-4 lg:px-6">
+    <header className="sticky top-3 z-[1080] m-3 flex h-16 items-center gap-4 rounded-2xl border border-neutral-border/70 bg-white/75 px-4 shadow-[0_1px_2px_rgba(77,59,134,0.04),0_8px_24px_-12px_rgba(77,59,134,0.18)] backdrop-blur-md lg:m-4 lg:px-6">
       <button
         type="button"
         onClick={onOpenMobileMenu}
         aria-label="Abrir menú"
-        className="rounded-md p-2 text-neutral-text hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2 lg:hidden"
+        className="rounded-md p-2 text-primary-800 hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2 lg:hidden"
       >
         <Menu className="h-5 w-5" aria-hidden="true" />
       </button>
@@ -107,7 +107,7 @@ export function Topbar({
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleGlobalSearch(); }}
             placeholder="Buscar guardia, hecho, zona… (Enter)"
-            className="w-full rounded-full border border-neutral-border/80 bg-white/60 py-2 pl-9 pr-3 text-[13px] text-neutral-text placeholder:text-neutral-text-muted transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2"
+            className="w-full rounded-full border border-neutral-border/80 bg-white/60 py-2 pl-9 pr-3 text-[13px] text-neutral-text placeholder:text-neutral-text-muted transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
           />
         </div>
       </div>
@@ -119,7 +119,7 @@ export function Topbar({
             onClick={() => setIsBellOpen((open) => !open)}
             aria-label="Alertas"
             aria-expanded={isBellOpen}
-            className="relative rounded-full p-2 text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2"
+            className="relative rounded-full p-2 text-primary-800 transition-colors duration-200 hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
           >
             <Bell className="h-5 w-5" aria-hidden="true" />
             {unreadCount > 0 && (
@@ -135,7 +135,7 @@ export function Topbar({
               <div className="mb-2 flex items-center justify-between px-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-text-muted">Alertas</p>
                 {unreadCount > 0 && onMarkAllRead && (
-                  <button type="button" onClick={onMarkAllRead} className="text-xs font-medium text-brand-gold-600 hover:underline">
+                  <button type="button" onClick={onMarkAllRead} className="text-xs font-medium text-primary-800 hover:underline">
                     Marcar leídas
                   </button>
                 )}
@@ -166,7 +166,7 @@ export function Topbar({
                         onClick={() => handleNotifClick(n)}
                         className={[
                           'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-bg',
-                          n.read ? 'text-neutral-text-muted' : 'bg-brand-gold-100/60 font-medium text-neutral-text',
+                          n.read ? 'text-neutral-text-muted' : 'bg-primary-100/70 font-medium text-neutral-text',
                         ].join(' ')}
                       >
                         <span className="min-w-0 flex-1">
@@ -179,7 +179,7 @@ export function Topbar({
                             tabIndex={0}
                             onClick={(e) => { e.stopPropagation(); onMarkOneRead(n.id); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onMarkOneRead(n.id); }}}
-                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold text-brand-gold-700 hover:bg-white"
+                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold text-primary-800 hover:bg-white"
                           >
                             ✓
                           </span>
@@ -198,9 +198,9 @@ export function Topbar({
             type="button"
             onClick={() => setIsUserMenuOpen((open) => !open)}
             aria-expanded={isUserMenuOpen}
-            className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2"
+            className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-ink-900 text-white ring-1 ring-inset ring-brand-gold-500/30">
+            <span className="avatar-initials h-8 w-8">
               <User className="h-4 w-4" aria-hidden="true" />
             </span>
             <span className="hidden text-left sm:block">
@@ -215,7 +215,7 @@ export function Topbar({
               <button
                 type="button"
                 onClick={onLogout}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
                 Cerrar sesión

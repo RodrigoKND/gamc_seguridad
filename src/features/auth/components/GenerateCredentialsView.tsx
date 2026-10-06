@@ -11,9 +11,9 @@ import { UserCredentialModal } from './UserCredentialModal';
 // Super Admin). Selector de tipo → Guardia reutiliza GuardCreateModal tal
 // cual (ya implementa MASTER.md sección 13.2/14.2); Operador/Administrador
 // usa el formulario de email nuevo (UserCredentialModal, sección 15.4).
-// Migrado a la paleta 2026 el 2026-09-06 (MASTER.md sección 4) — pantalla
-// exclusiva de Super Admin, únicos módulos junto con Login/Dashboard Shell
-// migrados hasta ahora.
+// Tarjetas con el mismo lenguaje del menú de Inicio de la app móvil:
+// ícono en .icon-badge (círculo lila con anillo) que pasa a relleno
+// primary-700 al hover/foco (MASTER.md sección 4).
 
 type TipoCredencial = 'operador' | 'guardia' | 'administrador';
 
@@ -36,7 +36,7 @@ export function GenerateCredentialsView() {
   return (
     <PageContainer>
       <div className="col-span-12 mb-1">
-        <h1 className="text-4xl font-bold text-brand-ink-900">Generar Credenciales</h1>
+        <h1 className="text-4xl font-bold text-primary-900">Generar Credenciales</h1>
         <p className="mt-0.5 text-sm text-neutral-text-muted">
           Alta de Operador de Monitoreo, Guardia o Administrador — usuario y contraseña se generan automáticamente
         </p>
@@ -50,13 +50,13 @@ export function GenerateCredentialsView() {
               key={t.id}
               type="button"
               onClick={() => setTipo(t.id)}
-              className="flex animate-fade-in-up flex-col items-start gap-2.5 rounded-2xl border border-neutral-border bg-white p-5 text-left transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-brand-gold-500/60 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2"
+              className="group flex animate-fade-in-up cursor-pointer flex-col items-start gap-3 rounded-2xl border border-neutral-border bg-white p-5 text-left transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-[0_12px_28px_-12px_rgba(77,59,134,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-brand-gold-500/20 to-brand-gold-500/5 text-brand-gold-700">
-                <Icon className="h-5 w-5" aria-hidden="true" />
+              <span className="icon-badge h-12 w-12 transition-colors duration-200 group-hover:bg-primary-700 group-hover:text-white group-hover:ring-primary-700 group-focus-visible:bg-primary-700 group-focus-visible:text-white">
+                <Icon className="h-[22px] w-[22px]" aria-hidden="true" />
               </span>
-              <p className="text-base font-semibold text-brand-ink-900">{t.label}</p>
+              <p className="text-base font-semibold text-primary-900">{t.label}</p>
               <p className="text-[12.5px] leading-relaxed text-neutral-text-muted">{t.description}</p>
             </button>
           );

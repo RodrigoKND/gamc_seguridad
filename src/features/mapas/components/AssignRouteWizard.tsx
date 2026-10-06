@@ -72,7 +72,7 @@ function trazadoToPuntos(trazado: RutaPlantillaRow['trazado']): RoutePoint[] {
 function numberedPointIcon(index: number) {
   return L.divIcon({
     className: '',
-    html: `<div style="width:24px;height:24px;border-radius:9999px;background:#1A1A1A;border:2px solid #C59B6D;box-shadow:0 1px 3px rgba(0,0,0,.4);color:#C59B6D;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif">${index + 1}</div>`,
+    html: `<div style="width:24px;height:24px;border-radius:9999px;background:#6B559F;border:2px solid #E8567F;box-shadow:0 1px 3px rgba(58,44,107,.4);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif">${index + 1}</div>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   });
@@ -109,7 +109,7 @@ const ConfirmationMapPreview = memo(function ConfirmationMapPreview({ path, guar
     <div className="relative mb-4 h-[180px] overflow-hidden rounded-lg border border-neutral-border">
       <MapCanvas>
         {path.length >= 2 && (
-          <Polyline positions={path.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#A97F52', weight: 4, opacity: 0.9 }} />
+          <Polyline positions={path.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#C2335D', weight: 4, opacity: 0.9 }} />
         )}
         {guardPoints.map((g) => {
           // Mientras se calcula el camino real por calles, se muestra la
@@ -457,7 +457,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Asignar Ruta de Patrullaje" widthClassName="max-w-[720px]" accent="gold">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Asignar Ruta de Patrullaje" widthClassName="max-w-[720px]" accent="rose">
       {step === 'exito' ? (
         <div className="animate-fade-in p-6 text-center">
           <div className="mb-3.5 flex justify-center">
@@ -465,11 +465,11 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
               <CheckCircle2 className="h-6 w-6 text-risk-low" aria-hidden="true" />
             </span>
           </div>
-          <p className="mb-1 text-base font-semibold text-brand-ink-900">Ruta asignada correctamente</p>
+          <p className="mb-1 text-base font-semibold text-primary-900">Ruta asignada correctamente</p>
           <p className="mb-4 text-[12.5px] text-neutral-text-muted">
             {selectedGuardIds.length} guardia(s) quedaron con la ruta registrada — cada uno verá en su celular el trazado y la forma más rápida de incorporarse; el pin en el Mapa de Patrullaje en Vivo solo se moverá cuando su GPS real reporte.
           </p>
-          <Button variant="ink" onClick={handleClose} className="w-full">
+          <Button variant="brand" onClick={handleClose} className="w-full">
             Cerrar
           </Button>
         </div>
@@ -480,7 +480,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
             {(['inicio', 'guardias', 'ruta', 'confirmacion'] as const).map((s, i) => (
               <span key={s} className="flex items-center gap-1.5">
                 {i > 0 && <span className="text-neutral-border">—</span>}
-                <span className={step === s ? 'text-brand-gold-600' : ''}>
+                <span className={step === s ? 'font-semibold text-primary-800' : ''}>
                   {i + 1}. {{ inicio: 'Modalidad', guardias: 'Guardias', ruta: 'Ruta', confirmacion: 'Confirmar' }[s]}
                 </span>
               </span>
@@ -504,7 +504,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                     onClick={() => setEntryMode(mode)}
                     className={[
                       'border-b-2 px-3 py-2 text-sm font-medium transition-colors duration-200',
-                      entryMode === mode ? 'border-brand-gold-600 text-brand-gold-600' : 'border-transparent text-neutral-text-muted hover:text-neutral-text',
+                      entryMode === mode ? 'border-accent-600 text-accent-600' : 'border-transparent text-neutral-text-muted hover:text-neutral-text',
                     ].join(' ')}
                   >
                     {mode === 'nueva' ? 'Nueva Asignación' : 'Usar Plantilla Guardada'}
@@ -521,12 +521,12 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                         key={m}
                         type="button"
                         onClick={() => pickModalidad(m)}
-                        className="flex flex-col items-start gap-2 rounded-xl border border-neutral-border bg-white p-3.5 text-left transition-colors duration-200 hover:border-brand-gold-600 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2"
+                        className="group flex cursor-pointer flex-col items-start gap-2 rounded-xl border border-neutral-border bg-white p-3.5 text-left transition-colors duration-200 hover:border-primary-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
                       >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-gold-600/10 text-brand-gold-600">
+                        <span className="icon-badge h-10 w-10 transition-colors duration-200 group-hover:bg-primary-700 group-hover:text-white group-hover:ring-primary-700">
                           <Icon className="h-4.5 w-4.5" aria-hidden="true" />
                         </span>
-                        <p className="text-[13px] font-semibold text-brand-ink-900">{PATRULLA_MODALIDAD_LABELS[m]}</p>
+                        <p className="text-[13px] font-semibold text-primary-900">{PATRULLA_MODALIDAD_LABELS[m]}</p>
                         <p className="text-[11px] text-neutral-text-muted">Hasta {PATRULLA_MODALIDAD_CAPACIDAD[m]} guardia(s)</p>
                       </button>
                     );
@@ -548,7 +548,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                           onClick={() => pickPlantilla(r)}
                           className={[
                             'flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-3 text-left transition-colors duration-200',
-                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2',
+                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
                             invalida ? 'cursor-not-allowed opacity-40' : 'hover:bg-neutral-bg',
                           ].join(' ')}
                         >
@@ -599,9 +599,9 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                           onClick={(event) => toggleGuard(guard.id, index, event.shiftKey)}
                           className={[
                             'flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors duration-200',
-                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2',
+                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
                             isDisabled ? 'cursor-not-allowed opacity-40' : 'hover:bg-neutral-bg',
-                            isChecked ? 'bg-brand-gold-600/5' : '',
+                            isChecked ? 'bg-primary-100/70' : '',
                           ].join(' ')}
                         >
                           <input type="checkbox" checked={isChecked} disabled={isDisabled} readOnly className="pointer-events-none h-4 w-4" />
@@ -609,7 +609,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                             // eslint-disable-next-line @next/next/no-img-element -- foto remota del backend
                             <img src={guard.fotoUrl} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
                           ) : (
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-ink-900 text-[11px] font-bold text-brand-gold-500">
+                            <span className="avatar-initials h-8 w-8 text-[11px]">
                               {guardInitials(guard)}
                             </span>
                           )}
@@ -620,7 +620,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                           <span className={['shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold', OPERATIONAL_STATUS_BADGE_CLASS[guard.operationalStatus]].join(' ')}>
                             {OPERATIONAL_STATUS_LABELS[guard.operationalStatus]}
                           </span>
-                          {isChecked && <Check className="h-3.5 w-3.5 shrink-0 text-brand-gold-600" aria-hidden="true" />}
+                          {isChecked && <Check className="h-3.5 w-3.5 shrink-0 text-primary-700" aria-hidden="true" />}
                         </button>
                       </li>
                     );
@@ -632,7 +632,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                 <Button type="button" variant="secondary" onClick={() => setStep('inicio')} className="flex-1">
                   Atrás
                 </Button>
-                <Button type="button" variant="ink" onClick={() => setStep('ruta')} disabled={selectedGuardIds.length === 0} className="flex-1">
+                <Button type="button" variant="brand" onClick={() => setStep('ruta')} disabled={selectedGuardIds.length === 0} className="flex-1">
                   Siguiente
                 </Button>
               </div>
@@ -666,7 +666,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                </div>
 
                {calculandoRuta && (
-                 <p className="mb-2 text-[11.5px] text-brand-gold-700">Calculando el camino real por calles…</p>
+                 <p className="mb-2 text-[11.5px] text-primary-800">Calculando el camino real por calles…</p>
                )}
                {!calculandoRuta && rutaCalculada && !rutaCalculada.siguioCalles && (
                  <p role="alert" className="mb-2 text-[11.5px] text-risk-medium">
@@ -680,7 +680,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                    {!plantillaSeleccionada && <RouteClickCapture onClick={handleMapClick} disabled={openSearch} />}
                    <CenterOnGuards points={selectedGuardCurrentPositions.map((g) => g.currentPosition)} />
                    {activePath.length >= 2 && (
-                     <Polyline positions={activePath.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#A97F52', weight: 4, opacity: 0.9 }} />
+                     <Polyline positions={activePath.map((p) => [p.lat, p.lng])} pathOptions={{ color: '#C2335D', weight: 4, opacity: 0.9 }} />
                    )}
                    {!plantillaSeleccionada &&
                      puntos.map((p, i) => <Marker key={i} position={[p.lat, p.lng]} icon={numberedPointIcon(i)} />)}
@@ -701,7 +701,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                 <Button type="button" variant="secondary" onClick={() => setStep('guardias')} className="flex-1" disabled={isSubmitting}>
                   Atrás
                 </Button>
-                <Button type="button" variant="ink" onClick={() => setStep('confirmacion')} disabled={!pathReady} className="flex-1">
+                <Button type="button" variant="brand" onClick={() => setStep('confirmacion')} disabled={!pathReady} className="flex-1">
                   {pathReady ? 'Siguiente' : `Marque al menos ${MIN_PUNTOS} puntos`}
                 </Button>
               </div>
@@ -711,7 +711,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
           {/* Paso 4 — confirmación */}
           {step === 'confirmacion' && (
             <div className="p-5">
-              <p className="mb-2 text-xs font-bold text-brand-ink-900">VAS A ASIGNAR</p>
+              <p className="mb-2 text-xs font-bold text-primary-900">VAS A ASIGNAR</p>
               <div className="mb-4 flex flex-wrap gap-2">
                 {previewGuardPoints.map((g) => (
                   <span key={g.id} className="flex items-center gap-1.5 rounded-full border border-neutral-border bg-neutral-bg py-1 pl-1 pr-2.5 text-[11.5px] font-medium text-neutral-text">
@@ -744,14 +744,14 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                   placeholder="Ej. Patrullaje Terminal — Turno Tarde"
                   required
                   disabled={isSubmitting}
-                  accent="gold"
+                  accent="rose"
                 />
                 <Input
                   label="Descripción (opcional)"
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
                   disabled={isSubmitting}
-                  accent="gold"
+                  accent="rose"
                 />
               </div>
 
@@ -761,7 +761,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                     type="checkbox"
                     checked={guardarPlantilla}
                     onChange={(e) => setGuardarPlantilla(e.target.checked)}
-                    className="mt-0.5 accent-brand-gold-600"
+                    className="mt-0.5 accent-primary-700"
                     disabled={isSubmitting}
                   />
                   Guardar como plantilla reutilizable (si no la marcás, esta ruta no aparecerá luego en &quot;Usar Plantilla Guardada&quot;, pero los guardias seleccionados igual la comparten)
@@ -772,7 +772,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas, pre
                 <Button type="button" variant="secondary" onClick={() => setStep('ruta')} className="flex-1" disabled={isSubmitting}>
                   Atrás
                 </Button>
-                <Button type="button" variant="ink" onClick={handleSubmit} isLoading={isSubmitting} disabled={!nombre.trim()} className="flex-1">
+                <Button type="button" variant="brand" onClick={handleSubmit} isLoading={isSubmitting} disabled={!nombre.trim()} className="flex-1">
                   Asignar Ruta
                 </Button>
               </div>

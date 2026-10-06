@@ -73,10 +73,10 @@ export function IncidentTable({ hechos, status, onRetry, onSelect }: IncidentTab
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') onSelect(hecho);
                   }}
-                  className="cursor-pointer border-b border-neutral-bg transition-colors duration-200 last:border-0 hover:bg-neutral-bg/60 focus:outline-none focus-visible:bg-brand-blue-600/5"
+                  className="cursor-pointer border-b border-neutral-bg transition-colors duration-200 last:border-0 hover:bg-neutral-bg/60 focus:outline-none focus-visible:bg-primary-700/5"
                 >
                   <td className="px-3.5 py-3">
-                    <p className="text-[12.5px] font-semibold text-brand-blue-600">{hecho.tipo}</p>
+                    <p className="text-[12.5px] font-semibold text-primary-700">{hecho.tipo}</p>
                   </td>
                   <td className="px-3.5 py-3">
                     <Badge className={RISK_LEVEL_BADGE_CLASS[hecho.severidad]}>{RISK_LEVEL_LABELS[hecho.severidad]}</Badge>
@@ -92,7 +92,7 @@ export function IncidentTable({ hechos, status, onRetry, onSelect }: IncidentTab
                   </td>
                   <td className="px-3.5 py-3">
                     {hecho.tieneEvidencia ? (
-                      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-neutral-border/60 text-neutral-text-muted">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-100 text-primary-700">
                         <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
                       </span>
                     ) : (
