@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
@@ -13,7 +14,7 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [{ protocol: 'https', hostname: '**' }, { protocol: 'http', hostname: '**' }],
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 60
   },
   // Cabeceras de seguridad de línea base (aplican a todas las rutas). No se
   // incluye Content-Security-Policy todavía: el mapa carga teselas/tiles

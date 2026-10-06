@@ -8,8 +8,8 @@ import { Lock, RadioTower, ShieldCheck } from 'lucide-react';
 // de Innova y de la app móvil — sin degradados, halos ni marca de agua (el
 // escudo negro difuminado sobre lila se leía como una mancha, y los halos
 // púrpura/rosa son el anti-patrón "AI purple/pink gradients"). Se conserva
-// el divisor con rombo central (motivo heráldico del escudo) y el logo, sin
-// modificaciones, en un marco translúcido.
+// el logo, sin modificaciones, en un marco translúcido. El divisor con rombo
+// central se eliminó a pedido del usuario (2026-10-06).
 //
 // 2026-09-07 (ajustes a pedido del usuario):
 // 1. Proporción 65/35 (panel institucional / formulario) en desktop — fija;
@@ -50,13 +50,23 @@ const TRUST_POINTS = [
 export default function LoginPage() {
   return (
     <div className="relative grid min-h-screen grid-cols-1 lg:grid-cols-[minmax(0,13fr)_minmax(380px,7fr)]">
-      <div className="relative z-10 order-2 flex flex-col justify-center overflow-hidden bg-primary-700 px-8 py-16 text-white sm:px-16 lg:order-1">
+      <div className="relative z-10 order-2 flex flex-col justify-center overflow-hidden bg-gradient-to-br from-primary-700 via-primary-800 to-primary-900 px-8 py-16 text-white sm:px-16 lg:order-1">
+        {/* Trama diagonal fina (repeating-linear-gradient puro CSS): da textura
+            de superficie sin el degradado radial tipo "AI gradient". */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:repeating-linear-gradient(135deg,#fff_0,#fff_1px,transparent_1px,transparent_16px)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-accent-600"
+        />
         <div className="relative">
-          <div className="mb-8 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/15 p-3 ring-1 ring-inset ring-white/25">
-            <Logo size={56} />
+          <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/25 bg-white/15 p-3 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.55)] ring-1 ring-inset ring-white/30 backdrop-blur-xl">
+            <Logo size={72} />
           </div>
 
-          <p className="mb-2 text-[13px] font-semibold tracking-[0.14em] text-white/85">
+          <p className="mb-2 text-[13px] font-semibold tracking-[0.14em] text-accent-300">
             GOBIERNO AUTÓNOMO MUNICIPAL DE COCHABAMBA
           </p>
           <h1 className="mb-4 max-w-md text-[34px] font-bold leading-[1.15] tracking-tight">
@@ -64,23 +74,16 @@ export default function LoginPage() {
           </h1>
 
           <div className="max-w-md">
-            {/* Divisor heráldico: filete—rombo—filete, en vez de una simple línea (ux: color-not-only n/a — decorativo) */}
-            <div aria-hidden="true" className="mb-7 flex items-center gap-3">
-              <span className="h-px flex-1 bg-white/25" />
-              <span className="h-1.5 w-1.5 rotate-45 bg-accent-300" />
-              <span className="h-px flex-1 bg-white/25" />
-            </div>
-
-            <div className="space-y-4">
+            <ul className="space-y-2.5 rounded-2xl border border-white/15 bg-white/[0.08] p-4">
               {TRUST_POINTS.map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-inset ring-white/30">
+                <li key={label} className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-accent-300 ring-1 ring-inset ring-white/25">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
-                  <p className="text-sm text-white/85">{label}</p>
-                </div>
+                  <p className="text-sm text-primary-100">{label}</p>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         </div>
       </div>

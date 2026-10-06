@@ -146,12 +146,6 @@ export function LoginForm() {
       <Button type="submit" variant="brand" isLoading={isLoading} disabled={isSuccess} className="mt-6 w-full py-2.5">
         {isLoading ? 'Verificando…' : 'Ingresar'}
       </Button>
-
-      <div className="mt-4 text-center">
-        <a href="#" className="rounded text-xs font-medium text-primary-800 underline-offset-2 transition-colors duration-200 hover:text-primary-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2">
-          ¿Olvidó su contraseña? Contacte a Sistemas GAMC
-        </a>
-      </div>
     </form>
   );
 }

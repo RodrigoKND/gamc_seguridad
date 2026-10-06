@@ -17,12 +17,12 @@ import { ROLE_NAV_ROUTES } from '@/lib/permissions';
 import type { UserRole } from '@/types/user';
 
 // RF/RNF: Dashboard Shell — Grupo 4 (MASTER.md sección 7.3).
-// Paleta Innova (MASTER.md sección 4): superficie PLANA primary-700 — el
-// mismo lila de la barra lateral de Innova y del header de la app móvil.
-// Sin degradado ni marca de agua (skill ui-ux-pro-max: "AI purple/pink
-// gradients" es anti-patrón; estilo gubernamental "Accessible & Ethical").
-// Ítem activo = píldora blanca con texto primary-900 (9.19:1) e ícono
-// accent-600 (5.35:1); inactivos en white/85 (4.98:1 sobre primary-700).
+// Paleta Innova (MASTER.md sección 4): lila primary-700 → primary-900 en
+// degradado sutil (a pedido del usuario 2026-10-06: el plano se perdía
+// contra el contenido y el morado "no se notaba").
+// Letras SIEMPRE claras sobre el morado: inactivas primary-100 (5.1:1 sobre
+// primary-700), activas white sobre píldora primary-950/70 (10:1) con barra
+// e ícono accent-300 — nada de texto negro sobre fondo claro.
 // Foco: anillo blanco con offset del mismo lila (visible sobre la superficie).
 // Árbol de navegación por rol — MASTER.md sección 7.2 (Opción A: los ítems
 // fuera de alcance NO se renderizan, no se muestran deshabilitados). El
@@ -80,7 +80,7 @@ export function Sidebar({
       <aside
         aria-label="Navegación principal"
         className={[
-          'fixed inset-y-0 left-0 z-[1100] flex flex-col overflow-hidden bg-primary-700 transition-[transform,width] duration-200 ease-in-out',
+          'fixed inset-y-0 left-0 z-[1100] flex flex-col overflow-hidden bg-gradient-to-b from-primary-700 via-primary-800 to-primary-900 transition-[transform,width] duration-200 ease-in-out',
           'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
           isCollapsed ? 'lg:w-[72px]' : 'lg:w-[260px]',
           'w-[260px]',
@@ -94,14 +94,14 @@ export function Sidebar({
           {!isCollapsed && (
             <div className="min-w-0 animate-fade-in">
               <p className="truncate text-sm font-semibold text-white">GAMC</p>
-              <p className="truncate text-xs text-white/85">Seguridad Ciudadana</p>
+              <p className="truncate text-xs text-primary-100">Seguridad Ciudadana</p>
             </div>
           )}
           <button
             type="button"
             onClick={onCloseMobile}
             aria-label="Cerrar menú"
-            className="ml-auto rounded-md p-1.5 text-white/85 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-700 lg:hidden"
+            className="ml-auto rounded-md p-1.5 text-primary-100 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-700 lg:hidden"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -121,15 +121,15 @@ export function Sidebar({
                 title={isCollapsed ? item.label : undefined}
                 onClick={onCloseMobile}
                 className={[
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium',
+                  'flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2.5 text-[13.5px] font-medium',
                   'transition-colors duration-200',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-700',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-800',
                   isActive
-                    ? 'bg-white font-semibold text-primary-900 shadow-sm'
-                    : 'text-white/85 hover:bg-white/10 hover:text-white',
+                    ? 'border-accent-300 bg-primary-950/70 font-semibold text-white ring-1 ring-inset ring-white/15'
+                    : 'border-transparent text-primary-100 hover:bg-white/10 hover:text-white',
                 ].join(' ')}
               >
-                <Icon className={['h-5 w-5 shrink-0', isActive ? 'text-accent-600' : ''].join(' ')} aria-hidden="true" />
+                <Icon className={['h-5 w-5 shrink-0', isActive ? 'text-accent-300' : ''].join(' ')} aria-hidden="true" />
                 {!isCollapsed && <span className="truncate">{item.label}</span>}
               </Link>
             );
@@ -141,7 +141,7 @@ export function Sidebar({
             type="button"
             onClick={onToggleCollapse}
             aria-label={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
-            className="hidden w-full items-center justify-center gap-2 rounded-lg p-2 text-xs font-medium text-white/85 transition-colors duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-700 lg:flex"
+            className="hidden w-full items-center justify-center gap-2 rounded-lg p-2 text-xs font-medium text-primary-100 transition-colors duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-700 lg:flex"
           >
             {isCollapsed ? (
               <ChevronRight className="h-4 w-4" aria-hidden="true" />
