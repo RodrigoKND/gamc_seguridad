@@ -49,9 +49,9 @@ function guardRowClasses(isSelected: boolean, isSos: boolean) {
   }
   return [
     'flex w-full items-start gap-2.5 py-2.5 pl-3 pr-2 text-left transition-colors duration-200',
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2',
-    isSelected ? 'bg-brand-gold-600/5' : 'hover:bg-neutral-bg',
-    'border-l-[3px] border-transparent',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
+    isSelected ? 'border-primary-700 bg-primary-100/70' : 'border-transparent hover:bg-neutral-bg',
+    'border-l-[3px]',
   ].join(' ');
 }
 
@@ -88,7 +88,7 @@ const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandF
           aria-label={`Ampliar foto de ${guard.nombre}`}
           className={[
             'shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2',
-            isSos ? 'ring-2 ring-white focus-visible:ring-white' : 'focus-visible:ring-brand-gold-600',
+            isSos ? 'ring-2 ring-white focus-visible:ring-white' : 'focus-visible:ring-primary-700',
           ].join(' ')}
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- foto remota del backend */}
@@ -97,8 +97,8 @@ const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandF
       ) : (
         <span
           className={[
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold',
-            isSos ? 'bg-white/15 text-white ring-2 ring-white' : 'bg-brand-ink-900 text-brand-gold-500',
+            'h-8 w-8 text-[11px]',
+            isSos ? 'flex shrink-0 items-center justify-center rounded-full bg-white/15 font-bold text-white ring-2 ring-white' : 'avatar-initials',
           ].join(' ')}
         >
           {guard.label}
@@ -176,7 +176,7 @@ const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandF
               type="button"
               onClick={onStartConfirm}
               aria-label={`Sacar a ${guard.nombre} de la ruta`}
-              className="flex h-5 w-5 items-center justify-center rounded-full text-neutral-text-muted transition-colors duration-200 hover:bg-risk-critical/10 hover:text-risk-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600"
+              className="flex h-5 w-5 items-center justify-center rounded-full text-neutral-text-muted transition-colors duration-200 hover:bg-risk-critical/10 hover:text-risk-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
@@ -199,6 +199,12 @@ export interface PatrolRosterPanelProps {
   onCancelGuardFromRoute?: (patrullaId: string) => Promise<boolean>;
   /** Mapa de guardias que se han desviado de su ruta. */
   desviaciones?: Map<string, { lat: number; lng: number; distanciaM: number }>;
+  /**
+   * Jurisdicción por EPI (2026-10-05): ¿el usuario puede modificar la ruta de
+   * este guardia? Sin la prop, todo es editable (super_admin). Una ruta solo
+   * se puede cancelar entera si TODOS sus guardias son de su EPI.
+   */
+  puedeEditar?: (guard: GuardMarker) => boolean;
 }
 
 export const PatrolRosterPanel = memo(function PatrolRosterPanel({
@@ -209,6 +215,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
   onCancelRoute,
   onCancelGuardFromRoute,
   desviaciones = new Map(),
+  puedeEditar,
 }: PatrolRosterPanelProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [fotoExpandida, setFotoExpandida] = useState<{ src: string; alt: string } | null>(null);
@@ -273,13 +280,6 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
   );
 
   const routedGuardIds = useMemo(() => new Set(routeGroups.flatMap((r) => r.guards.map((m) => m.guardiaId))), [routeGroups]);
-  const generalGuards = useMemo(
-    () =>
-      guards
-        .filter((g) => !g.hasSos && !routedGuardIds.has(g.id))
-        .sort((a, b) => a.nombre.localeCompare(b.nombre)),
-    [guards, routedGuardIds],
-  );
 
   // Búsqueda y filtros
   const guardedBySearch = useMemo(() => {
@@ -355,7 +355,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
               type="button"
               onClick={() => setFilterStatus(s)}
               className={`rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
-                filterStatus === s ? 'bg-brand-gold-600/20 text-brand-gold-700' : 'bg-neutral-bg text-neutral-text-muted hover:bg-neutral-border'
+                filterStatus === s ? 'bg-primary-700 text-white' : 'bg-primary-50 text-neutral-text-muted hover:bg-primary-100'
               }`}
             >
               {s === 'todos' ? 'Todos' : OPERATIONAL_STATUS_LABELS[s]}
@@ -372,7 +372,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
             ))}
           </select>
           {activeFilterCount > 0 && (
-            <button type="button" onClick={() => { setSearchQuery(''); setFilterStatus('todos'); setFilterRoute('todos'); }} className="ml-auto text-[10px] text-brand-gold-600 hover:underline">
+            <button type="button" onClick={() => { setSearchQuery(''); setFilterStatus('todos'); setFilterRoute('todos'); }} className="ml-auto text-[10px] font-medium text-primary-800 hover:underline">
               Limpiar filtros
             </button>
           )}
@@ -380,7 +380,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
       </div>
       <div className="flex items-center justify-between border-b border-neutral-border px-4 py-3">
         <div>
-          <p className="text-sm font-bold text-brand-ink-900">Guardias en Patrullaje</p>
+          <p className="text-sm font-bold text-primary-900">Guardias en Patrullaje</p>
           <p className="text-xs text-neutral-text-muted">{displayedGuards.length} de {guards.length} en el mapa</p>
         </div>
       </div>
@@ -412,6 +412,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
             const isConfirmingRoute = confirmingRouteId === route.id;
             const isCancellingRoute = cancellingRouteId === route.id;
             const filteredMembers = members.filter((m) => displayedGuards.some((dg) => dg.id === m.guardiaId));
+            const rutaEditable = !puedeEditar || members.every((m) => puedeEditar(m.guard));
             return (
               <div key={route.id} className="border-b border-neutral-border">
                 <div className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-neutral-text">
@@ -421,7 +422,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
                     <span className="min-w-0 flex-1 truncate normal-case">{route.nombre}</span>
                     <span className="shrink-0 text-[10.5px] font-semibold text-neutral-text-muted">({filteredMembers.length}) · {route.guardiasEnRuta} en ruta</span>
                   </button>
-                  {onCancelRoute &&
+                  {onCancelRoute && rutaEditable &&
                     (isConfirmingRoute ? (
                       <span className="flex shrink-0 items-center gap-1">
                         <span className="text-[10.5px] font-normal normal-case text-neutral-text-muted">¿Cancelar?</span>
@@ -449,7 +450,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
                         type="button"
                         onClick={() => setConfirmingRouteId(route.id)}
                         aria-label={`Cancelar la ruta ${route.nombre}`}
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-text-muted transition-colors duration-200 hover:bg-risk-critical/10 hover:text-risk-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-text-muted transition-colors duration-200 hover:bg-risk-critical/10 hover:text-risk-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
                       >
                         <X className="h-3 w-3" aria-hidden="true" />
                       </button>
@@ -467,7 +468,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
                              isSelected={guard.id === selectedId}
                              onSelect={onSelect}
                              onExpandFoto={setFotoExpandida}
-                             onRemoveFromRoute={onCancelGuardFromRoute ? () => handleConfirmRemoveGuard(patrullaId) : undefined}
+                             onRemoveFromRoute={onCancelGuardFromRoute && (!puedeEditar || puedeEditar(guard)) ? () => handleConfirmRemoveGuard(patrullaId) : undefined}
                              removing={cancellingPatrullaId === patrullaId}
                              confirming={confirmingPatrullaId === patrullaId}
                              onStartConfirm={() => setConfirmingPatrullaId(patrullaId)}

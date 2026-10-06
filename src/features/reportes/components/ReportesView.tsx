@@ -91,7 +91,7 @@ export function ReportesView() {
     <PageContainer>
       <div className="col-span-12 mb-1 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-4xl font-bold text-brand-navy-950">Historial</h1>
+          <h1 className="text-4xl font-bold text-primary-900">Historial</h1>
           <p className="mt-0.5 text-sm text-neutral-text-muted">
             Archivo completo de reportes para exportación y reportería institucional
           </p>

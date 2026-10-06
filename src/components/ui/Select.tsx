@@ -5,23 +5,23 @@ import { ChevronDown } from 'lucide-react';
 
 // Select primitivo compartido — filtros de tabla (sin label visible, usar
 // aria-label) y formularios (con label visible). No duplicar por feature
-// (MASTER.md sección 6). `accent="gold"` es opt-in para pantallas migradas
-// a la paleta 2026 (MASTER.md sección 4) — no afecta a los demás consumidores.
+// (MASTER.md sección 6). `accent="rose"` (anillo accent-500, rosa Innova) es opt-in para
+// formularios de marca (MASTER.md sección 4); el default es púrpura.
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   children: ReactNode;
-  accent?: 'blue' | 'gold';
+  accent?: 'purple' | 'rose';
 }
 
-const RING_CLASSES: Record<'blue' | 'gold', string> = {
-  blue: 'focus-visible:ring-brand-blue-600',
-  gold: 'focus-visible:ring-brand-gold-600',
+const RING_CLASSES: Record<'purple' | 'rose', string> = {
+  purple: 'focus-visible:ring-primary-700',
+  rose: 'focus-visible:ring-accent-500',
 };
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, required, accent = 'blue', className = '', id, children, ...rest }, ref) => {
+  ({ label, error, required, accent = 'purple', className = '', id, children, ...rest }, ref) => {
     const generatedId = useId();
     const selectId = id ?? generatedId;
 

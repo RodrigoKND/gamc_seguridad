@@ -5,8 +5,10 @@ import { Check, Copy } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { generateUserCredentialsAction } from '../actions/generateCredentials';
 import { USER_ROLE_LABELS, type UserRole } from '../types';
+import { EPI_ZONES, EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
 
 // RF-01, RF-03 (MASTER.md sección 7.3 y 15.4). Alta de Operador/Administrador
 // — MISMO formulario y lógica que GuardCreateModal: nombres/apellidos/
@@ -16,8 +18,8 @@ import { USER_ROLE_LABELS, type UserRole } from '../types';
 // el campo identificador (correo en vez de CI + fecha de nacimiento) y que
 // la contraseña temporal es aleatoria, no la fecha de nacimiento — ver el
 // TODO en features/auth/actions/generateCredentials.ts citando MASTER.md 15.4.
-// Migrado a la paleta 2026 el 2026-09-06 (MASTER.md sección 4): Modal/Input
-// con accent="gold", Button variant="ink".
+// Migrado a la paleta Innova el 2026-09-06 (MASTER.md sección 4): Modal/Input
+// con accent="rose", Button variant="brand".
 
 export interface UserCredentialModalProps {
   isOpen: boolean;
@@ -57,6 +59,7 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
       apellidoMaterno: String(formData.get('apellidoMaterno') ?? '').trim(),
       telefono: String(formData.get('telefono') ?? '').trim(),
       email: String(formData.get('email') ?? '').trim(),
+      epi: String(formData.get('epi') ?? '') as EpiZone,
     };
 
     if (existingEmails.some((existing) => existing.toLowerCase() === data.email.toLowerCase())) {
@@ -93,7 +96,7 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={`Generar Credenciales — ${USER_ROLE_LABELS[role]}`} accent="gold">
+    <Modal isOpen={isOpen} onClose={handleClose} title={`Generar Credenciales — ${USER_ROLE_LABELS[role]}`} accent="rose">
       {phase === 'success' && credentials ? (
         <div className="animate-fade-in p-6">
           <div className="mb-3.5 flex justify-center">
@@ -101,12 +104,12 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
               <Check className="h-6 w-6 text-risk-low" aria-hidden="true" />
             </span>
           </div>
-          <p className="mb-1 text-center text-base font-semibold text-brand-ink-900">
+          <p className="mb-1 text-center text-base font-semibold text-primary-900">
             {USER_ROLE_LABELS[role]} registrado con éxito
           </p>
           <p className="mb-4 text-center text-[12.5px] text-neutral-text-muted">{createdName}</p>
 
-          <div className="mb-4 rounded-lg border-l-[3px] border-brand-gold-500 bg-neutral-bg p-3.5">
+          <div className="mb-4 rounded-lg border-l-[3px] border-accent-500 bg-neutral-bg p-3.5">
             <div className="mb-2 flex items-center justify-between text-[12.5px]">
               <span className="text-neutral-text-muted">Usuario</span>
               <span className="font-mono font-semibold text-neutral-text">{credentials.usuario}</span>
@@ -127,7 +130,7 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
             Deberá cambiar su contraseña en el primer inicio de sesión (obligatorio, no editable)
           </label>
 
-          <Button variant="ink" onClick={handleClose} className="w-full">
+          <Button variant="brand" onClick={handleClose} className="w-full">
             Cerrar
           </Button>
         </div>
@@ -140,31 +143,39 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
           )}
 
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Primer Nombre" name="primerNombre" accent="gold" required disabled={phase === 'loading'} />
-            <Input label="Segundo Nombre" name="segundoNombre" accent="gold" disabled={phase === 'loading'} />
+            <Input label="Primer Nombre" name="primerNombre" accent="rose" required disabled={phase === 'loading'} />
+            <Input label="Segundo Nombre" name="segundoNombre" accent="rose" disabled={phase === 'loading'} />
           </div>
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Apellido Paterno" name="apellidoPaterno" accent="gold" required disabled={phase === 'loading'} />
-            <Input label="Apellido Materno" name="apellidoMaterno" accent="gold" required disabled={phase === 'loading'} />
+            <Input label="Apellido Paterno" name="apellidoPaterno" accent="rose" required disabled={phase === 'loading'} />
+            <Input label="Apellido Materno" name="apellidoMaterno" accent="rose" required disabled={phase === 'loading'} />
           </div>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Teléfono" name="telefono" placeholder="+591 7XX XXXXX" accent="gold" required disabled={phase === 'loading'} />
+            <Input label="Teléfono" name="telefono" placeholder="+591 7XX XXXXX" accent="rose" required disabled={phase === 'loading'} />
             <Input
               label="Correo institucional"
               name="email"
               type="email"
               placeholder="nombre.apellido@cochabamba.bo"
-              accent="gold"
+              accent="rose"
               required
               disabled={phase === 'loading'}
             />
+          </div>
+          <div className="mb-4">
+            <Select label="EPI / Jurisdicción asignada" name="epi" accent="rose" required disabled={phase === 'loading'} defaultValue="">
+              <option value="" disabled>Seleccione una EPI</option>
+              {EPI_ZONES.map((epi) => (
+                <option key={epi} value={epi}>EPI {EPI_ZONE_LABELS[epi]}</option>
+              ))}
+            </Select>
           </div>
 
           <div className="flex gap-2.5">
             <Button type="button" variant="secondary" onClick={handleClose} className="flex-1" disabled={phase === 'loading'}>
               Cancelar
             </Button>
-            <Button type="submit" variant="ink" isLoading={phase === 'loading'} className="flex-1">
+            <Button type="submit" variant="brand" isLoading={phase === 'loading'} className="flex-1">
               Generar Credenciales
             </Button>
           </div>

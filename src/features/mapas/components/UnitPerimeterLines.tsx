@@ -59,7 +59,7 @@ export function UnitPerimeterLines({ guards }: UnitPerimeterLinesProps) {
         <Polyline
           key={`${a.id}-${b.id}-${index}`}
           positions={[[a.lat, a.lng], [b.lat, b.lng]]}
-          pathOptions={{ color: '#1A1A1A', weight: 2, dashArray: '6 6', opacity: 0.6 }}
+          pathOptions={{ color: '#4D3B86', weight: 2, dashArray: '6 6', opacity: 0.6 }}
         />
       ))}
     </>

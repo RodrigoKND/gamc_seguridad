@@ -6,21 +6,21 @@
  * token ahí, debe reflejarse aquí también.
  */
 :root {
-  /* Marca institucional — legado (en migración, ver MASTER.md sección 4) */
-  --brand-navy-950: #0b1b3d;
-  --brand-navy-800: #16264d;
-  --brand-blue-600: #1d4ed8;
-
-  /* Marca institucional — paleta vigente, extraída del logo 2026 */
-  --brand-ink-950: #0d0d0e;
-  --brand-ink-900: #1a1a1a;
-  --brand-ink-800: #262624;
-  --brand-ink-700: #3d3a35;
-  --brand-gold-500: #c59b6d;
-  --brand-gold-600: #a97f52;
-  --brand-gold-700: #8c6740;
-  --brand-gold-300: #ddbe97;
-  --brand-gold-100: #f3e7d8;
+  /* Marca institucional — paleta Innova / app móvil (MASTER.md sección 4) */
+  --primary-950: #3a2c6b;
+  --primary-900: #4d3b86;
+  --primary-800: #5a4794;
+  --primary-700: #6b559f;
+  --primary-500: #8c78bf;
+  --primary-300: #b8a9da;
+  --primary-200: #e1d9f2;
+  --primary-100: #efeaf8;
+  --primary-50: #f5f2fa;
+  --accent-700: #9e2248;
+  --accent-600: #c2335d;
+  --accent-500: #e8567f;
+  --accent-300: #f28ba6;
+  --accent-100: #fce8ee;
 
   /* Semántica de riesgo / estado */
   --risk-critical: #dc2626;
@@ -36,8 +36,8 @@
   --epi-centro: #0b1b3d;
 
   /* Neutrales */
-  --neutral-bg: #f5f7fa;
-  --neutral-border: #e5e7eb;
-  --neutral-text: #1f2937;
-  --neutral-text-muted: #6b7280;
+  --neutral-bg: #f5f2fa;
+  --neutral-border: #ddd6ec;
+  --neutral-text: #1f1a2e;
+  --neutral-text-muted: #6b6880;
 }

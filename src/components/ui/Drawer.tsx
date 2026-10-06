@@ -44,7 +44,7 @@ export function Drawer({
       <div
         onClick={onClose}
         aria-hidden="true"
-        className="absolute inset-0 animate-fade-in bg-brand-navy-950/40"
+        className="absolute inset-0 animate-fade-in bg-primary-900/40"
       />
       <div
         ref={panelRef}

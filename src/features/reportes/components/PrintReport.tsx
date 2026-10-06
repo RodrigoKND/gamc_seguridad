@@ -9,7 +9,7 @@ import { clearPrintPayload, subscribePrintPayload, type PrintPayload } from '@/l
 // Montado una sola vez en el shell del dashboard. Cuando exportPDF() publica
 // un payload en el store, renderiza (vía portal, fuera del shell que queda
 // oculto con print:hidden) un documento HTML semántico con dos partes:
-//   1. Portada: hoja completa en negro #0A0A0B, logo al medio y la leyenda
+//   1. Portada: hoja completa en púrpura #4D3B86 (primary-900), logo al medio y la leyenda
 //      "Reporte — fecha — GAMC SEGURIDAD CIUDADANA".
 //   2. Contenido: membrete institucional y la tabla de datos real (nada de
 //      capturas de pantalla), con encabezados que se repiten por página.

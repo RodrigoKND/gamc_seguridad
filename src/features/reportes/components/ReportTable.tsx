@@ -1,4 +1,4 @@
-import { FileWarning } from 'lucide-react';
+import { FileWarning, Play } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { RISK_LEVEL_BADGE_CLASS, RISK_LEVEL_LABELS } from '@/types/risk';
@@ -42,7 +42,7 @@ export function ReportTable({ rows }: ReportTableProps) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-neutral-bg last:border-0">
-                <td className="px-3.5 py-3 text-[12.5px] font-semibold text-brand-blue-600">{row.tipo}</td>
+                <td className="px-3.5 py-3 text-[12.5px] font-semibold text-primary-700">{row.tipo}</td>
                 <td className="px-3.5 py-3">
                   <Badge className={RISK_LEVEL_BADGE_CLASS[row.severidad]}>{RISK_LEVEL_LABELS[row.severidad]}</Badge>
                 </td>
@@ -60,7 +60,9 @@ export function ReportTable({ rows }: ReportTableProps) {
                       {row.evidencias.slice(0, 3).map((ev) => (
                         <a key={ev.id} href={ev.url} target="_blank" rel="noopener noreferrer" className="block h-9 w-9 overflow-hidden rounded-md border border-neutral-border bg-neutral-bg">
                           {ev.tipo === 'video' ? (
-                            <span className="flex h-full w-full items-center justify-center bg-neutral-900 text-white text-[10px]">▶</span>
+                            <span className="flex h-full w-full items-center justify-center bg-primary-900 text-white">
+                              <Play className="h-3.5 w-3.5 fill-white" aria-label="Video" />
+                            </span>
                           ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={ev.url} alt="evidencia" className="h-full w-full object-cover" loading="lazy" />
