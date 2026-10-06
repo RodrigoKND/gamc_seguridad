@@ -11,6 +11,7 @@
 /.claude/
 # Producción
 /build
+/deploy/
 
 # Variables de entorno — nunca commitear valores reales (MASTER.md sección 6: lib/).
 .env
