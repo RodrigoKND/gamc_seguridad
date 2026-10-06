@@ -14,6 +14,7 @@ import { revalidateTag } from 'next/cache';
 import { apiFetch, apiFetchPage } from '@/lib/api/http';
 import { groupPatrullasByRuta } from '@/features/mapas/lib/routeGroups';
 import { projectOntoPath } from '@/features/mapas/lib/routeGeometry';
+import type { EpiJurisdiccion, Jurisdiccion } from '@/features/mapas/lib/jurisdiccion';
 
 // Tags de revalidación on-demand (Next.js Data Cache). Los GET con
 // `revalidate: N` quedan cacheados N segundos SIN importar que llegue un
@@ -422,7 +423,7 @@ export const getGuardMarkers = cache(async (guardiasPrefetched?: Guard[]): Promi
           for (const [lng, lat] of trazado) {
             path.push({ lat, lng });
           }
-          rutaAsignada = { nombre: rt.nombre, color: '#A97F52', puntos: path };
+          rutaAsignada = { nombre: rt.nombre, color: '#C2335D', puntos: path };
         }
       }
       return ({
@@ -641,6 +642,26 @@ export async function cancelarPatrulla(patrullaId: string): Promise<{ patrullaId
   return result;
 }
 
+// Jurisdicción por EPI (2026-10-05): polígonos para la capa "cristal" del
+// mapa + la EPI del usuario. Sin caché compartido — `miEpiCodigo` depende
+// de quién pregunta.
+interface ApiJurisdiccion {
+  epis: { id: string; codigo: string; nombre: string; poligono: EpiJurisdiccion['poligono'] }[];
+  miEpiCodigo: string | null;
+  restringido: boolean;
+}
+
+export async function getJurisdiccion(): Promise<Jurisdiccion> {
+  const data = await apiFetch<ApiJurisdiccion>('/api/mapas/jurisdiccion');
+  return {
+    epis: data.epis
+      .filter((e) => EPI_CODIGO_A_SLUG[e.codigo])
+      .map((e) => ({ zone: EPI_CODIGO_A_SLUG[e.codigo]!, nombre: e.nombre, poligono: e.poligono })),
+    miEpi: data.miEpiCodigo ? (EPI_CODIGO_A_SLUG[data.miEpiCodigo] ?? null) : null,
+    restringido: data.restringido,
+  };
+}
+
 export interface HeatmapPoint { lat: number; lng: number; nivelRiesgo: string }
 
 export async function getHeatmap(params: { desde?: string; hasta?: string; epiId?: string } = {}): Promise<HeatmapPoint[]> {
@@ -670,6 +691,7 @@ interface ApiUser {
   debeCambiarPassword: boolean;
   creadoPorNombre: string | null;
   createdAt: string;
+  epiCodigo: string | null;
 }
 
 function rowToUserApi(row: ApiUser): UserRow {
@@ -687,6 +709,7 @@ function rowToUserApi(row: ApiUser): UserRow {
     apellidoPaterno: row.apellidoPaterno,
     apellidoMaterno: row.apellidoMaterno,
     telefono: row.telefono ?? undefined,
+    epi: row.epiCodigo ? EPI_CODIGO_A_SLUG[row.epiCodigo] : undefined,
   };
 }
 
@@ -808,6 +831,7 @@ export async function crearUsuario(data: {
   telefono: string;
   email: string;
   role: UserRow['role'];
+  epi: EpiZone;
   createdBy: string;
 }): Promise<{ usuario: UserRow; passwordTemporal: string }> {
   const result = await apiFetch<ApiUserCreated>('/api/usuarios', {
@@ -823,6 +847,7 @@ export async function crearUsuario(data: {
       usuario: data.email.split('@')[0] ?? data.email,
       telefono: data.telefono,
       email: data.email,
+      epiCodigo: EPI_SLUG_A_CODIGO[data.epi],
     },
   });
   return { usuario: rowToUserApi(result.user), passwordTemporal: result.temporaryPassword };
@@ -904,9 +929,19 @@ export interface Mandado {
   creadoEn: string;
 }
 
+interface ApiMandado {
+  id: string;
+  guardiaId: string;
+  guardiaNombre?: string | null;
+  descripcion: string;
+  lat: number;
+  lng: number;
+  creadoEn: string;
+}
+
 export const getMandados = cache(async (limit = 50): Promise<Mandado[]> => {
   try {
-    const rows = await apiFetch<any[]>(`/api/mandados/todos?limit=${limit}`, { revalidate: 5 });
+    const rows = await apiFetch<ApiMandado[]>(`/api/mandados/todos?limit=${limit}`, { revalidate: 5 });
     return rows.map((r) => ({
       id: r.id,
       guardiaId: r.guardiaId,

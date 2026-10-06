@@ -39,7 +39,7 @@ export function HechosPorZonaChart({ data, onSelect }: HechosPorZonaChartProps) 
           role={onSelect ? 'button' : undefined}
           tabIndex={onSelect ? 0 : undefined}
           onKeyDown={onSelect ? (e) => { if (e.key === 'Enter') onSelect(item); } : undefined}
-          className={`flex animate-rise-up items-center gap-3 ${onSelect ? 'cursor-pointer rounded-md px-1 py-1 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600' : ''}`}
+          className={`flex animate-rise-up items-center gap-3 ${onSelect ? 'cursor-pointer rounded-md px-1 py-1 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700' : ''}`}
           style={{ animationDelay: `${100 + i * 70}ms` }}
         >
           <span className="w-16 shrink-0 truncate text-sm text-neutral-text-muted">{EPI_ZONE_LABELS[item.zone]}</span>

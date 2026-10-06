@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { PROFILE_COOKIE_NAME, parseSessionCookie } from '@/lib/auth-session-shared';
 import { KpiGrid } from './KpiGrid';
 import { ChartCard } from './ChartCard';
 import { HechosPorDiaChart } from './HechosPorDiaChart';
@@ -29,6 +30,15 @@ function buildKpiItems(kpis: { hechosHoy: number; hechosEnRevision: number; guar
 
 export function DashboardClient({ denied }: { denied?: string }) {
   const router = useRouter();
+  // Solo lectura del perfil (gamc_profile) para el saludo — NO useAuthSession:
+  // una segunda instancia de ese hook puede disparar su propio refresh de
+  // sesión en paralelo al del layout y competir por el refresh token rotativo.
+  const [firstName, setFirstName] = useState<string | undefined>();
+  useEffect(() => {
+    const raw = document.cookie.split('; ').find((row) => row.startsWith(`${PROFILE_COOKIE_NAME}=`));
+    const profile = raw ? parseSessionCookie(decodeURIComponent(raw.split('=').slice(1).join('='))) : null;
+    setFirstName(profile?.name.split(' ')[0]);
+  }, []);
   const [kpis, setKpis] = useState<{ hechosHoy: number; hechosEnRevision: number; guardiasEnServicio: number; sosPendientes: number } | null>(null);
   const [hechosPorDia, setHechosPorDia] = useState<HechoPorDiaPoint[]>([]);
   const [hechosPorTipo, setHechosPorTipo] = useState<HechoPorTipoItem[]>([]);
@@ -163,7 +173,18 @@ export function DashboardClient({ denied }: { denied?: string }) {
   return (
     <PageContainer>
       {denied && <AccessDeniedBanner deniedPath={denied} />}
-      <PageHeader title="Dashboard" />
+      {/* Saludo de inicio — mismo detalle que la pantalla Inicio de la app
+          móvil (appmunicipal HomeScreen): pregunta con el "?" en el rosa de
+          acento de Innova. text-xl bold = texto grande (3.46:1 ≥ 3:1 WCAG). */}
+      <PageHeader
+        title="Dashboard"
+        subtitle={
+          <>
+            {firstName ? <>Hola, <span className="font-semibold text-neutral-text">{firstName}</span> — </> : null}
+            ¿Qué quieres revisar hoy<span className="text-xl font-extrabold leading-none text-accent-500"> ?</span>
+          </>
+        }
+      />
       <KpiGrid items={kpis ? buildKpiItems(kpis) : []} status={status === 'ready' ? 'ready' : status} onSelect={handleKpiClick} />
       <ChartCard title="Hechos por Día" subtitle="Últimos 7 días — toca un punto para ver detalle" status={status} className="col-span-12">
         <HechosPorDiaChart data={hechosPorDia} onSelect={handleDiaSelect} />

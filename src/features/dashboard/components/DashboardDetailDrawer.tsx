@@ -81,7 +81,7 @@ export function DashboardDetailDrawer({ data, onClose, onResolveHecho, onResolve
                 {h.estado !== 'resuelto' && onResolveHecho && (
                   <Button
                     type="button"
-                    variant="ink"
+                    variant="brand"
                     className="!px-2.5 !py-1 !text-[11px]"
                     disabled={pendingId === h.id}
                     onClick={() => handleResolveHecho(h.id)}
@@ -99,7 +99,7 @@ export function DashboardDetailDrawer({ data, onClose, onResolveHecho, onResolve
         <div className="space-y-2">
           {data.guards.slice(0, 20).map((g) => (
             <div key={g.id} className="flex items-center gap-3 rounded-lg border border-neutral-border p-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-ink-900 text-xs font-bold text-brand-gold-500">{g.primerNombre[0]}{g.apellidoPaterno[0]}</span>
+              <span className="avatar-initials h-8 w-8 text-xs">{g.primerNombre[0]}{g.apellidoPaterno[0]}</span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{g.primerNombre} {g.apellidoPaterno}</p>
                 <p className="text-xs text-neutral-text-muted">EPI {EPI_ZONE_LABELS[g.epi]} · {g.operationalStatus}</p>
@@ -116,7 +116,7 @@ export function DashboardDetailDrawer({ data, onClose, onResolveHecho, onResolve
                 {g.operationalStatus === 'emergencia' && onResolveSos && (
                   <Button
                     type="button"
-                    variant="ink"
+                    variant="brand"
                     className="!px-2.5 !py-1 !text-[11px]"
                     disabled={pendingId === g.id}
                     onClick={() => handleResolveSos(g.id)}

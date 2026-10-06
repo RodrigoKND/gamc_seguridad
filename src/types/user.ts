@@ -42,4 +42,5 @@ export interface UserRow {
   apellidoPaterno?: string;
   apellidoMaterno?: string;
   telefono?: string;
+  epi?: import('./epi').EpiZone;
 }

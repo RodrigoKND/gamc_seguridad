@@ -53,7 +53,7 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar en el directorio…"
               aria-label="Buscar en el directorio de guardias"
-              className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600"
+              className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             />
           </div>
           <ExportMenu onExportExcel={() => exportGuardiasExcel(filtered)} onExportPDF={() => exportPDF(guardiasToPrint(filtered))} disabled={filtered.length === 0} />
@@ -72,13 +72,13 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
                       setFotoExpandida({ src: guard.fotoUrl!, alt: `Foto de ${guardFullName(guard)}` })
                     }
                     aria-label={`Ampliar foto de ${guardFullName(guard)}`}
-                    className="shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600 focus-visible:ring-offset-2"
+                    className="shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- foto remota del backend */}
                     <img src={guard.fotoUrl} alt="" className="h-[30px] w-[30px] object-cover" />
                   </button>
                 ) : (
-                  <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-brand-navy-800 text-[10.5px] font-bold text-brand-gold-500">
+                  <span className="avatar-initials h-[30px] w-[30px] text-[10.5px]">
                     {guardInitials(guard)}
                   </span>
                 )}
@@ -94,7 +94,7 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
                     type="button"
                     onClick={() => onEdit(guard)}
                     aria-label={`Editar ${guardFullName(guard)}`}
-                    className="shrink-0 rounded-md p-1.5 text-neutral-text-muted transition-colors duration-200 hover:bg-neutral-bg hover:text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue-600 focus-visible:ring-offset-2"
+                    className="shrink-0 rounded-md p-1.5 text-neutral-text-muted transition-colors duration-200 hover:bg-neutral-bg hover:text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>

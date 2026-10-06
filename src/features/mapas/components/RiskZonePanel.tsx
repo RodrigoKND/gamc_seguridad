@@ -46,7 +46,7 @@ export function RiskZonePanel({ zonas, selectedId, onSelect }: RiskZonePanelProp
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-neutral-border px-4 py-3">
         <div>
-          <p className="text-sm font-bold text-brand-ink-900">Puntos Rojos</p>
+          <p className="text-sm font-bold text-primary-900">Puntos Rojos</p>
           <p className="text-xs text-neutral-text-muted">{zonas.length} zona(s) activa(s)</p>
         </div>
         {criticoCount > 0 && (
@@ -73,11 +73,11 @@ export function RiskZonePanel({ zonas, selectedId, onSelect }: RiskZonePanelProp
                   aria-current={isSelected || undefined}
                   className={[
                     'flex w-full items-start gap-2.5 px-4 py-3 text-left transition-colors duration-200',
-                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold-600 focus-visible:ring-offset-2',
-                    isSelected ? 'bg-brand-gold-600/5' : 'hover:bg-neutral-bg',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
+                    isSelected ? 'bg-primary-100/70' : 'hover:bg-neutral-bg',
                   ].join(' ')}
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-bg text-xs font-bold text-neutral-text-muted">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-800">
                     #{index + 1}
                   </span>
                   <div className="min-w-0 flex-1">

@@ -4,6 +4,23 @@
 
 @import '../styles/tokens.css';
 
+/* Contenedores de ícono y avatar compartidos — mismo lenguaje visual que la
+   app móvil (appmunicipal: menú de Inicio y Avatar), MASTER.md sección 4.
+   Un solo estilo en todo el sistema (skill ui-ux-pro-max: icon-style-
+   consistent). El tamaño (h-N, w-N) y el del ícono los pone cada uso.
+   - .icon-badge: círculo lila primary-100 con anillo primary-200 e ícono
+     primary-800 (6.44:1) — sobre superficies blancas (tarjetas, modales).
+   - .avatar-initials: iniciales blancas sobre primary-700 (6.13:1) con
+     borde de acento, igual que el Avatar de la app. */
+@layer components {
+  .icon-badge {
+    @apply flex shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-800 ring-1 ring-inset ring-primary-200;
+  }
+  .avatar-initials {
+    @apply flex shrink-0 items-center justify-center rounded-full bg-primary-700 font-bold text-white ring-[1.5px] ring-accent-500;
+  }
+}
+
 body {
   background-color: theme('colors.neutral-bg');
   color: theme('colors.neutral-text');
@@ -38,7 +55,7 @@ body {
 }
 
 ::selection {
-  background-color: theme('colors.brand-blue-600');
+  background-color: theme('colors.primary-700');
   color: #fff;
 }
 
@@ -81,7 +98,7 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    background-color: #0a0a0b;
+    background-color: #4D3B86;
     color: #ffffff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -103,7 +120,7 @@ body {
     margin: 0;
     font-size: 10.5pt;
     letter-spacing: 0.24em;
-    color: rgba(201, 162, 39, 0.9);
+    color: #efeaf8;
     text-align: center;
   }
 
@@ -118,7 +135,7 @@ body {
     gap: 16px;
     padding-bottom: 10px;
     margin-bottom: 16px;
-    border-bottom: 2px solid #0a0a0b;
+    border-bottom: 2px solid #4D3B86;
   }
   .pr-membrete-institucion {
     margin: 0;
@@ -126,7 +143,7 @@ body {
     font-weight: 600;
     letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: #c9a227;
+    color: #C2335D;
   }
   .pr-membrete h1 {
     margin: 3px 0 4px;
@@ -159,18 +176,18 @@ body {
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    background-color: #0a0a0b;
+    background-color: #4D3B86;
     color: #ffffff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
   .pr-tabla td {
     padding: 6px 8px;
-    border-bottom: 0.5pt solid #d9d2c4;
+    border-bottom: 0.5pt solid #ddd6ec;
     vertical-align: top;
   }
   .pr-tabla tr:nth-child(even) td {
-    background-color: #fbfaf6;
+    background-color: #f5f2fa;
   }
   .pr-tabla tr {
     break-inside: avoid;
@@ -179,7 +196,7 @@ body {
   .pr-pie {
     margin-top: 22px;
     padding-top: 8px;
-    border-top: 0.5pt solid #d9d2c4;
+    border-top: 0.5pt solid #ddd6ec;
     font-size: 7.5pt;
     color: #777;
   }

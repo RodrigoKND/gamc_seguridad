@@ -9,25 +9,24 @@ module.exports = {
         sans: ['"IBM Plex Sans"', 'sans-serif'],
       },
       colors: {
-        // Marca institucional — legado (en migración, ver MASTER.md sección 4:
-        // pantallas aún no migradas a la paleta 2026 siguen usando estos tokens)
-        'brand-navy-950': '#0B1B3D',
-        'brand-navy-800': '#16264D',
-        'brand-blue-600': '#1D4ED8',
-
-        // Marca institucional — paleta vigente, extraída del logo 2026
-        // (escudo negro + dorado bronce). brand-gold-500 reemplaza el valor
-        // anterior (#C9A227) por el tono real del nuevo logo; el resto de la
-        // escala es nueva.
-        'brand-ink-950': '#0D0D0E',
-        'brand-ink-900': '#1A1A1A',
-        'brand-ink-800': '#262624',
-        'brand-ink-700': '#3D3A35',
-        'brand-gold-500': '#C59B6D',
-        'brand-gold-600': '#A97F52',
-        'brand-gold-700': '#8C6740',
-        'brand-gold-300': '#DDBE97',
-        'brand-gold-100': '#F3E7D8',
+        // Marca institucional — paleta Innova, idéntica a la app móvil de
+        // guardias (appmunicipal/src/theme/colors.ts). Tokens semánticos:
+        // los componentes usan `primary-*` / `accent-*`, nunca hex sueltos.
+        // Ver MASTER.md sección 4 (roles y tabla de contraste).
+        'primary-950': '#3A2C6B',
+        'primary-900': '#4D3B86',
+        'primary-800': '#5A4794',
+        'primary-700': '#6B559F',
+        'primary-500': '#8C78BF',
+        'primary-300': '#B8A9DA',
+        'primary-200': '#E1D9F2',
+        'primary-100': '#EFEAF8',
+        'primary-50': '#F5F2FA',
+        'accent-700': '#9E2248',
+        'accent-600': '#C2335D',
+        'accent-500': '#E8567F',
+        'accent-300': '#F28BA6',
+        'accent-100': '#FCE8EE',
 
         // Semántica de riesgo / estado
         'risk-critical': '#DC2626',
@@ -40,13 +39,13 @@ module.exports = {
         'epi-central': '#26A69A',
         'epi-sud': '#F5A623',
         'epi-cona': '#8E6FCE',
-        'epi-centro': '#0B1B3D',
+        'epi-centro': '#0B1B3D', // categórico territorial, no es color de marca
 
-        // Neutrales
-        'neutral-bg': '#F5F7FA',
-        'neutral-border': '#E5E7EB',
-        'neutral-text': '#1F2937',
-        'neutral-text-muted': '#6B7280',
+        // Neutrales — tintados en lila (mismos valores que la app móvil)
+        'neutral-bg': '#F5F2FA',
+        'neutral-border': '#DDD6EC',
+        'neutral-text': '#1F1A2E',
+        'neutral-text-muted': '#6B6880',
       },
       maxWidth: {
         stage: '1600px',
