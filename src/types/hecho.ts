@@ -56,6 +56,7 @@ export interface ZonaCriticaActivaRow {
   radioMetros: number;
   conteoHechos: number;
   nivelRiesgoPredominante: RiskLevel;
-  epiId: string;
+  /** Código de EPI (no UUID); null = sin EPI. */
+  epiId: string | null;
   lastUpdated: string;
 }

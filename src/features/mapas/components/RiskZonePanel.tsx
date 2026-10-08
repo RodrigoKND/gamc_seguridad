@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { AlertTriangle, MapPinned } from 'lucide-react';
 import { EmptyState } from '@/components/feedback/EmptyState';
-import { EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
 import { RISK_LEVEL_LABELS, RISK_LEVELS, type RiskLevel } from '@/types/risk';
 import type { ZonaCriticaActivaRow } from '@/types/hecho';
 
@@ -83,7 +83,7 @@ export function RiskZonePanel({ zonas, selectedId, onSelect }: RiskZonePanelProp
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12.5px] font-semibold text-neutral-text">{zona.direccionAproximada}</p>
                     <p className="truncate text-[11px] text-neutral-text-muted">
-                      EPI {EPI_ZONE_LABELS[zona.epiId as EpiZone] ?? zona.epiId}
+                      <EpiNombre codigo={zona.epiId} />
                     </p>
                     <div className="mt-1.5 flex items-center gap-2">
                       <span className="flex items-center gap-1 text-[11px] font-semibold text-neutral-text">

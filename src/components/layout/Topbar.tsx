@@ -6,6 +6,7 @@ import { Bell, ChevronDown, ChevronRight, Inbox, LogOut, Menu, Search, User } fr
 import { Skeleton } from '@/components/feedback/Skeleton';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorBanner } from '@/components/feedback/ErrorBanner';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 
 // RF/RNF: Dashboard Shell — Grupo 4 (MASTER.md sección 7.3).
 // Altura 64px, hamburguesa en móvil (MASTER.md sección 7.1). Migrado a la
@@ -55,12 +56,14 @@ export function Topbar({
   const [isBellOpen, setIsBellOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const { epis } = useEpiCatalogo();
 
   function handleGlobalSearch() {
     const q = search.trim();
     if (!q) return;
     const isNumeric = /^\d+$/.test(q);
-    const epiKeywords = ['norte', 'central', 'sud', 'cona', 'cercado', 'epi'];
+    // Palabras clave desde el catálogo dinámico (antes lista fija de 5 EPIs).
+    const epiKeywords = ['epi', ...epis.flatMap((e) => [e.codigo.replace(/_/g, ' '), e.nombre.toLowerCase().replace(/^epi\s+/, '')])];
     const isEpi = epiKeywords.some((k) => q.toLowerCase().includes(k));
     if (isNumeric || isEpi || q.length <= 12) router.push(`/guardias?q=${encodeURIComponent(q)}`);
     else router.push(`/hechos?q=${encodeURIComponent(q)}`);

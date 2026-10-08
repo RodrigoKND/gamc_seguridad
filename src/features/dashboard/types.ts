@@ -29,7 +29,8 @@ export interface HechoPorTipoItem {
 }
 
 export interface HechoPorZonaItem {
-  zone: EpiZone;
+  zone: EpiZone | null;
+  nombre: string;
   total: number;
   percentage: number;
 }

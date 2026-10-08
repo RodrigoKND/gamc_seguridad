@@ -15,7 +15,8 @@ import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
 import { exportPDF, guardiasToPrint } from '@/features/reportes/actions/exportPDF';
 import type { AsyncStatus } from '@/features/dashboard/types';
-import { EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
+import type { EpiZone } from '@/types/epi';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { OPERATIONAL_STATUS_LABELS, type Guard, type OperationalStatus } from '../types';
 import { exportGuardiasExcel } from '../actions/exportGuardias';
 import { GuardTable } from './GuardTable';
@@ -53,6 +54,7 @@ export function GuardiasView() {
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [operationalFilter, setOperationalFilter] = useState<OperationalStatus | 'todos'>('todos');
   const [epiFilter, setEpiFilter] = useState<EpiZone | 'todos'>('todos');
+  const { epis, nombre: nombreEpi } = useEpiCatalogo();
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [catalogGuards, setCatalogGuards] = useState<Guard[]>([]);
   const [editingGuard, setEditingGuard] = useState<Guard | null>(null);
@@ -168,9 +170,9 @@ export function GuardiasView() {
 
         <Select aria-label="Filtrar por zona" value={epiFilter} onChange={(e) => setEpiFilter(e.target.value as EpiZone | 'todos')} className="w-auto">
           <option value="todos">Todas las zonas</option>
-          {(Object.keys(EPI_ZONE_LABELS) as EpiZone[]).map((z) => (
-            <option key={z} value={z}>
-              {EPI_ZONE_LABELS[z]}
+          {epis.map((e) => (
+            <option key={e.codigo} value={e.codigo}>
+              {e.nombre}{e.operativa ? '' : ' (histórica)'}
             </option>
           ))}
         </Select>
@@ -178,8 +180,8 @@ export function GuardiasView() {
         <div className="flex-1" />
 
         <ExportMenu
-          onExportExcel={() => exportAllFiltered().then(exportGuardiasExcel)}
-          onExportPDF={() => exportAllFiltered().then((all) => exportPDF(guardiasToPrint(all)))}
+          onExportExcel={() => exportAllFiltered().then((all) => exportGuardiasExcel(all, undefined, nombreEpi))}
+          onExportPDF={() => exportAllFiltered().then((all) => exportPDF(guardiasToPrint(all, nombreEpi)))}
           disabled={total === 0}
         />
         <Button variant="secondary" onClick={openCatalog}>

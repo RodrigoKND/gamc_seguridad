@@ -1,7 +1,7 @@
 'use server';
 
 import { cache } from 'react';
-import type { EpiZone } from '@/types/epi';
+import type { EpiInfo, EpiZone } from '@/types/epi';
 import type { UserRow } from '@/types/user';
 import type { GuardiaRow } from '@/types/guardia';
 import type { PatrullaRow, RutaPlantillaRow, GeoJsonPolygon, GeoJsonPoint, TrazadoPuntos, PatrullaEstado } from '@/types/patrulla';
@@ -33,6 +33,7 @@ const TAGS = {
   patrullas: 'patrullas',
   rutas: 'rutas',
   dashboardKpi: 'dashboard-kpi',
+  epis: 'epis',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -41,24 +42,35 @@ const TAGS = {
 // resuelva el fork con la rama del compañero en esos dos módulos.
 // ---------------------------------------------------------------------------
 
-const EPI_CODIGO_A_SLUG: Record<string, EpiZone> = {
-  norte: 'norte',
-  central: 'central',
-  sud: 'sud',
-  cona_cona: 'cona',
-  centro_cercado: 'centro',
-};
+// Catálogo EPI dinámico (cambios/04 F1): la Web usa el MISMO código que el
+// backend (`sud`, `jaihuayco`, `cona_cona`…). Antes traducía a slugs propios
+// (`cona`, `centro`) con dos tablas fijas: un código nuevo caía en "Centro"
+// y los filtros mandaban slugs que el backend no conocía (HTTP 500).
+function epiDeCodigo(codigo: string | null | undefined): EpiZone | null {
+  return codigo || null;
+}
 
-const EPI_SLUG_A_CODIGO: Record<EpiZone, string> = {
-  norte: 'norte',
-  central: 'central',
-  sud: 'sud',
-  cona: 'cona_cona',
-  centro: 'centro_cercado',
-};
+// Cambia solo con una migración: caché larga, invalidable por tag.
+export async function getEpiCatalogo(): Promise<EpiInfo[]> {
+  return apiFetch<EpiInfo[]>('/api/epis', { revalidate: 300, tags: [TAGS.epis] });
+}
 
-function epiDeCodigo(codigo: string | null | undefined): EpiZone {
-  return (codigo && EPI_CODIGO_A_SLUG[codigo]) || 'centro';
+export interface ModuloPolicial {
+  id: string;
+  codigo: string;
+  nombre: string;
+  epiCodigo: EpiZone;
+  direccion: string | null;
+  zona: string | null;
+  lat: number;
+  lng: number;
+  coordenadasAproximadas: boolean;
+  telefono: string | null;
+  estado: string | null;
+}
+
+export async function getModulosPoliciales(): Promise<ModuloPolicial[]> {
+  return apiFetch<ModuloPolicial[]>('/api/epis/modulos', { revalidate: 300, tags: [TAGS.epis] });
 }
 
 function toApiDate(value: string | Date): Date {
@@ -576,9 +588,9 @@ export async function crearPatrulla(data: Omit<PatrullaRow, 'id' | 'estado'>): P
     body: {
       guardiaId: data.guardiaId,
       direccionActual: data.direccionActual ?? null,
-      // epiId: se omite — el API lo toma del propio guardia si no se manda
-      // (mapas.service.ts asignarPatrulla), y ahí es un uuid real, no el
-      // slug de EpiZone que maneja el wizard.
+      // epiId: se omite — el backend la deriva de la ruta/jurisdicción
+      // (mapas.service.ts asignarPatrulla); `epiId` en PatrullaRow es el
+      // CÓDIGO de la EPI, no el UUID que espera el API.
       rutaPlantillaId: data.rutaPlantillaId ?? null,
       nombre: data.nombre,
       descripcion: data.descripcion ?? null,
@@ -646,18 +658,33 @@ export async function cancelarPatrulla(patrullaId: string): Promise<{ patrullaId
 // mapa + la EPI del usuario. Sin caché compartido — `miEpiCodigo` depende
 // de quién pregunta.
 interface ApiJurisdiccion {
-  epis: { id: string; codigo: string; nombre: string; poligono: EpiJurisdiccion['poligono'] }[];
+  epis: {
+    id: string;
+    codigo: string;
+    numero: number | null;
+    nombre: string;
+    color: string | null;
+    sede: { lat: number; lng: number; direccion: string | null } | null;
+    poligono: EpiJurisdiccion['poligono'];
+  }[];
   miEpiCodigo: string | null;
   restringido: boolean;
 }
 
+// Ya no descarta EPIs cuyo código "no conoce": todo lo que el backend
+// declara operativo se dibuja (antes una EPI nueva desaparecía del mapa).
 export async function getJurisdiccion(): Promise<Jurisdiccion> {
   const data = await apiFetch<ApiJurisdiccion>('/api/mapas/jurisdiccion');
   return {
-    epis: data.epis
-      .filter((e) => EPI_CODIGO_A_SLUG[e.codigo])
-      .map((e) => ({ zone: EPI_CODIGO_A_SLUG[e.codigo]!, nombre: e.nombre, poligono: e.poligono })),
-    miEpi: data.miEpiCodigo ? (EPI_CODIGO_A_SLUG[data.miEpiCodigo] ?? null) : null,
+    epis: data.epis.map((e) => ({
+      zone: e.codigo,
+      numero: e.numero,
+      nombre: e.nombre,
+      color: e.color,
+      sede: e.sede,
+      poligono: e.poligono,
+    })),
+    miEpi: data.miEpiCodigo,
     restringido: data.restringido,
   };
 }
@@ -709,7 +736,7 @@ function rowToUserApi(row: ApiUser): UserRow {
     apellidoPaterno: row.apellidoPaterno,
     apellidoMaterno: row.apellidoMaterno,
     telefono: row.telefono ?? undefined,
-    epi: row.epiCodigo ? EPI_CODIGO_A_SLUG[row.epiCodigo] : undefined,
+    epi: row.epiCodigo ?? undefined,
   };
 }
 
@@ -772,7 +799,7 @@ export async function updateGuardiaBiografia(
       ...(patch.apellidoPaterno !== undefined ? { apellidoPaterno: patch.apellidoPaterno } : {}),
       ...(patch.apellidoMaterno !== undefined ? { apellidoMaterno: patch.apellidoMaterno } : {}),
       ...(patch.telefono !== undefined ? { telefono: patch.telefono } : {}),
-      ...(patch.epiId !== undefined ? { epiCodigo: EPI_SLUG_A_CODIGO[patch.epiId as EpiZone] ?? null } : {}),
+      ...(patch.epiId !== undefined ? { epiCodigo: patch.epiId || null } : {}),
     },
   });
   revalidateTag(TAGS.guardias);
@@ -795,7 +822,7 @@ export async function crearGuardia(data: {
   ci: string;
   fechaNacimiento: string;
   telefono: string;
-  epi: EpiZone;
+  epi?: EpiZone | null;
   createdBy: string;
 }): Promise<{ guardia: Guard; usuario: string; passwordTemporal: string }> {
   const result = await apiFetch<ApiGuardiaCreated>('/api/guardias', {
@@ -808,7 +835,7 @@ export async function crearGuardia(data: {
       ci: data.ci,
       telefono: data.telefono,
       fechaNacimiento: data.fechaNacimiento,
-      epiCodigo: EPI_SLUG_A_CODIGO[data.epi],
+      epiCodigo: data.epi || null,
     },
   });
   revalidateTag(TAGS.guardias);
@@ -847,7 +874,7 @@ export async function crearUsuario(data: {
       usuario: data.email.split('@')[0] ?? data.email,
       telefono: data.telefono,
       email: data.email,
-      epiCodigo: EPI_SLUG_A_CODIGO[data.epi],
+      epiCodigo: data.epi || null,
     },
   });
   return { usuario: rowToUserApi(result.user), passwordTemporal: result.temporaryPassword };
@@ -856,20 +883,6 @@ export async function crearUsuario(data: {
 // ---------------------------------------------------------------------------
 // DASHBOARD — KPIs y series agregadas, conectado a /api/dashboard.
 // ---------------------------------------------------------------------------
-
-const ZONA_A_SLUG: Record<string, EpiZone> = {
-  norte: 'norte',
-  central: 'central',
-  sud: 'sud',
-  'coña coña': 'cona',
-  cona: 'cona',
-  'centro cercado': 'centro',
-};
-
-function zonaASlug(zona: string | null): EpiZone {
-  const key = (zona ?? '').toLowerCase().replace(/^epi\s+/, '').trim();
-  return ZONA_A_SLUG[key] ?? 'centro';
-}
 
 function dayShort(dia: string): string {
   // dia es YYYY-MM-DD ya en America/La_Paz (backend genera via AT TIME ZONE).
@@ -909,12 +922,9 @@ export const getDashboardHechosPorTipo = cache(async (): Promise<HechoPorTipoIte
 });
 
 export const getDashboardHechosPorZona = cache(async (): Promise<HechoPorZonaItem[]> => {
-  const rows = await apiFetch<{ zona: string | null; total: number }[]>('/api/dashboard/series/por-zona', { revalidate: 30 });
-  return withPercentage(rows.map((r) => ({ label: r.zona ?? 'Sin EPI', total: r.total }))).map((i) => ({
-    zone: zonaASlug(i.label),
-    total: i.total,
-    percentage: i.percentage,
-  }));
+  const rows = await apiFetch<{ zona: string | null; epiCodigo: string | null; total: number }[]>('/api/dashboard/series/por-zona', { revalidate: 30 });
+  const pct = withPercentage(rows.map((r) => ({ label: r.zona ?? 'Sin EPI', total: r.total })));
+  return rows.map((r, i) => ({ zone: r.epiCodigo, nombre: r.zona ?? 'Sin EPI', total: r.total, percentage: pct[i]!.percentage }));
 });
 
 export interface AppNotification { id: string; title: string; timestamp: string; read?: boolean; guardiaId?: string; hechoId?: string; kind: 'sos' | 'bateria' | 'hecho' | 'ruta' }
