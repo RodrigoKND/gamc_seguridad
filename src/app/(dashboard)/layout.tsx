@@ -11,6 +11,7 @@ import { USER_ROLE_LABELS, type AuthenticatedUser } from '@/features/auth/types'
 import { RealtimeProvider, useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { GlobalSosBanner } from '@/components/layout/GlobalSosBanner';
+import { EpiCatalogProvider } from '@/lib/epis/EpiCatalogProvider';
 
 // RF/RNF: Dashboard Shell — Grupo 4 (MASTER.md sección 7.3).
 // Ensambla Sidebar + Topbar alrededor del contenido de cada módulo.
@@ -39,7 +40,9 @@ const SIDEBAR_COLLAPSED_KEY = 'gamc_sidebar_collapsed';
 export default function DashboardGroupLayout({ children }: { children: React.ReactNode }) {
   return (
     <RealtimeProvider>
-      <DashboardShell>{children}</DashboardShell>
+      <EpiCatalogProvider>
+        <DashboardShell>{children}</DashboardShell>
+      </EpiCatalogProvider>
     </RealtimeProvider>
   );
 }

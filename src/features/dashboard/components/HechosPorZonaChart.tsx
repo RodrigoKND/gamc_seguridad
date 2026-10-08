@@ -1,13 +1,15 @@
-import { EPI_ZONE_BG_CLASS, EPI_ZONE_LABELS } from '@/types/epi';
+'use client';
+
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import type { HechoPorZonaItem } from '../types';
 
 // RF/RNF: Dashboard Estadístico — Grupo 4 (MASTER.md sección 7.3).
 //
 // El mockup de Etapa 2 agrupaba por zonas genéricas (Centro/Norte/Sur/Este/
 // Oeste) que no coinciden con la taxonomía territorial oficial de MASTER.md
-// sección 4 (EPI Norte/Central/Sud/Cona/Centro). Se corrige para usar las 5
-// zonas EPI reales — son la misma jurisdicción que ya se usa en Guardias y
-// en los filtros del Módulo de Mapas.
+// sección 4. Desde el catálogo v2 (cambios/04 F1) zonas, nombres y colores
+// salen de GET /api/epis (6 EPIs del inventario oficial) — la misma
+// jurisdicción que ya se usa en Guardias y en los filtros de Mapas.
 //
 // Nota de accesibilidad: los tokens epi-* fallan el validador de paletas
 // categóricas del skill de dataviz cuando se usan como relleno sin etiqueta
@@ -28,13 +30,14 @@ export interface HechosPorZonaChartProps {
 }
 
 export function HechosPorZonaChart({ data, onSelect }: HechosPorZonaChartProps) {
+  const { nombreCorto, color } = useEpiCatalogo();
   const sorted = [...data].sort((a, b) => b.percentage - a.percentage);
 
   return (
     <ul className="space-y-3" aria-label="Hechos por zona EPI, ordenados por participación">
       {sorted.map((item, i) => (
         <li
-          key={item.zone}
+          key={item.zone ?? 'sin-epi'}
           onClick={() => onSelect?.(item)}
           role={onSelect ? 'button' : undefined}
           tabIndex={onSelect ? 0 : undefined}
@@ -42,14 +45,11 @@ export function HechosPorZonaChart({ data, onSelect }: HechosPorZonaChartProps) 
           className={`flex animate-rise-up items-center gap-3 ${onSelect ? 'cursor-pointer rounded-md px-1 py-1 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700' : ''}`}
           style={{ animationDelay: `${100 + i * 70}ms` }}
         >
-          <span className="w-16 shrink-0 truncate text-sm text-neutral-text-muted">{EPI_ZONE_LABELS[item.zone]}</span>
+          <span className="w-24 shrink-0 truncate text-sm text-neutral-text-muted">{item.zone ? nombreCorto(item.zone) : item.nombre}</span>
           <div className="h-5 flex-1 rounded-sm bg-neutral-bg">
             <div
-              className={[
-                'h-5 origin-left animate-grow-bar rounded-r-[4px] transition-[width] duration-300',
-                EPI_ZONE_BG_CLASS[item.zone],
-              ].join(' ')}
-              style={{ width: `${item.percentage}%`, animationDelay: `${160 + i * 70}ms` }}
+              className="h-5 origin-left animate-grow-bar rounded-r-[4px] transition-[width] duration-300"
+              style={{ width: `${item.percentage}%`, animationDelay: `${160 + i * 70}ms`, backgroundColor: color(item.zone) }}
             />
           </div>
           <span className="w-10 shrink-0 text-right text-sm font-medium text-neutral-text">{item.percentage}%</span>

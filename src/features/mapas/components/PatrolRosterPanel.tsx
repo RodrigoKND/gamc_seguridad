@@ -5,7 +5,7 @@ import { BatteryLow, BatteryMedium, Check, ChevronDown, ChevronRight, Radio, Rou
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { LiveRelativeTime } from '@/components/ui/LiveRelativeTime';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
 import { OPERATIONAL_STATUS_BADGE_CLASS, OPERATIONAL_STATUS_LABELS } from '@/features/guardias/types';
 import type { RouteGroup } from '../lib/routeGroups';
 import type { GuardMarker } from '../types';
@@ -108,7 +108,7 @@ const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandF
         <div className="min-w-0 flex-1">
           <p className={['truncate text-[12.5px] font-semibold', isSos ? 'text-white' : 'text-neutral-text'].join(' ')}>{guard.nombre}</p>
           <p className={['truncate text-[11px]', isSos ? 'text-white/80' : 'text-neutral-text-muted'].join(' ')}>
-            EPI {EPI_ZONE_LABELS[guard.zone]} · {guard.ubicacionActual}
+            <EpiNombre codigo={guard.zone} /> · {guard.ubicacionActual}
           </p>
           {rutaAsignada && (
             <span className="inline-flex items-center gap-1 rounded bg-neutral-bg px-1.5 py-0.5 text-[10px] text-neutral-text-muted">

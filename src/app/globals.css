@@ -204,3 +204,19 @@ body {
     margin: 0;
   }
 }
+
+/* Etiqueta permanente de la zona de referencia "Centro" del mapa
+   (EpiJurisdictionLayer, cambios/04 F1): texto claro sobre el negro. */
+.leaflet-tooltip.epi-centro-etiqueta {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.leaflet-tooltip.epi-centro-etiqueta::before {
+  display: none;
+}

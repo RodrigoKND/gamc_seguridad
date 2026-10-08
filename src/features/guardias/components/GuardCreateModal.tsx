@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { DateField } from '@/components/ui/DateField';
-import { EPI_ZONES, EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiOpciones } from '@/lib/epis/EpiNombre';
 import type { EpiZone } from '@/types/epi';
 import { guardFullName } from '../types';
 import { generateGuardCredentialsAction } from '@/features/auth/actions/generateCredentials';
@@ -180,11 +180,7 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
               <option value="" disabled>
                 Seleccione una EPI
               </option>
-              {EPI_ZONES.map((zone) => (
-                <option key={zone} value={zone}>
-                  EPI {EPI_ZONE_LABELS[zone]}
-                </option>
-              ))}
+              <EpiOpciones soloOperativas />
             </Select>
           </div>
 

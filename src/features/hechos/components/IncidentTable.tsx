@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/feedback/Skeleton';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorBanner } from '@/components/feedback/ErrorBanner';
 import { RISK_LEVEL_BADGE_CLASS, RISK_LEVEL_LABELS } from '@/types/risk';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
 import type { AsyncStatus } from '@/features/dashboard/types';
 import { HECHO_ESTADO_BADGE_CLASS, HECHO_ESTADO_LABELS, type Hecho } from '../types';
 
@@ -83,7 +83,7 @@ export function IncidentTable({ hechos, status, onRetry, onSelect }: IncidentTab
                   </td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">
                     {hecho.ubicacion}
-                    <span className="block text-neutral-text-muted">EPI {EPI_ZONE_LABELS[hecho.epi]}</span>
+                    <span className="block text-neutral-text-muted"><EpiNombre codigo={hecho.epi} /></span>
                   </td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">{hecho.timestamp}</td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">{hecho.reportante}</td>

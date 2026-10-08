@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { OPERATIONAL_STATUS_BADGE_CLASS, OPERATIONAL_STATUS_LABELS } from '@/features/guardias/types';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
 import { useRelativeTime } from '@/lib/hooks/useRelativeTime';
 import type { GuardMarker } from '../types';
 import type { PatrullaRow } from '@/types/patrulla';
@@ -174,7 +174,7 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
             )}
             <div className="min-w-0">
               <p className="truncate text-[14.5px] font-bold">{guard.nombre}</p>
-              <p className="truncate text-[11.5px] opacity-80">EPI {EPI_ZONE_LABELS[guard.zone]}</p>
+              <p className="truncate text-[11.5px] opacity-80"><EpiNombre codigo={guard.zone} /></p>
             </div>
           </div>
         )
@@ -332,7 +332,7 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
                 <p className="text-[13px] font-semibold text-neutral-text">{rutaNombre ?? 'Ruta sin nombre'}</p>
                 {patrulla.descripcion && <p className="mt-0.5 text-[11.5px] text-neutral-text-muted">{patrulla.descripcion}</p>}
                 <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-                  <span className="rounded bg-neutral-bg px-1.5 py-0.5">EPI {(EPI_ZONE_LABELS as Record<string,string>)[patrulla.epiId] ?? patrulla.epiId}</span>
+                  <span className="rounded bg-neutral-bg px-1.5 py-0.5"><EpiNombre codigo={patrulla.epiId} /></span>
                   {group && <span className="rounded bg-neutral-bg px-1.5 py-0.5">{group.guards.length} guardia(s) en la misma ruta</span>}
                   {trazado && <span className="rounded bg-neutral-bg px-1.5 py-0.5">{trazado.length} puntos · trazado por calles</span>}
                 </div>
@@ -341,7 +341,7 @@ export function TelemetryDrawer({ guard, onClose, onAssignRoute, onClearSos, pat
                     <MapPin className="h-3 w-3" aria-hidden="true" /> Zona y calles por donde pasará
                   </p>
                   <p className="mb-2 text-[11.5px] text-neutral-text-muted">
-                    Zona asignada: <span className="font-medium text-neutral-text">EPI {EPI_ZONE_LABELS[guard.zone]} — calles y avenidas del sector</span>. El recorrido sigue la red vial real (no líneas rectas).
+                    Zona asignada: <span className="font-medium text-neutral-text"><EpiNombre codigo={guard.zone} /> — calles y avenidas del sector</span>. El recorrido sigue la red vial real (no líneas rectas).
                   </p>
                   {trazado ? (
                     <RouteStreets path={trazado} />

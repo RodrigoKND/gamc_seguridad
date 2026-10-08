@@ -10,7 +10,7 @@ export interface GuardMarker {
   label: string;
   lat: number;
   lng: number;
-  zone: EpiZone;
+  zone: EpiZone | null;
   hasSos?: boolean;
   // Datos del drawer de telemetría (MASTER.md sección 7.3 y 13.3) — un
   // guardia real vive en features/guardias/, aquí se replica solo lo que

@@ -23,6 +23,7 @@ import { RouteLinesLayer } from './RouteLinesLayer';
 import { TelemetryDrawer } from './TelemetryDrawer';
 import { AssignRouteWizard } from './AssignRouteWizard';
 import { UnitPerimeterLines } from './UnitPerimeterLines';
+import { DesviacionesPanel } from './DesviacionesPanel';
 import { EpiJurisdictionLayer, EpiJurisdictionLegend } from './EpiJurisdictionLayer';
 import { puedeEditarEn, type Jurisdiccion } from '../lib/jurisdiccion';
 import { useRealtimeMap } from '../hooks/useRealtimeMap';
@@ -104,6 +105,7 @@ export function MapasView() {
   const [jurisdiccion, setJurisdiccion] = useState<Jurisdiccion | null>(null);
   const [jurisdiccionCargando, setJurisdiccionCargando] = useState(true);
   const [jurisdiccionError, setJurisdiccionError] = useState<string | null>(null);
+  const [mostrarModulos, setMostrarModulos] = useState(false);
   const [avisoAccion, setAvisoAccion] = useState<string | null>(null);
   const puedeEditarGuardia = useCallback((g: GuardMarker) => puedeEditarEn(jurisdiccion, g.zone), [jurisdiccion]);
   const epiPropiaConPoligono = Boolean(
@@ -305,10 +307,14 @@ export function MapasView() {
     },
   );
 
-  function selectGuardFromPanel(guard: GuardMarker) {
+  // Seleccionar un guardia (desde el panel derecho O tocando su pin en el
+  // mapa) abre su detalle y centra/acerca el mapa sobre él — antes el pin
+  // solo abría el detalle sin zoom. useCallback: el memo de cada pin
+  // compara esta referencia, así no se re-crean todos en cada render.
+  const selectGuardFromPanel = useCallback((guard: GuardMarker) => {
     setSelectedGuard(guard);
     setFocusTarget({ lat: guard.lat, lng: guard.lng });
-  }
+  }, []);
 
   function selectZonaFromPanel(zona: ZonaCriticaActivaRow) {
     setSelectedZonaId(zona.id);
@@ -436,19 +442,21 @@ export function MapasView() {
           <MapCanvas>
             <MapSearch />
             <MapFocus target={focusTarget} />
-            <EpiJurisdictionLayer jurisdiccion={jurisdiccion} ajustarVista />
+            <EpiJurisdictionLayer jurisdiccion={jurisdiccion} ajustarVista mostrarReferencias mostrarModulos={mostrarModulos} />
             {activeTab === 'patrullaje' && (
               <>
                 <RouteLinesLayer routeGroups={routeGroups} />
                 <UnitPerimeterLines guards={markers} />
-                <PatrolLayer guards={markers} selectedId={selectedGuard?.id ?? null} onSelectGuard={setSelectedGuard} />
+                <PatrolLayer guards={markers} selectedId={selectedGuard?.id ?? null} onSelectGuard={selectGuardFromPanel} />
               </>
             )}
             {activeTab === 'calor' && (
               <HeatmapLayer zonas={zonas} onSelectZona={(zona) => setSelectedZonaId(zona.id)} />
             )}
            </MapCanvas>
-           {activeTab !== 'futuro' && <EpiJurisdictionLegend jurisdiccion={jurisdiccion} />}
+           {activeTab !== 'futuro' && (
+             <EpiJurisdictionLegend jurisdiccion={jurisdiccion} mostrarModulos={mostrarModulos} onToggleModulos={setMostrarModulos} />
+           )}
            {jurisdiccionError && activeTab !== 'futuro' && (
              <div role="alert" className="absolute right-3 top-3 z-[600] flex max-w-[360px] items-start gap-2 rounded-lg border border-risk-critical/30 bg-white px-3 py-2 text-xs text-risk-critical shadow">
                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -463,40 +471,20 @@ export function MapasView() {
              </div>
            )}
            {activeTab === 'futuro' && <FutureLayerPlaceholder />}
+           {/* Guardias fuera de ruta (RF-G3-09): panel lateral retraíble
+               SOBRE el mapa — antes era un bloque en la misma fila flexible
+               que el mapa y lo dejaba sin espacio. */}
+           {activeTab === 'patrullaje' && (
+             <DesviacionesPanel
+               desviaciones={desviaciones}
+               markers={markers}
+               onSelect={(marker) => {
+                 setSelectedGuard(marker);
+                 setFocusTarget({ lat: marker.lat, lng: marker.lng, zoom: 17 });
+               }}
+             />
+           )}
          </div>
-
-         {/* Alerta de desviación de ruta — banner visible cuando un
-         guardia se sale de su ruta asignada (RF-G3-09) */}
-         {desviaciones.size > 0 && activeTab === 'patrullaje' && (
-           <div className="mb-3 rounded-lg border border-risk-critical/30 bg-risk-critical/5 px-4 py-3">
-             <div className="flex items-center gap-2 mb-2">
-               <AlertTriangle className="h-4 w-4 shrink-0 text-risk-critical" aria-hidden="true" />
-               <p className="text-xs font-bold text-risk-critical">
-                 {desviaciones.size} guardia(s) fuera de ruta asignada
-               </p>
-             </div>
-             <div className="flex flex-wrap gap-2">
-               {Array.from(desviaciones.entries()).map(([guardiaId, info]) => {
-                 const marker = markers.find((m) => m.id === guardiaId);
-                 return (
-                   <button
-                     key={guardiaId}
-                     type="button"
-                     onClick={() => {
-                       if (marker) {
-                         setSelectedGuard(marker);
-                         setFocusTarget({ lat: marker.lat, lng: marker.lng, zoom: 17 });
-                       }
-                     }}
-                     className="flex items-center gap-1.5 rounded-full bg-risk-critical/10 px-3 py-1.5 text-[11px] font-semibold text-risk-critical hover:bg-risk-critical/20 transition-colors"
-                   >
-                     {marker?.nombre ?? guardiaId} — {info.distanciaM}m de desviación
-                   </button>
-                 );
-               })}
-             </div>
-           </div>
-         )}
 
          {activeTab !== 'futuro' && (
           <div className="hidden w-[340px] shrink-0 overflow-hidden rounded-xl border border-neutral-border bg-white shadow-sm lg:block">

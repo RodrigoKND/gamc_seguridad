@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { generateUserCredentialsAction } from '../actions/generateCredentials';
 import { USER_ROLE_LABELS, type UserRole } from '../types';
-import { EPI_ZONES, EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
+import type { EpiZone } from '@/types/epi';
+import { EpiOpciones } from '@/lib/epis/EpiNombre';
 
 // RF-01, RF-03 (MASTER.md sección 7.3 y 15.4). Alta de Operador/Administrador
 // — MISMO formulario y lógica que GuardCreateModal: nombres/apellidos/
@@ -165,9 +166,7 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
           <div className="mb-4">
             <Select label="EPI / Jurisdicción asignada" name="epi" accent="rose" required disabled={phase === 'loading'} defaultValue="">
               <option value="" disabled>Seleccione una EPI</option>
-              {EPI_ZONES.map((epi) => (
-                <option key={epi} value={epi}>EPI {EPI_ZONE_LABELS[epi]}</option>
-              ))}
+              <EpiOpciones soloOperativas />
             </Select>
           </div>
 
