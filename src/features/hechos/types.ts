@@ -38,7 +38,8 @@ export interface Hecho {
   ubicacion: string;
   lat: number;
   lng: number;
-  epi: EpiZone;
+  /** Código de la EPI del hecho; null = sin clasificar. */
+  epi: EpiZone | null;
   timestamp: string;
   reportante: string;
   estado: HechoEstado;

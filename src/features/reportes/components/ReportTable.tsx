@@ -2,7 +2,7 @@ import { FileWarning, Play } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { RISK_LEVEL_BADGE_CLASS, RISK_LEVEL_LABELS } from '@/types/risk';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
 import { HECHO_ESTADO_BADGE_CLASS, HECHO_ESTADO_LABELS } from '@/features/hechos/types';
 import type { ReportRow } from '../types';
 
@@ -48,7 +48,7 @@ export function ReportTable({ rows }: ReportTableProps) {
                 </td>
                 <td className="px-3.5 py-3 text-xs text-neutral-text">
                   {row.ubicacion}
-                  <span className="block text-neutral-text-muted">EPI {EPI_ZONE_LABELS[row.epi]}</span>
+                  <span className="block text-neutral-text-muted"><EpiNombre codigo={row.epi} /></span>
                 </td>
                 <td className="px-3.5 py-3 text-xs text-neutral-text">{row.timestamp}</td>
                 <td className="px-3.5 py-3">

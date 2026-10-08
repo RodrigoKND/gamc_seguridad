@@ -80,7 +80,8 @@ export interface PatrullaRow {
   id: string;
   guardiaId: string;
   operadorId: string;
-  epiId: string;
+  /** Código de EPI (no UUID); null = sin EPI. */
+  epiId: string | null;
   rutaPlantillaId?: string;
   /** Nombre/trazado de la ruta_plantilla compartida — embebido por el backend en cada fila, ver rowToPatrullaApi. */
   rutaNombre?: string;
@@ -109,7 +110,8 @@ export interface RutaPlantillaRow {
   id: string;
   nombre: string;
   descripcion?: string;
-  epiId: string;
+  /** Código de EPI (no UUID); null = sin EPI. */
+  epiId: string | null;
   trazado: TrazadoPuntos;
   activa: boolean;
   modalidad?: PatrullaModalidad;

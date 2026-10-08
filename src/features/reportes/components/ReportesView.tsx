@@ -11,6 +11,7 @@ import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import type { Hecho } from '@/features/hechos/types';
 import { exportExcel } from '../actions/exportExcel';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { exportPDF, hechosToPrint } from '../actions/exportPDF';
 import type { ReportFilters } from '../types';
 import { ExportFiltersBar } from './ExportFilters';
@@ -33,6 +34,7 @@ function toIsoDateKey(timestamp: string): string {
 
 export function ReportesView() {
   const [hechos, setHechos] = useState<Hecho[]>([]);
+  const { nombre: nombreEpi } = useEpiCatalogo();
   const [filters, setFilters] = useState<ReportFilters>({ from: '', to: '', epi: 'todos', tipo: 'todos' });
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,7 +112,7 @@ export function ReportesView() {
 
       <div className="col-span-12 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-neutral-text-muted">{filtered.length} resultado(s) — página {currentPage} de {totalPages || 1}</p>
-        <ExportMenu onExportExcel={() => exportExcel(filtered)} onExportPDF={() => exportPDF(hechosToPrint(filtered))} disabled={filtered.length === 0} />
+        <ExportMenu onExportExcel={() => exportExcel(filtered, undefined, nombreEpi)} onExportPDF={() => exportPDF(hechosToPrint(filtered, nombreEpi))} disabled={filtered.length === 0} />
       </div>
 
       <div className="col-span-12">

@@ -6,8 +6,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { EPI_ZONES, EPI_ZONE_LABELS } from '@/types/epi';
-import type { EpiZone } from '@/types/epi';
+import { EpiOpciones } from '@/lib/epis/EpiNombre';
 import { updateGuardiaAction, toggleGuardiaEstadoAction } from '../actions/manageGuardia';
 import { ACCOUNT_STATUS_LABELS, guardFullName, type Guard } from '../types';
 
@@ -96,12 +95,9 @@ export function GuardEditModal({ isOpen, onClose, guard, onSaved }: GuardEditMod
         </div>
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label="Teléfono" name="telefono" defaultValue={guard.telefono} placeholder="+591 7XX XXXXX" required disabled={isSaving} />
-          <Select label="EPI / Distrito asignado" name="epi" defaultValue={guard.epi} required disabled={isSaving}>
-            {EPI_ZONES.map((zone: EpiZone) => (
-              <option key={zone} value={zone}>
-                EPI {EPI_ZONE_LABELS[zone]}
-              </option>
-            ))}
+          <Select label="EPI / Distrito asignado" name="epi" defaultValue={guard.epi ?? ''} required disabled={isSaving}>
+            {!guard.epi && <option value="" disabled>Seleccione una EPI</option>}
+            <EpiOpciones soloOperativas incluir={guard.epi} />
           </Select>
         </div>
 

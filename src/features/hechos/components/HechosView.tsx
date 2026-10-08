@@ -17,6 +17,7 @@ import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
 import type { AsyncStatus } from '@/features/dashboard/types';
 import { exportExcel } from '@/features/reportes/actions/exportExcel';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { exportPDF, hechosToPrint } from '@/features/reportes/actions/exportPDF';
 import { HECHO_ESTADOS, HECHO_ESTADO_LABELS, type Hecho, type HechoEstado } from '../types';
 import { updateHechoEstadoAction } from '../actions/updateEstado';
@@ -48,6 +49,7 @@ export function HechosView() {
   const searchParams = useSearchParams();
 
   const [rows, setRows] = useState<Hecho[]>([]);
+  const { nombre: nombreEpi } = useEpiCatalogo();
   const [total, setTotal] = useState(0);
   const [mandados, setMandados] = useState<Mandado[]>([]);
   const [status, setStatus] = useState<AsyncStatus>('loading');
@@ -180,8 +182,8 @@ export function HechosView() {
         <div className="flex-1" />
 
         <ExportMenu
-          onExportExcel={() => exportAllFiltered().then(exportExcel)}
-          onExportPDF={() => exportAllFiltered().then((all) => exportPDF(hechosToPrint(all)))}
+          onExportExcel={() => exportAllFiltered().then((all) => exportExcel(all, undefined, nombreEpi))}
+          onExportPDF={() => exportAllFiltered().then((all) => exportPDF(hechosToPrint(all, nombreEpi)))}
           disabled={total === 0}
         />
       </div>

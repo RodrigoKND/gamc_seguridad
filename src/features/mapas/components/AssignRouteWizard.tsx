@@ -19,7 +19,9 @@ import {
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
+import type { EpiZone } from '@/types/epi';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
 import { puedeEditarEn, puntoPermitido, trazadoPermitido, type Jurisdiccion } from '../lib/jurisdiccion';
 import { EpiJurisdictionLayer } from './EpiJurisdictionLayer';
 import { OPERATIONAL_STATUS_BADGE_CLASS, OPERATIONAL_STATUS_LABELS, guardFullName, guardInitials, type Guard } from '@/features/guardias/types';
@@ -183,9 +185,10 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas: tod
   // Jurisdicción (2026-10-05): un Operador/Admin solo ve plantillas y
   // guardias de su EPI (el backend lo vuelve a validar).
   const rutas = useMemo(
-    () => todasLasRutas.filter((r) => puedeEditarEn(jurisdiccion, r.epiId as EpiZone)),
+    () => todasLasRutas.filter((r) => puedeEditarEn(jurisdiccion, r.epiId)),
     [todasLasRutas, jurisdiccion],
   );
+  const { nombre: nombreEpi } = useEpiCatalogo();
   const [entryMode, setEntryMode] = useState<EntryMode>('nueva');
   const [step, setStep] = useState<Step>('inicio');
   const [modalidad, setModalidad] = useState<PatrullaModalidad | null>(null);
@@ -239,7 +242,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas: tod
   const plantillaSeleccionada = rutas.find((r) => r.id === rutaPlantillaId) ?? null;
   const capacidad = modalidad ? PATRULLA_MODALIDAD_CAPACIDAD[modalidad] : 4;
   const selectedGuards = selectedGuardIds.map((id) => guards.find((g) => g.id === id)).filter((g): g is Guard => Boolean(g));
-  const epiId: EpiZone | undefined = plantillaSeleccionada ? (plantillaSeleccionada.epiId as EpiZone) : selectedGuards[0]?.epi;
+  const epiId: EpiZone | undefined = (plantillaSeleccionada ? plantillaSeleccionada.epiId : selectedGuards[0]?.epi) ?? undefined;
 
   // Ruteo real por calles (pedido explícito 2026-09-14: "debe ir por las
   // calles, avenidas, carreteras... siempre debe cerrar el circuito si hay
@@ -379,7 +382,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas: tod
   function handleMapClick(latlng: LatLng) {
     if (plantillaSeleccionada || puntos.length >= MAX_PUNTOS) return;
     if (!puntoPermitido(jurisdiccion, latlng)) {
-      const mia = jurisdiccion?.miEpi ? `EPI ${EPI_ZONE_LABELS[jurisdiccion.miEpi]}` : 'tu EPI';
+      const mia = jurisdiccion?.miEpi ? nombreEpi(jurisdiccion.miEpi) : 'tu EPI';
       setError(`Ese punto está fuera de tu jurisdicción (${mia}). Marca puntos dentro del área resaltada.`);
       return;
     }
@@ -587,7 +590,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas: tod
                           <div className="min-w-0">
                             <p className="truncate text-[13px] font-semibold text-neutral-text">{r.nombre}</p>
                             <p className="truncate text-[11.5px] text-neutral-text-muted">
-                              EPI {EPI_ZONE_LABELS[r.epiId as EpiZone] ?? r.epiId}
+                              <EpiNombre codigo={r.epiId} />
                               {r.descripcion ? ` — ${r.descripcion}` : ''}
                               {invalida ? ' — trazado inválido' : ''}
                             </p>
@@ -647,7 +650,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas: tod
                           )}
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-[12.5px] font-medium text-neutral-text">{guardFullName(guard)}</p>
-                            <p className="truncate text-[11px] text-neutral-text-muted">EPI {EPI_ZONE_LABELS[guard.epi]}</p>
+                            <p className="truncate text-[11px] text-neutral-text-muted"><EpiNombre codigo={guard.epi} /></p>
                           </div>
                           <span className={['shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold', OPERATIONAL_STATUS_BADGE_CLASS[guard.operationalStatus]].join(' ')}>
                             {OPERATIONAL_STATUS_LABELS[guard.operationalStatus]}
@@ -702,7 +705,7 @@ export function AssignRouteWizard({ isOpen, onClose, guards, markers, rutas: tod
                )}
                {!calculandoRuta && trazadoFueraDeEpi && (
                  <p role="alert" className="mb-2 text-[11.5px] text-risk-critical">
-                   El camino por calles sale de tu jurisdicción ({jurisdiccion?.miEpi ? `EPI ${EPI_ZONE_LABELS[jurisdiccion.miEpi]}` : 'tu EPI'}). Mueve o quita puntos cercanos al borde.
+                   El camino por calles sale de tu jurisdicción ({jurisdiccion?.miEpi ? nombreEpi(jurisdiccion.miEpi) : 'tu EPI'}). Mueve o quita puntos cercanos al borde.
                  </p>
                )}
                {!calculandoRuta && rutaCalculada && !rutaCalculada.siguioCalles && (

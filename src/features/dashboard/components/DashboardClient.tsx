@@ -110,7 +110,7 @@ export function DashboardClient({ denied }: { denied?: string }) {
   async function handleZonaSelect(item: HechoPorZonaItem) {
     const hechos = await getHechosActivos().catch(() => []);
     const filtered = hechos.filter((h) => h.epi === item.zone);
-    setDetail({ title: `Zona: ${item.zone}`, subtitle: `${filtered.length} hechos`, hechos: filtered });
+    setDetail({ title: `Zona: ${item.nombre}`, subtitle: `${filtered.length} hechos`, hechos: filtered });
   }
 
   // Resolver directo desde el drawer del Dashboard — antes había que ir a
