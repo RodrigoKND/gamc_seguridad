@@ -5,7 +5,8 @@ import { Pencil, Search } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { ExportMenu } from '@/components/ui/ExportMenu';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { normalizeSearch } from '@/lib/text';
 import { exportPDF, guardiasToPrint } from '@/features/reportes/actions/exportPDF';
 import { exportGuardiasExcel } from '../actions/exportGuardias';
@@ -26,6 +27,7 @@ export interface GuardCatalogModalProps {
 
 export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCatalogModalProps) {
   const [query, setQuery] = useState('');
+  const { nombre: nombreEpi } = useEpiCatalogo();
   const [fotoExpandida, setFotoExpandida] = useState<{ src: string; alt: string } | null>(null);
 
   const filtered = useMemo(() => {
@@ -56,7 +58,7 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
               className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
             />
           </div>
-          <ExportMenu onExportExcel={() => exportGuardiasExcel(filtered)} onExportPDF={() => exportPDF(guardiasToPrint(filtered))} disabled={filtered.length === 0} />
+          <ExportMenu onExportExcel={() => exportGuardiasExcel(filtered, undefined, nombreEpi)} onExportPDF={() => exportPDF(guardiasToPrint(filtered, nombreEpi))} disabled={filtered.length === 0} />
         </div>
 
         {filtered.length === 0 ? (
@@ -85,7 +87,7 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12.5px] font-medium text-neutral-text">{guardFullName(guard)}</p>
                   <p className="truncate text-[11px] text-neutral-text-muted">
-                    CI {guard.ci} · EPI {EPI_ZONE_LABELS[guard.epi]}
+                    CI {guard.ci} · <EpiNombre codigo={guard.epi} />
                   </p>
                 </div>
                 <GuardStatusBadges accountStatus={guard.accountStatus} operationalStatus={guard.operationalStatus} />

@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/feedback/Skeleton';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorBanner } from '@/components/feedback/ErrorBanner';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
-import { EPI_ZONE_BG_CLASS, EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre, EpiPunto } from '@/lib/epis/EpiNombre';
 import type { AsyncStatus } from '@/features/dashboard/types';
 import { GuardStatusBadges } from './GuardStatusBadges';
 import { guardFullName, guardInitials, type Guard } from '../types';
@@ -112,8 +112,8 @@ export function GuardTable({ guards, status, onRetry, onEdit }: GuardTableProps)
                   </td>
                   <td className="px-3.5 py-3">
                     <span className="flex items-center gap-1.5 text-xs text-neutral-text">
-                      <span className={['h-2 w-2 shrink-0 rounded-full', EPI_ZONE_BG_CLASS[guard.epi]].join(' ')} />
-                      {EPI_ZONE_LABELS[guard.epi]}
+                      <EpiPunto codigo={guard.epi} />
+                      <EpiNombre codigo={guard.epi} corto />
                     </span>
                   </td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">{guard.ubicacionActual ?? '—'}</td>

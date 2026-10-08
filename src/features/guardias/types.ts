@@ -58,7 +58,8 @@ export interface Guard {
   ci: string;
   fechaNacimiento: string; // dd/mm/aaaa
   telefono: string;
-  epi: EpiZone;
+  /** Código de EPI (legado: adscripción fija). null = sin EPI. */
+  epi: EpiZone | null;
   accountStatus: AccountStatus;
   operationalStatus: OperationalStatus;
   fotoUrl?: string;

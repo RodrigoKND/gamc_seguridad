@@ -5,7 +5,7 @@ import L from 'leaflet';
 import { Route } from 'lucide-react';
 import { Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
-import { EPI_ZONE_HEX } from '@/types/epi';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { OPERATIONAL_STATUS_LABELS } from '@/features/guardias/types';
 import { safePhotoUrl } from '../lib/safeIconUrl';
 import { createMarkerAnimator } from '../lib/markerAnimator';
@@ -20,9 +20,12 @@ import type { GuardMarker } from '../types';
 // Agrupamiento (Caso B — MASTER.md "Rediseño de Asignación de Rutas"):
 // cuando 2+ guardias quedan a pocos metros entre sí (ej. los ocupantes de
 // un mismo coche, con el jitter que simula que cada uno reporta desde su
-// propio celular), MarkerClusterGroup los agrupa en una sola insignia; un
-// clic los separa en abanico (spiderfy, comportamiento de
-// Leaflet.markercluster) para poder tocar cualquiera individualmente — así
+// propio celular), MarkerClusterGroup los agrupa en una sola insignia. Un
+// clic en el número acerca el mapa SOLO hasta el nivel en que ese grupo se
+// desglosa (zoomToBounds de Leaflet.markercluster: 3 → "2" + 1 → …), y así
+// sucesivamente hasta ver a cada guardia (pedido del usuario 2026-10-08;
+// antes el clic no hacía nada salvo en el zoom máximo). Si siguen juntos en
+// el zoom máximo (mismo punto exacto), se abren en abanico (spiderfy) — así
 // nunca hace falta acertarle a un pin exacto entre varios superpuestos.
 // El radio de cluster es chico a propósito (40px) para que solo agrupe
 // puntos genuinamente cercanos, no guardias de la misma zona EPI que están
@@ -41,8 +44,7 @@ import type { GuardMarker } from '../types';
 // solo se recalculan si algo que de verdad se ve cambió (memo compara
 // campo por campo, no la referencia completa de `guard`).
 
-function createGuardIcon(guard: GuardMarker, isSelected: boolean) {
-  const zoneColor = EPI_ZONE_HEX[guard.zone] ?? '#4D3B86';
+function createGuardIcon(guard: GuardMarker, isSelected: boolean, zoneColor: string) {
   const photoUrl = safePhotoUrl(guard.fotoUrl);
   const fill = photoUrl
     ? `background-image:url('${photoUrl}');background-size:cover;background-position:center;`
@@ -89,11 +91,15 @@ interface GuardMapMarkerProps {
 // PatrolLayer vía el animador imperativo, no un re-render de este componente.
 const GuardMapMarker = React.memo(
   function GuardMapMarker({ guard, initialPosition, isSelected, onSelectGuard, markerRef }: GuardMapMarkerProps) {
+    // Color desde el catálogo dinámico (antes EPI_ZONE_HEX fijo). El
+    // contexto re-renderiza este marcador si el catálogo cambia, aunque
+    // el memo de abajo compare solo campos del guardia.
+    const { color } = useEpiCatalogo();
     return (
       <Marker
         ref={(instance) => markerRef(guard.id, instance)}
         position={initialPosition}
-        icon={createGuardIcon(guard, isSelected)}
+        icon={createGuardIcon(guard, isSelected, color(guard.zone))}
         // hasSos viaja en options (react-leaflet pasa todas las props no
         // reconocidas al constructor de L.Marker) para que
         // createClusterIcon pueda leerlo vía getAllChildMarkers() sin
@@ -184,7 +190,7 @@ export const PatrolLayer = React.memo(function PatrolLayer({ guards, selectedId,
       maxClusterRadius={40}
       spiderfyOnMaxZoom
       showCoverageOnHover={false}
-      zoomToBoundsOnClick={false}
+      zoomToBoundsOnClick
       iconCreateFunction={createClusterIcon}
     >
       {guards.map((guard) => {

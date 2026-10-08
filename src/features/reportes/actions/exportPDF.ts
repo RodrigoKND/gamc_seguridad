@@ -15,7 +15,11 @@ import type { Guard } from '@/features/guardias/types';
 import { ACCOUNT_STATUS_LABELS, OPERATIONAL_STATUS_LABELS, guardFullName } from '@/features/guardias/types';
 import { HECHO_ESTADO_LABELS } from '@/features/hechos/types';
 import { RISK_LEVEL_LABELS } from '@/types/risk';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EPI_SIN_DATO } from '@/types/epi';
+
+// `nombreEpi` viene del catálogo dinámico (useEpiCatalogo().nombre).
+type NombreEpi = (c: string | null | undefined) => string;
+const codigoTalCual: NombreEpi = (c) => c ?? EPI_SIN_DATO;
 
 export type { PrintPayload };
 
@@ -23,7 +27,7 @@ export function exportPDF(payload: PrintPayload) {
   setPrintPayload(payload);
 }
 
-export function hechosToPrint(hechos: Hecho[]): PrintPayload {
+export function hechosToPrint(hechos: Hecho[], nombreEpi: NombreEpi = codigoTalCual): PrintPayload {
   return {
     title: 'Reporte de Hechos',
     headings: ['Código', 'Tipo', 'Severidad', 'Ubicación / EPI', 'Fecha / Hora', 'Reportado por', 'Estado'],
@@ -31,7 +35,7 @@ export function hechosToPrint(hechos: Hecho[]): PrintPayload {
       hecho.id,
       hecho.tipo,
       RISK_LEVEL_LABELS[hecho.severidad],
-      `${hecho.ubicacion} · EPI ${EPI_ZONE_LABELS[hecho.epi]}`,
+      `${hecho.ubicacion} · ${nombreEpi(hecho.epi)}`,
       hecho.timestamp,
       hecho.reportante,
       HECHO_ESTADO_LABELS[hecho.estado],
@@ -39,14 +43,14 @@ export function hechosToPrint(hechos: Hecho[]): PrintPayload {
   };
 }
 
-export function guardiasToPrint(guardias: Guard[]): PrintPayload {
+export function guardiasToPrint(guardias: Guard[], nombreEpi: NombreEpi = codigoTalCual): PrintPayload {
   return {
     title: 'Reporte de Dotación',
     headings: ['Guardia', 'CI', 'EPI', 'Ubicación actual', 'Estado de cuenta', 'Estado operativo', 'Reportes'],
     rows: guardias.map((guard) => [
       guardFullName(guard),
       guard.ci,
-      `EPI ${EPI_ZONE_LABELS[guard.epi]}`,
+      nombreEpi(guard.epi),
       guard.ubicacionActual ?? '—',
       ACCOUNT_STATUS_LABELS[guard.accountStatus],
       OPERATIONAL_STATUS_LABELS[guard.operationalStatus],

@@ -6,7 +6,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { RISK_LEVEL_BADGE_CLASS } from '@/types/risk';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
 import { HECHO_ESTADO_BADGE_CLASS, HECHO_ESTADO_LABELS } from '@/features/hechos/types';
 import type { Hecho } from '@/features/hechos/types';
 import type { Guard } from '@/features/guardias/types';
@@ -66,7 +66,7 @@ export function DashboardDetailDrawer({ data, onClose, onResolveHecho, onResolve
               <p className="mt-1 flex flex-wrap gap-2 text-xs">
                 <Badge className={RISK_LEVEL_BADGE_CLASS[h.severidad]}>{h.severidad}</Badge>
                 <Badge className={HECHO_ESTADO_BADGE_CLASS[h.estado]}>{HECHO_ESTADO_LABELS[h.estado]}</Badge>
-                <span className="text-neutral-text-muted">EPI {EPI_ZONE_LABELS[h.epi]}</span>
+                <span className="text-neutral-text-muted"><EpiNombre codigo={h.epi} /></span>
               </p>
               <p className="mt-1 text-xs text-neutral-text-muted">{h.ubicacion} · {h.timestamp}</p>
               <div className="mt-2 flex gap-2">
@@ -102,7 +102,7 @@ export function DashboardDetailDrawer({ data, onClose, onResolveHecho, onResolve
               <span className="avatar-initials h-8 w-8 text-xs">{g.primerNombre[0]}{g.apellidoPaterno[0]}</span>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{g.primerNombre} {g.apellidoPaterno}</p>
-                <p className="text-xs text-neutral-text-muted">EPI {EPI_ZONE_LABELS[g.epi]} · {g.operationalStatus}</p>
+                <p className="text-xs text-neutral-text-muted"><EpiNombre codigo={g.epi} /> · {g.operationalStatus}</p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button
