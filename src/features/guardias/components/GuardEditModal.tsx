@@ -5,8 +5,6 @@ import { Power, PowerOff } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { EpiOpciones } from '@/lib/epis/EpiNombre';
 import { updateGuardiaAction, toggleGuardiaEstadoAction } from '../actions/manageGuardia';
 import { ACCOUNT_STATUS_LABELS, guardFullName, type Guard } from '../types';
 
@@ -46,7 +44,6 @@ export function GuardEditModal({ isOpen, onClose, guard, onSaved }: GuardEditMod
       apellidoPaterno: String(formData.get('apellidoPaterno') ?? '').trim(),
       apellidoMaterno: String(formData.get('apellidoMaterno') ?? '').trim(),
       telefono: String(formData.get('telefono') ?? '').trim(),
-      epiId: String(formData.get('epi') ?? ''),
     });
 
     setIsSaving(false);
@@ -95,10 +92,7 @@ export function GuardEditModal({ isOpen, onClose, guard, onSaved }: GuardEditMod
         </div>
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label="Teléfono" name="telefono" defaultValue={guard.telefono} placeholder="+591 7XX XXXXX" required disabled={isSaving} />
-          <Select label="EPI / Distrito asignado" name="epi" defaultValue={guard.epi ?? ''} required disabled={isSaving}>
-            {!guard.epi && <option value="" disabled>Seleccione una EPI</option>}
-            <EpiOpciones soloOperativas incluir={guard.epi} />
-          </Select>
+
         </div>
 
         <div className="mb-4 flex items-center justify-between rounded-lg bg-neutral-bg p-3.5">

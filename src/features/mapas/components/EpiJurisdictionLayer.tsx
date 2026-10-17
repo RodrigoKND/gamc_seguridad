@@ -1,16 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CircleMarker, GeoJSON, Marker, Pane, Polygon, Popup, Tooltip, useMap } from 'react-leaflet';
+import { CircleMarker, GeoJSON, Marker, Polygon, Popup, Tooltip, useMap } from 'react-leaflet';
 import type { GeoJsonObject } from 'geojson';
 import L from 'leaflet';
 import { getModulosPoliciales, type ModuloPolicial } from '@/lib/data-source';
 import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { EPI_COLOR_SIN_DATO } from '@/types/epi';
 import type { Jurisdiccion } from '../lib/jurisdiccion';
+import { PANES, ZOOM, iconoCacheado } from '../lib/capas';
+import { AUTO_PAN_SIMBOLOS, useZoomMapa, useZoomMaximo } from './MapPanes';
 
-// Capa "cristal" de jurisdicciones EPI (2026-10-05; catálogo v2 cambios/04
-// F1): cada EPI se pinta con SU color del catálogo (GET /api/epis) en
+// Capa "cristal" de jurisdicciones EPI (2026-10-05; catálogo v2):
+// cada EPI se pinta con SU color del catálogo (GET /api/epis) en
 // relleno translúcido + borde. La EPI propia se resalta (más opaca, borde
 // sólido); las ajenas quedan atenuadas con borde punteado. Encima:
 //  · pin de la SEDE de cada EPI (inventario oficial),
@@ -18,12 +20,9 @@ import type { Jurisdiccion } from '../lib/jurisdiccion';
 //  · zona de referencia "Centro — Plaza 14 de Septiembre" (no es EPI).
 // Nada de esto es interactivo con el mapa del wizard (no roba sus clics).
 //
-// Panes propios POR DEBAJO de overlayPane (400, donde van las líneas de
-// ruta): así las rutas siempre se ven encima de los territorios sin el
-// truco de `bringToBack()` que dependía del orden de carga.
-const PANE_TERRITORIOS = 'epi-territorios';
-const PANE_CENTRO = 'epi-centro';
-const PANE_MODULOS = 'epi-modulos';
+// Cada cosa va en su pane de la jerarquía común (lib/capas.ts): territorios
+// al fondo, sedes y módulos por encima de las rutas y por debajo de los
+// puntos fijos y los guardias.
 
 // Zona de referencia "Centro": la Plaza 14 de Septiembre completa
 // (contorno de OpenStreetMap, way 28575218, leisure=park; © OSM, ODbL). No
@@ -49,19 +48,28 @@ export interface EpiJurisdictionLayerProps {
   soloPropia?: boolean;
   /** Ajusta una sola vez la vista para que entren todos los límites visibles. */
   ajustarVista?: boolean;
+  /**
+   * Qué encuadra `ajustarVista`: 'todo' (Admin y Super Admin: el mapa completo)
+   * o 'propia' (Operador: su EPI). Por defecto, lo visible.
+   */
+  encuadre?: 'todo' | 'propia';
+  /** Interruptores de capa (mapa principal). */
+  mostrarTerritorios?: boolean;
+  mostrarSedes?: boolean;
   /** Pines de sedes + zona de referencia del Centro (mapa principal). */
   mostrarReferencias?: boolean;
   mostrarModulos?: boolean;
 }
 
-function JurisdictionViewport({ jurisdiccion, soloPropia }: Pick<EpiJurisdictionLayerProps, 'jurisdiccion' | 'soloPropia'>) {
+function JurisdictionViewport({ jurisdiccion, soloPropia, encuadre }: Pick<EpiJurisdictionLayerProps, 'jurisdiccion' | 'soloPropia' | 'encuadre'>) {
   const map = useMap();
   const puntos = useMemo(() => {
     if (!jurisdiccion) return [] as [number, number][];
-    const visibles = jurisdiccion.epis.filter((epi) => {
-      if (!epi.poligono) return false;
-      return !soloPropia || !jurisdiccion.restringido || epi.zone === jurisdiccion.miEpi;
-    });
+    const soloLaPropia = encuadre === 'propia' || (encuadre !== 'todo' && soloPropia && jurisdiccion.restringido);
+    const conPoligono = jurisdiccion.epis.filter((epi) => epi.poligono);
+    const propia = conPoligono.filter((epi) => epi.zone === jurisdiccion.miEpi);
+    // Sin EPI propia con polígono, se encuadra todo (nunca un mapa vacío).
+    const visibles = soloLaPropia && propia.length > 0 ? propia : conPoligono;
     const resultado: [number, number][] = [];
     const recoger = (valor: unknown) => {
       if (!Array.isArray(valor)) return;
@@ -73,7 +81,7 @@ function JurisdictionViewport({ jurisdiccion, soloPropia }: Pick<EpiJurisdiction
     };
     visibles.forEach((epi) => recoger(epi.poligono?.coordinates));
     return resultado;
-  }, [jurisdiccion, soloPropia]);
+  }, [jurisdiccion, soloPropia, encuadre]);
 
   useEffect(() => {
     if (puntos.length < 2) return;
@@ -87,26 +95,39 @@ function colorValido(c: string | null | undefined): string {
   return c && /^#[0-9A-Fa-f]{6}$/.test(c) ? c : EPI_COLOR_SIN_DATO;
 }
 
-function iconoSede(color: string, numero: number | null): L.DivIcon {
-  return L.divIcon({
+function iconoSede(color: string, numero: number | null, chica: boolean): L.DivIcon {
+  const tam = chica ? 18 : 26;
+  return iconoCacheado(`sede|${color}|${numero ?? ''}|${tam}`, () => L.divIcon({
     className: '',
-    html: `<div style="width:26px;height:26px;border-radius:7px;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font:700 11px 'IBM Plex Sans',sans-serif">${numero ?? '·'}</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-  });
+    html: `<div style="width:${tam}px;height:${tam}px;border-radius:${chica ? 5 : 7}px;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font:700 ${chica ? 9 : 11}px 'IBM Plex Sans',sans-serif">${numero ?? '·'}</div>`,
+    iconSize: [tam, tam],
+    iconAnchor: [tam / 2, tam / 2],
+  }));
 }
 
+// Sedes (16/10): ocultas en la vista de ciudad (se encimaban con los grupos
+// de guardias), chicas desde el 13 y completas desde el 15 (capas.ts).
 function SedesEpi({ jurisdiccion }: { jurisdiccion: Jurisdiccion }) {
   const { epis } = useEpiCatalogo();
+  const zoom = useZoomMapa();
+  const zoomMaximo = useZoomMaximo();
+  if (zoom < ZOOM.sedes) return null;
+  const chica = zoom < ZOOM.sedesCompletas;
   return (
     <>
       {jurisdiccion.epis.map((epi) => {
         if (!epi.sede) return null;
         const info = epis.find((e) => e.codigo === epi.zone);
         return (
-          <Marker key={`sede-${epi.zone}`} position={[epi.sede.lat, epi.sede.lng]} icon={iconoSede(colorValido(epi.color), epi.numero)}>
+          <Marker
+            key={`sede-${epi.zone}`}
+            pane={PANES.sedes.name}
+            position={[epi.sede.lat, epi.sede.lng]}
+            icon={iconoSede(colorValido(epi.color), epi.numero, chica)}
+            eventHandlers={{ dblclick: (e) => zoomMaximo(epi.sede!.lat, epi.sede!.lng, e.target) }}
+          >
             <Tooltip direction="top" offset={[0, -12]}>{`Sede ${epi.nombre}`}</Tooltip>
-            <Popup>
+            <Popup autoPan={AUTO_PAN_SIMBOLOS}>
               <p className="text-[13px] font-bold">{info?.nombreOficial ?? epi.nombre}</p>
               {epi.sede.direccion && <p className="text-xs text-neutral-text-muted">{epi.sede.direccion}</p>}
               {info && info.telefonos.length > 0 && (
@@ -134,15 +155,20 @@ function ModulosPoliciales({ jurisdiccion }: { jurisdiccion: Jurisdiccion }) {
       vivo = false;
     };
   }, []);
+  const zoomMaximo = useZoomMaximo();
   if (error) return null;
   const colorDe = (codigo: string) => colorValido(jurisdiccion.epis.find((e) => e.zone === codigo)?.color);
   return (
-    <Pane name={PANE_MODULOS} style={{ zIndex: 405 }}>
+    <>
       {modulos.map((m) => (
         <CircleMarker
           key={m.id}
+          pane={PANES.modulos.name}
           center={[m.lat, m.lng]}
           radius={4.5}
+          // Sin burbujeo: el doble clic no debe llegar al mapa (que acercaría un nivel más).
+          bubblingMouseEvents={false}
+          eventHandlers={{ dblclick: () => zoomMaximo(m.lat, m.lng) }}
           pathOptions={{ color: '#fff', weight: 1.5, fillColor: colorDe(m.epiCodigo), fillOpacity: 1 }}
         >
           <Tooltip direction="top">
@@ -150,24 +176,43 @@ function ModulosPoliciales({ jurisdiccion }: { jurisdiccion: Jurisdiccion }) {
           </Tooltip>
         </CircleMarker>
       ))}
-    </Pane>
+    </>
   );
+}
+
+/** Etiqueta "Centro" solo desde el zoom de barrio (de lejos tapa los guardias del casco viejo). */
+function EtiquetaCentro() {
+  const zoom = useZoomMapa();
+  if (zoom < ZOOM.etiquetaCentro) return null;
+  return (
+    <Tooltip permanent direction="center" className="epi-centro-etiqueta">
+      Centro
+    </Tooltip>
+  );
+}
+
+function ModulosSegunZoom({ jurisdiccion }: { jurisdiccion: Jurisdiccion }) {
+  const zoom = useZoomMapa();
+  return zoom >= ZOOM.modulos ? <ModulosPoliciales jurisdiccion={jurisdiccion} /> : null;
 }
 
 export function EpiJurisdictionLayer({
   jurisdiccion,
   soloPropia = false,
   ajustarVista = false,
+  encuadre,
   mostrarReferencias = false,
   mostrarModulos = false,
+  mostrarTerritorios = true,
+  mostrarSedes = true,
 }: EpiJurisdictionLayerProps) {
   if (!jurisdiccion) return null;
   const { epis, miEpi, restringido } = jurisdiccion;
   return (
     <>
-      {ajustarVista && <JurisdictionViewport jurisdiccion={jurisdiccion} soloPropia={soloPropia} />}
-      <Pane name={PANE_TERRITORIOS} style={{ zIndex: 395 }}>
-        {epis.map((epi) => {
+      {ajustarVista && <JurisdictionViewport jurisdiccion={jurisdiccion} soloPropia={soloPropia} encuadre={encuadre} />}
+      {mostrarTerritorios &&
+        epis.map((epi) => {
           if (!epi.poligono) return null;
           const propia = restringido && epi.zone === miEpi;
           if (soloPropia && restringido && !propia) return null;
@@ -178,6 +223,7 @@ export function EpiJurisdictionLayer({
               // key con miEpi/color: react-leaflet no re-aplica `style` al cambiar props.
               key={`${epi.zone}-${color}-${miEpi ?? 'all'}-${soloPropia ? 1 : 0}`}
               data={epi.poligono as unknown as GeoJsonObject}
+              pane={PANES.territorios.name}
               interactive={false}
               style={{
                 color,
@@ -190,67 +236,21 @@ export function EpiJurisdictionLayer({
             />
           );
         })}
-      </Pane>
-      {mostrarReferencias && (
-        <>
-          <Pane name={PANE_CENTRO} style={{ zIndex: 396 }}>
-            <Polygon
-              positions={CENTRO_REFERENCIA}
-              interactive={false}
-              pathOptions={{ color: CENTRO_BORDE, weight: 2, fillColor: CENTRO_RELLENO, fillOpacity: CENTRO_OPACIDAD }}
-            >
-              <Tooltip permanent direction="center" className="epi-centro-etiqueta">
-                Centro
-              </Tooltip>
-            </Polygon>
-          </Pane>
-          <SedesEpi jurisdiccion={jurisdiccion} />
-        </>
+      {mostrarReferencias && mostrarTerritorios && (
+        <Polygon
+          positions={CENTRO_REFERENCIA}
+          pane={PANES.centro.name}
+          interactive={false}
+          pathOptions={{ color: CENTRO_BORDE, weight: 2, fillColor: CENTRO_RELLENO, fillOpacity: CENTRO_OPACIDAD }}
+        >
+          <EtiquetaCentro />
+        </Polygon>
       )}
-      {mostrarModulos && <ModulosPoliciales jurisdiccion={jurisdiccion} />}
+      {mostrarReferencias && mostrarSedes && <SedesEpi jurisdiccion={jurisdiccion} />}
+      {mostrarModulos && <ModulosSegunZoom jurisdiccion={jurisdiccion} />}
     </>
   );
 }
 
-export function EpiJurisdictionLegend({
-  jurisdiccion,
-  mostrarModulos,
-  onToggleModulos,
-}: {
-  jurisdiccion: Jurisdiccion | null;
-  mostrarModulos?: boolean;
-  onToggleModulos?: (v: boolean) => void;
-}) {
-  if (!jurisdiccion || jurisdiccion.epis.every((e) => !e.poligono)) return null;
-  const { epis, miEpi, restringido } = jurisdiccion;
-  const ordenadas = [...epis].filter((e) => e.poligono).sort((a, b) => (a.numero ?? 99) - (b.numero ?? 99));
-  return (
-    <div className="absolute bottom-3 left-3 z-[500] rounded-lg border border-neutral-border bg-white/85 px-3 py-2 text-[11px] shadow-sm backdrop-blur-sm">
-      <p className="mb-1 font-semibold text-neutral-text">Jurisdicciones EPI</p>
-      <ul className="flex flex-col gap-0.5">
-        {ordenadas.map((e) => (
-          <li key={e.zone} className="flex items-center gap-1.5 text-neutral-text-muted">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: colorValido(e.color) }} />
-            {e.numero ? `${e.numero}. ` : ''}
-            {e.nombre}
-            {restringido && e.zone === miEpi && <span className="font-semibold text-neutral-text">(tu EPI)</span>}
-          </li>
-        ))}
-        <li className="flex items-center gap-1.5 text-neutral-text-muted">
-          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: CENTRO_RELLENO }} />
-          Centro – Plaza 14 de Septiembre (referencia)
-        </li>
-      </ul>
-      {onToggleModulos && (
-        <label className="mt-1.5 flex cursor-pointer items-center gap-1.5 text-neutral-text">
-          <input type="checkbox" checked={!!mostrarModulos} onChange={(ev) => onToggleModulos(ev.target.checked)} />
-          Módulos policiales
-        </label>
-      )}
-      <p className="mt-1 max-w-[210px] text-neutral-text-muted">Límites aproximados; pendientes de validación territorial.</p>
-      {restringido && !miEpi && (
-        <p className="mt-1 max-w-[180px] text-risk-critical">Sin EPI asignada: no puedes modificar rutas.</p>
-      )}
-    </div>
-  );
-}
+/** Para la leyenda del mapa (MapLegend.tsx), que reemplaza a la que vivía acá. */
+export { colorValido as colorEpiValido, CENTRO_RELLENO };

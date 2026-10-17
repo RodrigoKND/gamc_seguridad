@@ -12,7 +12,8 @@ import { HechosPorTipoChart } from './HechosPorTipoChart';
 import { HechosPorZonaChart } from './HechosPorZonaChart';
 import { AccessDeniedBanner } from './AccessDeniedBanner';
 import { DashboardDetailDrawer, type DetailData } from './DashboardDetailDrawer';
-import { getDashboardHechosPorDia, getDashboardHechosPorTipo, getDashboardHechosPorZona, getDashboardKpis, getHechosActivos, getGuardias } from '@/lib/data-source';
+import { getDashboardHechosPorDia, getDashboardHechosPorTipo, getDashboardHechosPorZona, getDashboardKpis, getHechosActivos, getGuardias, getJurisdiccion } from '@/lib/data-source';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { updateHechoEstadoAction } from '@/features/hechos/actions/updateEstado';
@@ -34,10 +35,17 @@ export function DashboardClient({ denied }: { denied?: string }) {
   // una segunda instancia de ese hook puede disparar su propio refresh de
   // sesión en paralelo al del layout y competir por el refresh token rotativo.
   const [firstName, setFirstName] = useState<string | undefined>();
+  // F3: el Admin ve las estadísticas de SU EPI (el backend las filtra); se
+  // indica en el encabezado para que no se lean como totales de la ciudad.
+  const [epiAlcance, setEpiAlcance] = useState<string | null>(null);
+  const { nombre: nombreEpi } = useEpiCatalogo();
   useEffect(() => {
     const raw = document.cookie.split('; ').find((row) => row.startsWith(`${PROFILE_COOKIE_NAME}=`));
     const profile = raw ? parseSessionCookie(decodeURIComponent(raw.split('=').slice(1).join('='))) : null;
     setFirstName(profile?.name.split(' ')[0]);
+    if (profile && profile.role !== 'super_admin') {
+      getJurisdiccion().then((j) => setEpiAlcance(j.miEpi ?? null)).catch(() => {});
+    }
   }, []);
   const [kpis, setKpis] = useState<{ hechosHoy: number; hechosEnRevision: number; guardiasEnServicio: number; sosPendientes: number } | null>(null);
   const [hechosPorDia, setHechosPorDia] = useState<HechoPorDiaPoint[]>([]);
@@ -174,14 +182,19 @@ export function DashboardClient({ denied }: { denied?: string }) {
     <PageContainer>
       {denied && <AccessDeniedBanner deniedPath={denied} />}
       {/* Saludo de inicio — mismo detalle que la pantalla Inicio de la app
-          móvil (appmunicipal HomeScreen): pregunta con el "?" en el rosa de
-          acento de Innova. text-xl bold = texto grande (3.46:1 ≥ 3:1 WCAG). */}
+          móvil (appmunicipal HomeScreen): pregunta con el "?" en el dorado de
+          acento. text-xl bold = texto grande (accent-600, 3.6:1 ≥ 3:1 WCAG). */}
       <PageHeader
         title="Dashboard"
         subtitle={
           <>
             {firstName ? <>Hola, <span className="font-semibold text-neutral-text">{firstName}</span> — </> : null}
-            ¿Qué quieres revisar hoy<span className="text-xl font-extrabold leading-none text-accent-500"> ?</span>
+            ¿Qué quieres revisar hoy<span className="text-xl font-extrabold leading-none text-accent-600"> ?</span>
+            {epiAlcance && (
+              <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-800">
+                Datos de {nombreEpi(epiAlcance)} · SOS de todas las EPIs
+              </span>
+            )}
           </>
         }
       />

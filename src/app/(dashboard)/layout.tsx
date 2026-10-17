@@ -12,6 +12,7 @@ import { RealtimeProvider, useRealtimeEvent } from '@/lib/realtime/RealtimeProvi
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { GlobalSosBanner } from '@/components/layout/GlobalSosBanner';
 import { EpiCatalogProvider } from '@/lib/epis/EpiCatalogProvider';
+import { DialogProvider } from '@/components/ui/AlertDialog';
 
 // RF/RNF: Dashboard Shell — Grupo 4 (MASTER.md sección 7.3).
 // Ensambla Sidebar + Topbar alrededor del contenido de cada módulo.
@@ -41,7 +42,9 @@ export default function DashboardGroupLayout({ children }: { children: React.Rea
   return (
     <RealtimeProvider>
       <EpiCatalogProvider>
-        <DashboardShell>{children}</DashboardShell>
+        <DialogProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </DialogProvider>
       </EpiCatalogProvider>
     </RealtimeProvider>
   );
@@ -103,7 +106,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   function handleNotifClick(n: TopbarNotification) {
     markOneRead(n.id);
-    if (n.guardiaId) router.push(`/mapas?guardiaId=${n.guardiaId}`);
+    // F5: abre "Programar Rutas" en el mapa con ese horario listo para asignar.
+    if (n.kind === 'programada' && n.ejecucionId) router.push(`/mapas?programada=${n.ejecucionId}`);
+    else if (n.guardiaId) router.push(`/mapas?guardiaId=${n.guardiaId}`);
     else if (n.hechoId) router.push(`/hechos?q=${n.hechoId}`);
     else if (n.kind === 'hecho') router.push('/hechos');
     else router.push('/mapas');
@@ -158,6 +163,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.mandadoNuevo, refreshNotifications);
   useRealtimeEvent(REALTIME_EVENTS.turnoIniciado, refreshNotifications);
+  // F5: un horario se abrió, se asignó o se cerró (avisos "falta asignar").
+  useRealtimeEvent(REALTIME_EVENTS.programacionActualizada, refreshNotifications);
   useRealtimeEvent<{ guardiaNombre?: string; guardiaId?: string; turnoId?: string }>(REALTIME_EVENTS.turnoFinalizado, (payload) => {
     const nombre = payload?.guardiaNombre ?? payload?.guardiaId?.slice(0, 6) ?? 'Guardia';
     const id = `turno-${payload?.turnoId ?? Date.now()}`;
@@ -184,9 +191,11 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     if (!hasRefresh) router.push('/login');
   }, [isLoaded, isRefreshing, user, router]);
 
-  function handleLogout() {
-    logout();
-    router.push('/login');
+  // Carga REAL de /login (no navegación interna): no queda en memoria nada del
+  // usuario que sale (caché del mapa, páginas cargadas, socket).
+  async function handleLogout() {
+    await logout();
+    window.location.replace('/login');
   }
 
   return (
@@ -218,8 +227,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           onMarkAllRead={markAllRead}
           onMarkOneRead={markOneRead}
         />
-        <GlobalSosBanner />
-        <main className="flex-1">{children}</main>
+        {/* En el mapa no: ahí los SOS ya se ven como fichas rojas. */}
+        {pathname !== '/mapas' && <GlobalSosBanner />}
+        <main key={pathname} className="flex-1 animate-page-in">{children}</main>
       </div>
 
       <PrintReport />

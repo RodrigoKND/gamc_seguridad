@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import { AlertTriangle, CheckCircle2, Eye, EyeOff, KeyRound, Mail, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Eye, EyeOff, KeyRound, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { login } from '../actions/login';
@@ -15,11 +14,10 @@ import type { LoginStatus } from '../types';
 // solo Super Admin. Estados obligatorios: default, loading, error, éxito
 // (MASTER.md sección 8). Toggle mostrar/ocultar contraseña
 // (ux: password-toggle). Autocomplete habilitado para permitir gestores de
-// contraseñas (ux: accessible-authentication). Inputs con `accent="rose"`
-// (paleta Innova, MASTER.md sección 4).
+// contraseñas (ux: accessible-authentication). Inputs con `accent="gold"`
+// (paleta del logo, MASTER.md sección 4).
 
 export function LoginForm() {
-  const router = useRouter();
   const { login: startSession } = useAuthSession();
   const [status, setStatus] = useState<LoginStatus>('idle');
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -51,10 +49,11 @@ export function LoginForm() {
         const normalizedUser = { ...result.user, role: normalizedRole };
         startSession(normalizedUser);
         const home = ROLE_HOME_ROUTE[normalizedRole] ?? ROLE_HOME_ROUTE[result.user.role] ?? '/dashboard';
-        setTimeout(() => router.push(home), 700);
+        // Carga real (no navegación interna): la sesión nueva empieza sin datos en memoria de otra.
+        setTimeout(() => window.location.assign(home), 700);
         return;
       }
-      setTimeout(() => router.push('/dashboard'), 700);
+      setTimeout(() => window.location.assign('/dashboard'), 700);
     } else {
       setStatus('error');
       setErrorMessage(result.error ?? 'No se pudo iniciar sesión.');
@@ -67,12 +66,11 @@ export function LoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full max-w-[420px] rounded-2xl border border-neutral-border bg-white p-9 shadow-[0_1px_2px_rgba(77,59,134,0.06),0_20px_40px_-16px_rgba(77,59,134,0.18)]"
+      className="w-full max-w-[420px] animate-fade-in-up rounded-2xl border border-neutral-border bg-white p-9 shadow-[0_1px_2px_rgba(26,26,26,0.06),0_20px_40px_-16px_rgba(26,26,26,0.18)]"
     >
       <div className="mb-6 flex items-center gap-3">
-        <span className="icon-badge h-10 w-10">
-          <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element -- decorativo, tamaño fijo */}
+        <img src="/logo-gamc.png" alt="" aria-hidden="true" className="h-12 w-auto shrink-0 object-contain" />
         <div>
           <h1 className="text-lg font-semibold leading-tight text-primary-900">Iniciar sesión</h1>
           <p className="text-xs text-neutral-text-muted">Dirección de Seguridad Ciudadana</p>
@@ -95,7 +93,7 @@ export function LoginForm() {
           placeholder="nombre.apellido@cochabamba.bo"
           required
           disabled={isLoading || isSuccess}
-          accent="rose"
+          accent="gold"
           icon={<Mail className="h-4 w-4" aria-hidden="true" />}
         />
       </div>
@@ -109,7 +107,7 @@ export function LoginForm() {
           placeholder="••••••••"
           required
           disabled={isLoading || isSuccess}
-          accent="rose"
+          accent="gold"
           icon={<KeyRound className="h-4 w-4" aria-hidden="true" />}
           className="pr-10"
         />
@@ -117,7 +115,7 @@ export function LoginForm() {
           type="button"
           onClick={() => setPasswordVisible((v) => !v)}
           aria-label={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-          className="absolute right-2.5 top-[30px] rounded-md p-1 text-neutral-text-muted transition-colors duration-200 hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+          className="absolute right-2.5 top-[30px] rounded-md p-1 text-neutral-text-muted transition-colors duration-200 hover:text-primary-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
         >
           {passwordVisible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
         </button>
@@ -129,7 +127,7 @@ export function LoginForm() {
           className="mt-4 flex animate-fade-in items-start gap-2 rounded-md border border-risk-critical/20 bg-risk-critical/10 px-3 py-2.5"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-risk-critical" aria-hidden="true" />
-          <p className="text-[12.5px] leading-snug text-risk-critical">{errorMessage}</p>
+          <p className="text-[12.5px] leading-snug text-risk-critical-700">{errorMessage}</p>
         </div>
       )}
 

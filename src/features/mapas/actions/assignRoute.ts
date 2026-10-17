@@ -3,41 +3,33 @@
 import { getServerSession } from '@/lib/auth-session';
 import { canWrite } from '@/lib/permissions';
 import { isApiError } from '@/lib/api/http';
-import { crearPatrulla, crearRutaPlantilla, getGuardiaById, updateGuardiaEstadoOperativo } from '@/lib/data-source';
-import { guardFullName, type Guard } from '@/features/guardias/types';
-import { PATRULLA_MODALIDAD_CAPACIDAD, PATRULLA_MODALIDAD_LABELS, type GeoJsonPoint, type PatrullaModalidad, type PatrullaRow } from '@/types/patrulla';
+import {
+  asignarEjecucion,
+  previsualizarAsignacion,
+  type AsignacionBody,
+  type AvisoAsignacion,
+  type ConflictoAsignacion,
+  type NoAsignado,
+  type PrevisualizacionAsignacion,
+} from '@/lib/data-source';
+import type { PatrullaModalidad } from '@/types/patrulla';
 
-// RF-G3-09, MASTER.md sección 10/15.1/15.5: solo Operador asigna/modifica
-// rutas. El wizard ya solo se monta dentro de /mapas (Operador-only vía
-// middleware), pero esta validación es la que realmente protege la
-// escritura si se invoca la acción directo.
+// RF-G3-09 (F2): la asignación es UNA intención que el
+// backend valida y aplica en una transacción. Es PARCIAL (pedido del
+// usuario): se asigna a los guardias aptos y vuelve `noAsignados` con el
+// motivo de cada uno, para mostrarlo en la ventana flotante al terminar.
+// Tampoco "resuelve" ya un SOS: un guardia con alerta abierta no es elegible
+// y la alerta se atiende con su propio botón.
 //
-// Rediseño 2026-09-14 (RF-G3-09): una ruta ahora es un TRAZADO (2 a 5
-// puntos, `puntos`) que 1..N guardias comparten — ya no un polígono
-// inventado alrededor de cada guardia. `placements` sigue siendo 1 punto
-// por guardia, pero ahora es el resultado del reparto estratégico a lo
-// largo del trazado (ver AssignRouteWizard + routeGeometry.ts), no un
-// clic/arrastre manual. Cada guardia sigue generando su propia fila
-// `patrulla` real (API/BD) — la ubicación en el Mapa de Patrullaje en Vivo
-// sigue viniendo SOLO de la telemetría real del móvil (verificado contra
-// la BD real 2026-09-14: crear una `patrulla` nunca toca
-// `guardia_telemetria`), nunca de esta asignación.
-//
-// Defensa en profundidad de estado operativo (bug reportado tras la
-// defensa): AssignRouteWizard ya oculta de la lista a los guardias en SOS o
-// fuera de servicio, pero esta acción es la que de verdad protege si el
-// estado cambió mientras el wizard estaba abierto o si se invoca directo.
-// Fuera de servicio: se rechaza la asignación completa (no tiene sentido
-// mandarlo a patrullar). En SOS: se permite — porque asignarle una ruta
-// nueva es justamente la señal de que el Operador ya atendió la emergencia
-// — pero se le limpia el estado a 'en_servicio' para que no quede en un
-// estado mixto (ruta nueva + pin/color de SOS todavía activos).
+// Elegibilidad, capacidad, jurisdicción y reasignación viven en el backend
+// (motor de ejecuciones); acá solo se arma la intención.
 
 export interface GuardPlacement {
   guardiaId: string;
   lat: number;
   lng: number;
-  direccionActual?: string;
+  /** Punto fijo: subpunto elegido para este guardia (si no, el de más cupo). */
+  puntoFijoId?: string;
 }
 
 export interface RoutePoint {
@@ -46,152 +38,125 @@ export interface RoutePoint {
 }
 
 export interface AssignRouteInput {
+  /** Generada al abrir el asistente: reintentos/doble clic no duplican la asignación. */
+  claveIdempotencia: string;
   modalidad: PatrullaModalidad;
-  epiId: string;
-  /** Ruta ya guardada (entryMode 'plantilla') — mutuamente excluyente con `puntos`. */
+  /** Ruta de la biblioteca (predeterminada o recurrente) — excluyente con `puntos`. */
   rutaPlantillaId?: string;
-  /** Trazado nuevo (entryMode 'nueva'): 2 a 5 puntos en el orden a recorrer. */
+  /** F4: punto fijo del catálogo (punto o subpunto) — excluyente con ruta y trazado. */
+  puntoFijoId?: string;
+  /** F5: horario programado ya abierto: se asigna a ESA ejecución (excluye lo demás). */
+  ejecucionId?: string;
+  /** Trazado nuevo YA ruteado por calles. */
   puntos?: RoutePoint[];
+  /** Solo trazado nuevo: true = se guarda como ruta recurrente (biblioteca); false = dinámica. */
+  guardarComoRecurrente?: boolean;
   nombre: string;
   descripcion?: string;
-  /** Punto estratégico ya calculado por guardia (routeGeometry.distributeGuardsAlongRoute). */
   placements: GuardPlacement[];
-  /** Si la ruta nueva queda visible en "Usar Plantilla Guardada" para el futuro. No afecta que los guardias de ESTA asignación compartan la misma ruta — eso pasa siempre. */
-  guardarComoPlantilla?: boolean;
+  /** Asignaciones actuales que el operador aceptó retirar (las que vio en el aviso). */
+  confirmaciones?: { guardiaId: string; patrullaId: string }[];
 }
 
 export interface AssignRouteResult {
   success: boolean;
   error?: string;
-  patrullas?: PatrullaRow[];
+  /** 409: hace falta confirmar la reasignación de estos guardias. */
+  conflictos?: ConflictoAsignacion[];
+  /** Guardias que no quedaron asignados (en éxito parcial o cuando nadie pudo). */
+  noAsignados?: NoAsignado[];
+  avisos?: AvisoAsignacion[];
+  asignados?: number;
 }
 
-function toGeoJsonPoint(p: RoutePoint): GeoJsonPoint {
-  return { type: 'Point', coordinates: [p.lng, p.lat] };
+function aBody(data: AssignRouteInput): AsignacionBody {
+  if (data.ejecucionId) {
+    // F5: el destino lo fija la ejecución (punto del catálogo o trazado copiado).
+    return {
+      claveIdempotencia: data.claveIdempotencia,
+      ejecucionId: data.ejecucionId,
+      guardias: data.placements.map((p) => ({
+        guardiaId: p.guardiaId,
+        ...(p.puntoFijoId ? { puntoFijoId: p.puntoFijoId } : {}),
+        ...(p.lat || p.lng ? { punto: [p.lng, p.lat] as [number, number] } : {}),
+      })),
+      confirmaciones: data.confirmaciones ?? [],
+    };
+  }
+  const guardias = data.placements.map((p) =>
+    data.puntoFijoId
+      ? // El destino lo fija el catálogo (backend), no las coordenadas del cliente.
+        { guardiaId: p.guardiaId, puntoFijoId: p.puntoFijoId ?? null }
+      : { guardiaId: p.guardiaId, punto: [p.lng, p.lat] as [number, number] },
+  );
+  const base = {
+    claveIdempotencia: data.claveIdempotencia,
+    modalidad: data.modalidad,
+    nombre: data.nombre,
+    descripcion: data.descripcion ?? null,
+    guardias,
+    confirmaciones: data.confirmaciones ?? [],
+  };
+  if (data.puntoFijoId) return { ...base, puntoFijoId: data.puntoFijoId };
+  if (data.rutaPlantillaId) return { ...base, rutaPlantillaId: data.rutaPlantillaId };
+  return {
+    ...base,
+    nueva: {
+      nombre: data.nombre,
+      descripcion: data.descripcion ?? null,
+      trazado: (data.puntos ?? []).map((p) => [p.lng, p.lat] as [number, number]),
+      // La recurrente usa la duración por defecto (12 h); se ajusta luego en "Rutas Guardadas".
+      tipo: data.guardarComoRecurrente ? 'guardada' : 'dinamica',
+    },
+  };
+}
+
+async function sesionConPermiso(): Promise<string | null> {
+  const session = await getServerSession();
+  if (!session) return 'No hay sesión activa.';
+  if (!canWrite(session.role, 'patrullaje')) return 'Su rol no tiene permiso para asignar rutas de patrullaje.';
+  return null;
+}
+
+export interface PreviewAssignResult extends Partial<PrevisualizacionAsignacion> {
+  success: boolean;
+  error?: string;
+}
+
+/** Sin escribir: quién ya tiene ruta, quién no podrá asignarse y avisos de GPS (antes de dibujar la ruta). */
+export async function previewAssignAction(guardiaIds: string[], puntoFijoId?: string, ejecucionId?: string): Promise<PreviewAssignResult> {
+  const error = await sesionConPermiso();
+  if (error) return { success: false, error };
+  if (guardiaIds.length === 0) return { success: false, error: 'Seleccione al menos un guardia.' };
+  try {
+    const r = await previsualizarAsignacion({
+      guardias: guardiaIds.map((guardiaId) => ({ guardiaId })),
+      ...(puntoFijoId ? { puntoFijoId } : {}),
+      ...(ejecucionId ? { ejecucionId } : {}),
+    });
+    return { success: true, ...r };
+  } catch (err) {
+    return { success: false, error: isApiError(err) ? err.message : 'No se pudo verificar a los guardias.' };
+  }
 }
 
 export async function assignRouteAction(data: AssignRouteInput): Promise<AssignRouteResult> {
-  const session = await getServerSession();
-  if (!session) return { success: false, error: 'No hay sesión activa.' };
-  if (!canWrite(session.role, 'patrullaje')) {
-    return { success: false, error: 'Su rol no tiene permiso para asignar rutas de patrullaje.' };
-  }
-  if (data.placements.length === 0) {
-    return { success: false, error: 'Seleccione al menos un guardia antes de continuar.' };
-  }
-  const capacidad = PATRULLA_MODALIDAD_CAPACIDAD[data.modalidad];
-  if (data.placements.length > capacidad) {
-    return { success: false, error: `${PATRULLA_MODALIDAD_LABELS[data.modalidad]} admite hasta ${capacidad} guardia(s).` };
-  }
-  if (!data.rutaPlantillaId) {
-    // `puntos` acá es el trazado YA ruteado por calles (routing.ts en el
-    // wizard) — puede tener decenas/cientos de vértices, no los 2-5 clics
-    // del Operador (esos ya se validaron client-side al dibujar). Solo se
-    // revisa el mínimo para tener una ruta real.
-    const n = data.puntos?.length ?? 0;
-    if (n < 2) {
-      return { success: false, error: 'El trazado de la ruta necesita al menos 2 puntos.' };
-    }
-    if (n > 2000) {
-      return { success: false, error: 'El trazado de la ruta es demasiado largo.' };
-    }
-  }
-
-  const guardiasActuales = await Promise.all(data.placements.map((p) => getGuardiaById(p.guardiaId)));
-  if (guardiasActuales.some((g) => !g)) {
-    return { success: false, error: 'Uno de los guardias seleccionados ya no está disponible.' };
-  }
-  const otraEpi = guardiasActuales.find((g): g is Guard => Boolean(g && g.epi !== data.epiId));
-  if (otraEpi) {
-    return { success: false, error: `${guardFullName(otraEpi)} pertenece a otra EPI. Una ruta solo puede agrupar guardias de la misma jurisdicción.` };
-  }
-  const fueraDeServicio = guardiasActuales.find((g): g is Guard => g?.operationalStatus === 'fuera_de_servicio');
-  if (fueraDeServicio) {
-    return { success: false, error: `${guardFullName(fueraDeServicio)} está fuera de servicio y no puede recibir una ruta.` };
-  }
-  // Mismo criterio que fueraDeServicio arriba: un guardia dado de baja
-  // (accountStatus 'inactivo') no necesariamente tiene el estado operativo
-  // sincronizado a 'fuera_de_servicio' del lado de la API, así que se
-  // revalida por separado en vez de asumir que un campo implica el otro.
-  const dadoDeBaja = guardiasActuales.find((g): g is Guard => g?.accountStatus === 'inactivo');
-  if (dadoDeBaja) {
-    return { success: false, error: `${guardFullName(dadoDeBaja)} está dado de baja y no puede recibir una ruta.` };
-  }
-
-  // El trazado se guarda como `ruta_plantilla` SIEMPRE que hay 2+ puntos
-  // nuevos — no solo cuando el Operador marca "guardar como reutilizable".
-  // Es la única forma de que los N guardias de esta asignación queden
-  // enlazados a la MISMA ruta (rutaPlantillaId compartido) para que el
-  // panel derecho y el color en el mapa los agrupen — `guardarComoPlantilla`
-  // solo decide si además queda visible en "Usar Plantilla Guardada" para
-  // asignaciones futuras (activa).
-  let rutaPlantillaId = data.rutaPlantillaId;
-  if (!rutaPlantillaId && data.puntos) {
-    try {
-      const ruta = await crearRutaPlantilla({
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        epiId: data.epiId,
-        trazado: data.puntos.map((p) => [p.lng, p.lat] as [number, number]),
-        activa: Boolean(data.guardarComoPlantilla),
-        modalidad: data.modalidad,
-      });
-      rutaPlantillaId = ruta.id;
-    } catch (err) {
-      if (isApiError(err) && err.status === 404) {
-        return {
-          success: false,
-          error: 'El backend todavía no tiene el endpoint POST /api/mapas/rutas — no se puede crear el trazado de la ruta. Ver informe "Mapa — Rediseño de Rutas".',
-        };
-      }
-      return { success: false, error: isApiError(err) ? err.message : 'No se pudo guardar el trazado de la ruta.' };
-    }
-  }
-
-  // Bug encontrado en pruebas locales 2026-09-14: antes esto resolvía el
-  // uuid del operador con `getUsuarioByEmail` → `GET /api/usuarios`, un
-  // endpoint gateado por `authorize('usuarios','ver')` — permiso que
-  // operador_monitoreo NO tiene (solo super_admin/admin). Para el rol que
-  // realmente usa el mapa día a día, esa llamada tiraba 403 sin capturar,
-  // reventando toda la acción DESPUÉS de crear la ruta pero ANTES de crear
-  // ninguna patrulla (la ruta quedaba huérfana, sin guardias asignados, y
-  // el Operador nunca veía un error claro). El JWT ya trae el propio id del
-  // usuario (`sub`) — no hace falta ninguna consulta extra para saber quién
-  // es uno mismo.
-  const operadorId = session.id;
-  // unidadId solo si viajan 2+ juntos — un guardia solo (Caso A) no
-  // necesita agruparse con nadie.
-  const unidadId = data.placements.length > 1 ? `UN-${Date.now()}` : undefined;
-
-  // Errores de crearPatrulla ahora se capturan (antes se dejaban propagar
-  // como excepción sin manejar, en vez de un AssignRouteResult claro) — una
-  // patrulla individual puede fallar (ej. un guardia se dio de baja entre
-  // la validación de arriba y este punto) sin que el Operador se quede sin
-  // ninguna explicación.
-  const patrullas: PatrullaRow[] = [];
+  const error = await sesionConPermiso();
+  if (error) return { success: false, error };
+  if (data.placements.length === 0) return { success: false, error: 'Seleccione al menos un guardia antes de continuar.' };
+  if (!data.ejecucionId && !data.rutaPlantillaId && !data.puntoFijoId && (data.puntos?.length ?? 0) < 2) return { success: false, error: 'El trazado de la ruta necesita al menos 2 puntos.' };
   try {
-    for (const placement of data.placements) {
-      const marker = guardiasActuales.find((g): g is Guard => g !== null && g.id === placement.guardiaId);
-      const patrulla = await crearPatrulla({
-        guardiaId: placement.guardiaId,
-        operadorId,
-        epiId: data.epiId,
-        rutaPlantillaId,
-        nombre: data.nombre,
-        descripcion: data.descripcion,
-        poligonoGeojson: toGeoJsonPoint(placement),
-        modalidad: data.modalidad,
-        unidadId,
-        direccionActual: placement.direccionActual ?? marker?.ubicacionActual ?? undefined,
-      });
-      patrullas.push(patrulla);
-    }
+    const r = await asignarEjecucion(aBody(data));
+    return { success: true, asignados: r.patrullaIds.length, noAsignados: r.noAsignados ?? [], avisos: r.avisos };
   } catch (err) {
-    return { success: false, error: isApiError(err) ? err.message : 'No se pudo crear la patrulla.' };
+    if (isApiError(err) && err.code === 'REASIGNACION_REQUERIDA') {
+      const detalles = err.details as { conflictos?: ConflictoAsignacion[] } | undefined;
+      return { success: false, error: err.message, conflictos: detalles?.conflictos ?? [] };
+    }
+    if (isApiError(err) && err.code === 'SIN_GUARDIAS_ASIGNABLES') {
+      const detalles = err.details as { noAsignados?: NoAsignado[] } | undefined;
+      return { success: false, error: err.message, noAsignados: detalles?.noAsignados ?? [] };
+    }
+    return { success: false, error: isApiError(err) ? err.message : 'No se pudo asignar la ruta.' };
   }
-
-  const enSos = guardiasActuales.filter((g): g is Guard => g?.operationalStatus === 'emergencia');
-  await Promise.all(enSos.map((g) => updateGuardiaEstadoOperativo(g.id, 'en_servicio')));
-
-  return { success: true, patrullas };
 }

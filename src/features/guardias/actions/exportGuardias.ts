@@ -1,5 +1,6 @@
 import { downloadCsv } from '@/lib/csv';
 import { EPI_SIN_DATO } from '@/types/epi';
+import { epiActualTexto } from '../components/EpiActualCell';
 import { ACCOUNT_STATUS_LABELS, OPERATIONAL_STATUS_LABELS, guardFullName, type Guard } from '../types';
 
 // RF-01, RF-12 (MASTER.md sección 7.3). Mismo mecanismo de exportación que
@@ -17,12 +18,12 @@ export function exportGuardiasExcel(
   filename = 'guardias-gamc.csv',
   nombreEpi: (c: string | null | undefined) => string = (c) => c ?? EPI_SIN_DATO,
 ) {
-  const headers = ['ID', 'Nombre Completo', 'CI', 'EPI', 'Estado de Cuenta', 'Estado Operativo', 'Ubicación Actual', 'Reportes'];
+  const headers = ['ID', 'Nombre Completo', 'CI', 'EPI actual', 'Estado de Cuenta', 'Estado Operativo', 'Ubicación Actual', 'Reportes'];
   const rows = guards.map((g) => [
     g.id,
     guardFullName(g),
     g.ci,
-    nombreEpi(g.epi),
+    epiActualTexto(g.epiActual, nombreEpi),
     ACCOUNT_STATUS_LABELS[g.accountStatus],
     OPERATIONAL_STATUS_LABELS[g.operationalStatus],
     g.ubicacionActual ?? '—',

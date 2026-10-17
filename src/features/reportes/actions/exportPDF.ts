@@ -16,6 +16,7 @@ import { ACCOUNT_STATUS_LABELS, OPERATIONAL_STATUS_LABELS, guardFullName } from 
 import { HECHO_ESTADO_LABELS } from '@/features/hechos/types';
 import { RISK_LEVEL_LABELS } from '@/types/risk';
 import { EPI_SIN_DATO } from '@/types/epi';
+import { epiActualTexto } from '@/features/guardias/components/EpiActualCell';
 
 // `nombreEpi` viene del catálogo dinámico (useEpiCatalogo().nombre).
 type NombreEpi = (c: string | null | undefined) => string;
@@ -46,11 +47,11 @@ export function hechosToPrint(hechos: Hecho[], nombreEpi: NombreEpi = codigoTalC
 export function guardiasToPrint(guardias: Guard[], nombreEpi: NombreEpi = codigoTalCual): PrintPayload {
   return {
     title: 'Reporte de Dotación',
-    headings: ['Guardia', 'CI', 'EPI', 'Ubicación actual', 'Estado de cuenta', 'Estado operativo', 'Reportes'],
+    headings: ['Guardia', 'CI', 'EPI actual', 'Ubicación actual', 'Estado de cuenta', 'Estado operativo', 'Reportes'],
     rows: guardias.map((guard) => [
       guardFullName(guard),
       guard.ci,
-      nombreEpi(guard.epi),
+      epiActualTexto(guard.epiActual, nombreEpi),
       guard.ubicacionActual ?? '—',
       ACCOUNT_STATUS_LABELS[guard.accountStatus],
       OPERATIONAL_STATUS_LABELS[guard.operationalStatus],

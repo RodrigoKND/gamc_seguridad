@@ -1,4 +1,4 @@
-// EPI (Estación Policial Integral) — catálogo DINÁMICO (cambios/04 F1).
+// EPI (Estación Policial Integral) — catálogo DINÁMICO.
 //
 // Antes había una lista fija de 5 "slugs" propios de la Web (norte, central,
 // sud, cona, centro) traducidos a mano a los códigos del backend; un código

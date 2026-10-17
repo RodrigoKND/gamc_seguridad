@@ -1,13 +1,16 @@
 'use client';
 
 import { useMemo, useState, memo } from 'react';
-import { BatteryLow, BatteryMedium, Check, ChevronDown, ChevronRight, Radio, Route, Users, X, Search, Filter } from 'lucide-react';
+import { BatteryLow, BatteryMedium, Check, ChevronDown, ChevronRight, Radio, Route, Siren, Users, X, Search, Filter } from 'lucide-react';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
 import { LiveRelativeTime } from '@/components/ui/LiveRelativeTime';
 import { EpiNombre } from '@/lib/epis/EpiNombre';
 import { OPERATIONAL_STATUS_BADGE_CLASS, OPERATIONAL_STATUS_LABELS } from '@/features/guardias/types';
 import type { RouteGroup } from '../lib/routeGroups';
+import { DESVIO_ESTILO, distanciaVisible, type Desvio } from './DesviacionesPanel';
+import { etaCorta } from './EtaIncorporacion';
+import type { TrayectoIncorporacion } from '../hooks/useTrayectosIncorporacion';
 import type { GuardMarker } from '../types';
 
 // Bandeja de información del Mapa de Patrullaje — antes el único acceso a
@@ -39,18 +42,25 @@ function batteryIcon(bateria: number | null) {
   return bateria <= 25 ? BatteryLow : BatteryMedium;
 }
 
+// Ficha en SOS (rediseño F7, 2026-10-17): antes era toda roja sólida y
+// pulsando — cansaba y el texto blanco sobre rojo se leía mal. Ahora: tinte
+// rojo muy suave con franja roja a la izquierda, nombre en rojo oscuro
+// (risk-critical-700, 6.5:1), etiqueta «SOS» sólida y un sonar lento SOLO
+// alrededor del avatar. La urgencia la siguen marcando el color, la etiqueta
+// y la posición fija arriba; nunca el color solo (ux: color-not-only).
 function guardRowClasses(isSelected: boolean, isSos: boolean) {
   if (isSos) {
     return [
-      'flex w-full items-start gap-2.5 border-l-[3px] border-risk-critical bg-risk-critical py-2.5 pl-3 pr-2 text-left text-white',
-      'transition-colors duration-200 animate-pulse-emergency motion-reduce:animate-none',
-      'focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2',
+      'flex w-full items-start gap-2.5 border-l-[3px] border-risk-critical py-2.5 pl-3 pr-2 text-left',
+      'bg-gradient-to-r from-risk-critical/[0.09] to-risk-critical/[0.02] transition-colors duration-200',
+      isSelected ? 'ring-1 ring-inset ring-risk-critical/40' : 'hover:from-risk-critical/[0.13]',
+      'focus:outline-none focus-visible:ring-2 focus-visible:ring-risk-critical focus-visible:ring-offset-2',
     ].join(' ');
   }
   return [
     'flex w-full items-start gap-2.5 py-2.5 pl-3 pr-2 text-left transition-colors duration-200',
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
-    isSelected ? 'border-primary-700 bg-primary-100/70' : 'border-transparent hover:bg-neutral-bg',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2',
+    isSelected ? 'border-accent-500 bg-accent-100/60' : 'border-transparent hover:bg-neutral-bg',
     'border-l-[3px]',
   ].join(' ');
 }
@@ -68,11 +78,13 @@ interface GuardRowProps {
   onCancelConfirm?: () => void;
   /** Información de la ruta asignada para mostrar en el row. */
   rutaAsignada?: { nombre: string; color: string };
-  /** Indica si el guardia se ha desviado de su ruta. */
-  desviado?: boolean;
+  /** Estado respecto a su ruta (servidor): incorporándose / advertencia / fuera de ruta. */
+  desvio?: Desvio;
+  /** Trayecto de incorporación (tiempo estimado y distancia por calles). */
+  trayecto?: TrayectoIncorporacion;
 }
 
-const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandFoto, onRemoveFromRoute, removing, confirming, onStartConfirm, onCancelConfirm, rutaAsignada, desviado }: GuardRowProps) {
+const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandFoto, onRemoveFromRoute, removing, confirming, onStartConfirm, onCancelConfirm, rutaAsignada, desvio, trayecto }: GuardRowProps) {
   // `hasSos` (no `operationalStatus === 'emergencia'`) es la fuente de
   // verdad real de SOS — mismo criterio que las secciones de arriba y que
   // el pin del mapa/TelemetryDrawer (bug 2026-09-13).
@@ -81,14 +93,16 @@ const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandF
 
   return (
     <div className={guardRowClasses(isSelected, isSos)}>
+      <span className="relative flex h-8 w-8 shrink-0">
+      {isSos && <span className="absolute inset-0 animate-sos-ring rounded-full border-2 border-risk-critical motion-reduce:hidden" aria-hidden="true" />}
       {guard.fotoUrl ? (
         <button
           type="button"
           onClick={() => onExpandFoto({ src: guard.fotoUrl!, alt: `Foto de ${guard.nombre}` })}
           aria-label={`Ampliar foto de ${guard.nombre}`}
           className={[
-            'shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2',
-            isSos ? 'ring-2 ring-white focus-visible:ring-white' : 'focus-visible:ring-primary-700',
+            'relative block shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2',
+            isSos ? 'ring-2 ring-risk-critical focus-visible:ring-risk-critical' : 'focus-visible:ring-accent-600',
           ].join(' ')}
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- foto remota del backend */}
@@ -98,16 +112,17 @@ const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandF
         <span
           className={[
             'h-8 w-8 text-[11px]',
-            isSos ? 'flex shrink-0 items-center justify-center rounded-full bg-white/15 font-bold text-white ring-2 ring-white' : 'avatar-initials',
+            isSos ? 'relative flex shrink-0 items-center justify-center rounded-full bg-risk-critical font-bold text-white ring-2 ring-white' : 'avatar-initials',
           ].join(' ')}
         >
           {guard.label}
         </span>
       )}
+      </span>
       <button type="button" onClick={() => onSelect(guard)} aria-current={isSelected || undefined} className="flex min-w-0 flex-1 items-start text-left">
         <div className="min-w-0 flex-1">
-          <p className={['truncate text-[12.5px] font-semibold', isSos ? 'text-white' : 'text-neutral-text'].join(' ')}>{guard.nombre}</p>
-          <p className={['truncate text-[11px]', isSos ? 'text-white/80' : 'text-neutral-text-muted'].join(' ')}>
+          <p className={['truncate text-[12.5px] font-semibold', isSos ? 'text-risk-critical-700' : 'text-neutral-text'].join(' ')}>{guard.nombre}</p>
+          <p className="truncate text-[11px] text-neutral-text-muted">
             <EpiNombre codigo={guard.zone} /> · {guard.ubicacionActual}
           </p>
           {rutaAsignada && (
@@ -116,25 +131,35 @@ const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandF
               {rutaAsignada.nombre}
             </span>
           )}
-          {desviado && (
-            <span className="inline-flex items-center gap-1 rounded bg-risk-low/10 px-1.5 py-0.5 text-[10px] text-risk-low">
-              ⚠ Fuera de ruta
+          {/* F3: en una ruta de otra EPI — se sabe que está ocupado, no qué ruta es. */}
+          {!rutaAsignada && guard.ocupacion && !guard.ocupacion.propia && (
+            <span className="inline-flex items-center gap-1 rounded bg-neutral-bg px-1.5 py-0.5 text-[10px] text-neutral-text-muted">
+              Ocupado · ruta de <EpiNombre codigo={guard.ocupacion.epiCodigo} />
+            </span>
+          )}
+          {desvio && (
+            <span className={`ml-1 inline-flex items-center gap-1 rounded bg-neutral-bg px-1.5 py-0.5 text-[10px] font-medium ${DESVIO_ESTILO[desvio.estado].texto}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${DESVIO_ESTILO[desvio.estado].punto}`} aria-hidden="true" />
+              {DESVIO_ESTILO[desvio.estado].etiqueta} · {distanciaVisible(desvio, trayecto)}
+              {desvio.estado === 'incorporandose' && trayecto ? ` · ${etaCorta(trayecto)}` : ''}
             </span>
           )}
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <span
-              className={[
-                'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold',
-                isSos ? 'bg-white/15 text-white' : OPERATIONAL_STATUS_BADGE_CLASS[guard.operationalStatus],
-              ].join(' ')}
-            >
-              {OPERATIONAL_STATUS_LABELS[guard.operationalStatus]}
-            </span>
-            <span className={['flex items-center gap-0.5 text-[10.5px]', isSos ? 'text-white/80' : 'text-neutral-text-muted'].join(' ')}>
+            {isSos ? (
+              <span className="inline-flex items-center gap-1 rounded bg-risk-critical px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                <Siren className="h-3 w-3" aria-hidden="true" />
+                SOS
+              </span>
+            ) : (
+              <span className={['inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold', OPERATIONAL_STATUS_BADGE_CLASS[guard.operationalStatus]].join(' ')}>
+                {OPERATIONAL_STATUS_LABELS[guard.operationalStatus]}
+              </span>
+            )}
+            <span className="flex items-center gap-0.5 text-[10.5px] text-neutral-text-muted">
               <BatteryIcon className="h-3 w-3" aria-hidden="true" />
               {guard.bateria !== null ? `${guard.bateria}%` : 'N/D'}
             </span>
-            <span className={['flex items-center gap-0.5 text-[10.5px]', isSos ? 'text-white/80' : 'text-neutral-text-muted'].join(' ')}>
+            <span className="flex items-center gap-0.5 text-[10.5px] text-neutral-text-muted">
               <Radio className="h-3 w-3" aria-hidden="true" />
               <LiveRelativeTime iso={guard.capturadoEnIso} fallback={guard.ultimoSync} />
             </span>
@@ -176,7 +201,7 @@ const GuardRow = memo(function GuardRow({ guard, isSelected, onSelect, onExpandF
               type="button"
               onClick={onStartConfirm}
               aria-label={`Sacar a ${guard.nombre} de la ruta`}
-              className="flex h-5 w-5 items-center justify-center rounded-full text-neutral-text-muted transition-colors duration-200 hover:bg-risk-critical/10 hover:text-risk-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              className="flex h-5 w-5 items-center justify-center rounded-full text-neutral-text-muted transition-colors duration-200 hover:bg-risk-critical/10 hover:text-risk-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
             >
               <X className="h-3 w-3" aria-hidden="true" />
             </button>
@@ -193,18 +218,22 @@ export interface PatrolRosterPanelProps {
   onSelect: (guard: GuardMarker) => void;
   /** Rutas activas agrupadas (routeGroups.ts) — una sección por ruta. */
   routeGroups?: RouteGroup[];
-  /** Cancela TODA la ruta (todos los guardias vigentes en ella). */
-  onCancelRoute?: (rutaPlantillaId: string) => Promise<boolean>;
+  /** Cancela la ruta (la EJECUCIÓN: sus guardias vigentes; otras asignaciones de la misma ruta guardada no). */
+  onCancelRoute?: (ejecucionId: string) => Promise<boolean>;
   /** Saca a UN guardia de su ruta sin tocar a los demás (patrullaId = fila propia de ese guardia). */
   onCancelGuardFromRoute?: (patrullaId: string) => Promise<boolean>;
-  /** Mapa de guardias que se han desviado de su ruta. */
-  desviaciones?: Map<string, { lat: number; lng: number; distanciaM: number }>;
+  /** Estado de ruta de cada guardia (servidor); el verde no aparece. */
+  desviaciones?: Map<string, Desvio>;
+  /** Camino y tiempo estimado de quien se está incorporando (useTrayectosIncorporacion). */
+  trayectos?: Map<string, TrayectoIncorporacion>;
   /**
    * Jurisdicción por EPI (2026-10-05): ¿el usuario puede modificar la ruta de
    * este guardia? Sin la prop, todo es editable (super_admin). Una ruta solo
    * se puede cancelar entera si TODOS sus guardias son de su EPI.
    */
   puedeEditar?: (guard: GuardMarker) => boolean;
+  /** F2: los permisos sobre una ruta dependen de la EPI de la RUTA, no de la de sus guardias. */
+  puedeEditarRuta?: (route: RouteGroup) => boolean;
 }
 
 export const PatrolRosterPanel = memo(function PatrolRosterPanel({
@@ -215,8 +244,11 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
   onCancelRoute,
   onCancelGuardFromRoute,
   desviaciones = new Map(),
+  trayectos,
   puedeEditar,
+  puedeEditarRuta,
 }: PatrolRosterPanelProps) {
+  const etaDe = (id: string) => trayectos?.get(id);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [fotoExpandida, setFotoExpandida] = useState<{ src: string; alt: string } | null>(null);
   const [confirmingRouteId, setConfirmingRouteId] = useState<string | null>(null);
@@ -394,13 +426,16 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
           {/* Emergencia — fija arriba, sin colapsar, sin botón de eliminar (no es una ruta). */}
           {emergenciaGuards.filter((g) => displayedGuards.some((dg) => dg.id === g.id)).length > 0 && (
             <div className="border-b border-neutral-border">
-              <div className="flex items-center gap-1.5 bg-risk-critical/5 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-risk-critical">
-                <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-risk-critical motion-reduce:animate-none" aria-hidden="true" />
+              <div className="flex items-center gap-1.5 bg-risk-critical/[0.06] px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-risk-critical-700">
+                <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+                  <span className="absolute inset-0 animate-sos-ring rounded-full bg-risk-critical motion-reduce:hidden" />
+                  <span className="relative h-2 w-2 rounded-full bg-risk-critical" />
+                </span>
                 Emergencia ({emergenciaGuards.filter((g) => displayedGuards.some((dg) => dg.id === g.id)).length})
               </div>
               <div className="divide-y divide-neutral-bg">
                 {emergenciaGuards.filter((g) => displayedGuards.some((dg) => dg.id === g.id)).map((guard) => (
-                  <GuardRow key={guard.id} guard={guard} isSelected={guard.id === selectedId} onSelect={onSelect} onExpandFoto={setFotoExpandida} rutaAsignada={guard.rutaAsignada ? { nombre: guard.rutaAsignada.nombre, color: guard.rutaAsignada.color } : undefined} desviado={desviaciones.has(guard.id)} />
+                  <GuardRow key={guard.id} guard={guard} isSelected={guard.id === selectedId} onSelect={onSelect} onExpandFoto={setFotoExpandida} rutaAsignada={guard.rutaAsignada ? { nombre: guard.rutaAsignada.nombre, color: guard.rutaAsignada.color } : undefined} desvio={desviaciones.get(guard.id)} trayecto={etaDe(guard.id)} />
                 ))}
               </div>
             </div>
@@ -412,15 +447,22 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
             const isConfirmingRoute = confirmingRouteId === route.id;
             const isCancellingRoute = cancellingRouteId === route.id;
             const filteredMembers = members.filter((m) => displayedGuards.some((dg) => dg.id === m.guardiaId));
-            const rutaEditable = !puedeEditar || members.every((m) => puedeEditar(m.guard));
+            const rutaEditable = puedeEditarRuta ? puedeEditarRuta(route) : !puedeEditar || members.every((m) => puedeEditar(m.guard));
+            // F6: ruta programada → la confirmación es la ventana flotante (avisa que es programada).
+            const programada = Boolean(route.ejecucion?.programacionId);
             return (
               <div key={route.id} className="border-b border-neutral-border">
                 <div className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-neutral-text">
                   <button type="button" onClick={() => toggleCollapsed(route.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
                     {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: route.color }} aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate normal-case">{route.nombre}</span>
-                    <span className="shrink-0 text-[10.5px] font-semibold text-neutral-text-muted">({filteredMembers.length}) · {route.guardiasEnRuta} en ruta</span>
+                    <span className="min-w-0 flex-1 truncate normal-case">
+                      {route.nombre}
+                      {route.puntoFijo && <span className="ml-1.5 rounded bg-primary-100 px-1 py-0.5 text-[9px] font-bold uppercase text-primary-800">Punto fijo</span>}
+                    </span>
+                    <span className="shrink-0 text-[10.5px] font-semibold text-neutral-text-muted" title={route.puntoFijo ? 'Asignados · con GPS · en su punto' : 'Asignados · con GPS · sobre la ruta'}>
+                      ({route.guards.length}) · {route.guardiasLocalizados} con GPS · {route.guardiasEnRuta} {route.puntoFijo ? 'en su punto' : 'en ruta'}
+                    </span>
                   </button>
                   {onCancelRoute && rutaEditable &&
                     (isConfirmingRoute ? (
@@ -448,9 +490,9 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setConfirmingRouteId(route.id)}
+                        onClick={() => (programada ? void handleConfirmCancelRoute(route.id) : setConfirmingRouteId(route.id))}
                         aria-label={`Cancelar la ruta ${route.nombre}`}
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-text-muted transition-colors duration-200 hover:bg-risk-critical/10 hover:text-risk-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-text-muted transition-colors duration-200 hover:bg-risk-critical/10 hover:text-risk-critical focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
                       >
                         <X className="h-3 w-3" aria-hidden="true" />
                       </button>
@@ -468,13 +510,14 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
                              isSelected={guard.id === selectedId}
                              onSelect={onSelect}
                              onExpandFoto={setFotoExpandida}
-                             onRemoveFromRoute={onCancelGuardFromRoute && (!puedeEditar || puedeEditar(guard)) ? () => handleConfirmRemoveGuard(patrullaId) : undefined}
+                             onRemoveFromRoute={onCancelGuardFromRoute && rutaEditable ? () => handleConfirmRemoveGuard(patrullaId) : undefined}
                              removing={cancellingPatrullaId === patrullaId}
                              confirming={confirmingPatrullaId === patrullaId}
-                             onStartConfirm={() => setConfirmingPatrullaId(patrullaId)}
+                             onStartConfirm={() => (programada ? void handleConfirmRemoveGuard(patrullaId) : setConfirmingPatrullaId(patrullaId))}
                              onCancelConfirm={() => setConfirmingPatrullaId(null)}
                              rutaAsignada={guard.rutaAsignada ? { nombre: guard.rutaAsignada.nombre, color: guard.rutaAsignada.color } : undefined}
-                             desviado={desviaciones.has(guard.id)}
+                             desvio={desviaciones.get(guard.id)}
+                             trayecto={etaDe(guard.id)}
                            />
                         ))
                      )}
@@ -505,7 +548,7 @@ export const PatrolRosterPanel = memo(function PatrolRosterPanel({
                        <p className="px-4 py-2.5 text-[11.5px] text-neutral-text-muted">Todos los guardias tienen una ruta asignada o no coinciden con los filtros.</p>
                      ) : (
                        generalFiltered.map((guard) => (
-                         <GuardRow key={guard.id} guard={guard} isSelected={guard.id === selectedId} onSelect={onSelect} onExpandFoto={setFotoExpandida} rutaAsignada={guard.rutaAsignada ? { nombre: guard.rutaAsignada.nombre, color: guard.rutaAsignada.color } : undefined} desviado={desviaciones.has(guard.id)} />
+                         <GuardRow key={guard.id} guard={guard} isSelected={guard.id === selectedId} onSelect={onSelect} onExpandFoto={setFotoExpandida} rutaAsignada={guard.rutaAsignada ? { nombre: guard.rutaAsignada.nombre, color: guard.rutaAsignada.color } : undefined} desvio={desviaciones.get(guard.id)} trayecto={etaDe(guard.id)} />
                        ))
                      )}
                    </div>

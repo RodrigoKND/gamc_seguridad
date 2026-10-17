@@ -4,16 +4,17 @@ import { cache } from 'react';
 import type { EpiInfo, EpiZone } from '@/types/epi';
 import type { UserRow } from '@/types/user';
 import type { GuardiaRow } from '@/types/guardia';
-import type { PatrullaRow, RutaPlantillaRow, GeoJsonPolygon, GeoJsonPoint, TrazadoPuntos, PatrullaEstado } from '@/types/patrulla';
+import type { PatrullaRow, RutaPlantillaRow, GeoJsonPolygon, GeoJsonPoint, TrazadoPuntos, PatrullaEstado, EjecucionInfo, EstadoRuta, PatrullaModalidad, TipoRuta } from '@/types/patrulla';
 import type { ZonaCriticaActivaRow } from '@/types/hecho';
+import type { PuntoFijoRow } from '@/types/puntoFijo';
+import type { AvisoProgramacion, EstadoPlanificador, HorarioAgenda, IntentosAutomaticos, ProgramacionBody, ProgramacionRow } from '@/types/programacion';
 import type { Guard } from '@/features/guardias/types';
 import type { Hecho } from '@/features/hechos/types';
 import type { GuardMarker } from '@/features/mapas/types';
 import type { HechoPorDiaPoint, HechoPorTipoItem, HechoPorZonaItem } from '@/features/dashboard/types';
 import { revalidateTag } from 'next/cache';
 import { apiFetch, apiFetchPage } from '@/lib/api/http';
-import { groupPatrullasByRuta } from '@/features/mapas/lib/routeGroups';
-import { projectOntoPath } from '@/features/mapas/lib/routeGeometry';
+import { getServerSession } from '@/lib/auth-session';
 import type { EpiJurisdiccion, Jurisdiccion } from '@/features/mapas/lib/jurisdiccion';
 
 // Tags de revalidación on-demand (Next.js Data Cache). Los GET con
@@ -32,6 +33,8 @@ const TAGS = {
   ubicaciones: 'ubicaciones',
   patrullas: 'patrullas',
   rutas: 'rutas',
+  puntosFijos: 'puntos-fijos',
+  programacion: 'programacion',
   dashboardKpi: 'dashboard-kpi',
   epis: 'epis',
 } as const;
@@ -42,7 +45,7 @@ const TAGS = {
 // resuelva el fork con la rama del compañero en esos dos módulos.
 // ---------------------------------------------------------------------------
 
-// Catálogo EPI dinámico (cambios/04 F1): la Web usa el MISMO código que el
+// Catálogo EPI dinámico: la Web usa el MISMO código que el
 // backend (`sud`, `jaihuayco`, `cona_cona`…). Antes traducía a slugs propios
 // (`cona`, `centro`) con dos tablas fijas: un código nuevo caía en "Centro"
 // y los filtros mandaban slugs que el backend no conocía (HTTP 500).
@@ -118,6 +121,15 @@ interface ApiGuardiaUbicacion {
   capturadoEn: string;
 }
 
+interface ApiEpiActual {
+  epiCodigo: string | null;
+  epiNombre: string | null;
+  estado: 'asignada' | 'ambigua' | 'fuera_cobertura';
+  frescura: 'reciente' | 'antigua';
+  capturadoEn: string;
+  desde: string;
+}
+
 interface ApiGuardia {
   id: string;
   primerNombre: string;
@@ -133,13 +145,13 @@ interface ApiGuardia {
   estadoOperativo: string;
   fotoUrl: string | null;
   ubicacion: ApiGuardiaUbicacion | null;
+  /** F3 */
+  epiActual?: ApiEpiActual | null;
+  /** F3: hechos del guardia dentro del alcance de quien consulta (calculado en el backend). */
+  hechosCount?: number;
 }
 
-interface ApiHechoMini {
-  guardiaId: string;
-}
-
-function rowToGuardApi(row: ApiGuardia, reportesCount: number): Guard {
+function rowToGuardApi(row: ApiGuardia): Guard {
   return {
     id: row.id,
     primerNombre: row.primerNombre,
@@ -152,7 +164,17 @@ function rowToGuardApi(row: ApiGuardia, reportesCount: number): Guard {
     epi: epiDeCodigo(row.epiCodigo),
     accountStatus: (row.estado === 'suspendido' ? 'inactivo' : row.estado) as Guard['accountStatus'],
     operationalStatus: row.estadoOperativo as Guard['operationalStatus'],
-    reportesCount,
+    epiActual: row.epiActual
+      ? {
+          codigo: epiDeCodigo(row.epiActual.epiCodigo),
+          nombre: row.epiActual.epiNombre,
+          estado: row.epiActual.estado,
+          frescura: row.epiActual.frescura,
+          capturadoEnIso: toApiDate(row.epiActual.capturadoEn).toISOString(),
+          desdeIso: toApiDate(row.epiActual.desde).toISOString(),
+        }
+      : null,
+    reportesCount: row.hechosCount ?? 0,
     fotoUrl: row.fotoUrl ?? undefined,
     // Nunca lat/lng crudos en pantalla (pedido explícito 2026-09-14) — si
     // hay ubicación pero todavía no se resolvió la dirección (Nominatim en
@@ -163,14 +185,11 @@ function rowToGuardApi(row: ApiGuardia, reportesCount: number): Guard {
   };
 }
 
+// F3: el conteo de reportes por guardia lo calcula el backend dentro del
+// alcance (antes se contaba aquí sobre una página de 200 hechos).
 export const getGuardias = cache(async (): Promise<Guard[]> => {
-  const [guardias, hechos] = await Promise.all([
-    apiFetch<ApiGuardia[]>('/api/guardias', { revalidate: 15, tags: [TAGS.guardias] }),
-    apiFetch<ApiHechoMini[]>('/api/hechos', { revalidate: 30, tags: [TAGS.hechos] }).catch(() => [] as ApiHechoMini[]),
-  ]);
-  const reportesPorGuardia = new Map<string, number>();
-  for (const h of hechos) reportesPorGuardia.set(h.guardiaId, (reportesPorGuardia.get(h.guardiaId) ?? 0) + 1);
-  return guardias.map((g) => rowToGuardApi(g, reportesPorGuardia.get(g.id) ?? 0));
+  const guardias = await apiFetch<ApiGuardia[]>('/api/guardias', { revalidate: 15, tags: [TAGS.guardias] });
+  return guardias.map(rowToGuardApi);
 });
 
 export interface GuardiasPageParams {
@@ -178,6 +197,8 @@ export interface GuardiasPageParams {
   pageSize: number;
   q?: string;
   epiCodigo?: string;
+  /** F3: EPI actual (código), 'fuera_cobertura' o 'sin_dato'. */
+  epiActual?: string;
   estadoOperativo?: string;
   estado?: string;
 }
@@ -196,24 +217,20 @@ export async function getGuardiasPage(params: GuardiasPageParams): Promise<{ row
   qs.set('pageSize', String(params.pageSize));
   if (params.q) qs.set('q', params.q);
   if (params.epiCodigo) qs.set('epiCodigo', params.epiCodigo);
+  if (params.epiActual) qs.set('epiActual', params.epiActual);
   if (params.estadoOperativo) qs.set('estadoOperativo', params.estadoOperativo);
   if (params.estado) qs.set('estado', params.estado);
   // La tabla principal de Guardias nunca muestra dados de baja (regla que
   // antes vivía solo en isDadoDeBaja, client-side sobre la lista completa).
   else qs.set('excluirInactivos', '1');
 
-  const [{ data: guardias, total }, hechos] = await Promise.all([
-    apiFetchPage<ApiGuardia[]>(`/api/guardias?${qs.toString()}`, { tags: [TAGS.guardias] }),
-    apiFetch<ApiHechoMini[]>('/api/hechos', { revalidate: 30, tags: [TAGS.hechos] }).catch(() => [] as ApiHechoMini[]),
-  ]);
-  const reportesPorGuardia = new Map<string, number>();
-  for (const h of hechos) reportesPorGuardia.set(h.guardiaId, (reportesPorGuardia.get(h.guardiaId) ?? 0) + 1);
-  return { rows: guardias.map((g) => rowToGuardApi(g, reportesPorGuardia.get(g.id) ?? 0)), total };
+  const { data: guardias, total } = await apiFetchPage<ApiGuardia[]>(`/api/guardias?${qs.toString()}`, { tags: [TAGS.guardias] });
+  return { rows: guardias.map(rowToGuardApi), total };
 }
 
 export async function getGuardiaById(id: string): Promise<Guard | null> {
   const row = await apiFetch<ApiGuardia | null>(`/api/guardias/${encodeURIComponent(id)}`);
-  return row ? rowToGuardApi(row, 0) : null;
+  return row ? rowToGuardApi(row) : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +268,9 @@ interface ApiHecho {
   ocurridoEn: string;
   estado: string;
   epiCodigo: string | null;
+  /** F3 */
+  epiEstado?: string | null;
+  epiMetodo?: string | null;
   guardiaNombre: string;
   guardiaId: string;
   evidencias?: ApiHechoEvidencia[] | null;
@@ -272,6 +292,8 @@ function rowToHechoApi(row: ApiHecho): Hecho {
     lat: row.lat,
     lng: row.lng,
     epi: epiDeCodigo(row.epiCodigo),
+    epiEstado: (row.epiEstado as Hecho['epiEstado']) ?? undefined,
+    epiMetodo: row.epiMetodo ?? undefined,
     timestamp: toDDMMAAAAHHMM(row.ocurridoEn),
     // Solo el nombre — antes se concatenaba el UUID del guardia acá al
     // lado, que en pantalla se lee como un token/cadena sin sentido.
@@ -319,6 +341,8 @@ export interface HechosPageParams {
   /** Vocabulario de la vista (abierto/en_proceso/resuelto) — se traduce antes de llamar al API. */
   estado?: Hecho['estado'];
   nivelRiesgo?: Hecho['severidad'];
+  /** F3: 'pendiente' = bandeja de supervisión (EPI ambigua o fuera de cobertura). */
+  clasificacion?: 'pendiente';
 }
 
 // Variante paginada de getHechosActivos — mismo motivo que
@@ -332,9 +356,33 @@ export async function getHechosPage(params: HechosPageParams): Promise<{ rows: H
   if (params.q) qs.set('q', params.q);
   if (params.estado) qs.set('estado', HECHO_ESTADO_A_API[params.estado]);
   if (params.nivelRiesgo) qs.set('nivelRiesgo', params.nivelRiesgo);
+  if (params.clasificacion) qs.set('clasificacion', params.clasificacion);
 
   const { data: rows, total } = await apiFetchPage<ApiHecho[]>(`/api/hechos?${qs.toString()}`, { tags: [TAGS.hechos] });
   return { rows: rows.map(rowToHechoApi), total };
+}
+
+/**
+ * F3: TODOS los hechos que cumplen el filtro, dentro del alcance del
+ * usuario, en orden estable. Antes la exportación pedía una página "grande"
+ * que el backend recortaba a 100/200 filas. `truncado` avisa si se superó el
+ * tope del backend (no se corta en silencio).
+ */
+export async function getHechosExport(params: Omit<HechosPageParams, 'page' | 'pageSize'> = {}): Promise<{ rows: Hecho[]; total: number; truncado: boolean }> {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.estado) qs.set('estado', HECHO_ESTADO_A_API[params.estado]);
+  if (params.nivelRiesgo) qs.set('nivelRiesgo', params.nivelRiesgo);
+  if (params.clasificacion) qs.set('clasificacion', params.clasificacion);
+  const { data: rows, total, truncado } = await apiFetchPage<ApiHecho[]>(`/api/hechos/exportar?${qs.toString()}`, { tags: [TAGS.hechos] });
+  return { rows: rows.map(rowToHechoApi), total, truncado };
+}
+
+/** F3: la supervisión global decide la EPI de un hecho pendiente (o la corrige). */
+export async function clasificarHecho(id: string, epiCodigo: string): Promise<void> {
+  await apiFetch(`/api/hechos/${encodeURIComponent(id)}/epi`, { method: 'PATCH', body: { epiCodigo } });
+  revalidateTag(TAGS.hechos);
+  revalidateTag(TAGS.dashboardKpi);
 }
 
 export async function updateHechoEstado(id: string, estado: Hecho['estado']): Promise<void> {
@@ -356,12 +404,11 @@ function formatRelative(value: string | Date): string {
 }
 
 // Unidad de patrullaje (agrupa guardias que comparten coche/moto/punto de
-// servicio, Caso B/C de PatrolLayer/UnitPerimeterLines) — no existe como
+// servicio, Caso B de PatrolLayer) — no existe como
 // columna en `patrulla` real (types/patrulla.ts lo documenta). Se sostiene
 // en memoria del proceso servidor mientras dure la sesión de trabajo del
 // Operador: crearPatrulla() la escribe, getGuardMarkers() la lee. Se
 // pierde al reiniciar el servidor — aceptable, es solo agrupación visual.
-const UNIDAD_POR_GUARDIA = new Map<string, string>();
 
 interface ApiUbicacionGuardia {
   guardiaId: string;
@@ -371,10 +418,16 @@ interface ApiUbicacionGuardia {
   lng: number;
   direccion: string | null;
   esSos: boolean;
+  /** F2: hay alertas SOS sin atender (definición única del backend). */
+  sosAbierto?: boolean;
+  sosAlertaIds?: string[];
   estadoOperativo: string;
   bateriaPct: number | null;
   capturadoEn: string;
   turnoInicio: string | null;
+  /** F3 */
+  epiActual?: { codigo: string | null; nombre: string | null; estado: string; frescura: string } | null;
+  asignacion?: { propia: boolean; epiCodigo: string | null; ejecucionId: string | null; rutaNombre: string | null } | null;
 }
 
 function formatHora(value: string | Date): string {
@@ -416,35 +469,39 @@ export const getGuardMarkers = cache(async (guardiasPrefetched?: Guard[]): Promi
   const dadosDeBaja = new Set(guardias.filter((g) => g.accountStatus === 'inactivo').map((g) => g.id));
   const fotoPorGuardia = new Map(guardias.map((g) => [g.id, g.fotoUrl]));
   const patrullaPorGuardia = new Map(patrullas.map((p) => [p.guardiaId, p]));
-  const routeGroupsTemp = new Map<string, { nombre: string; trazado: unknown }>();
-  for (const p of patrullas) {
-    if (p.rutaPlantillaId && !routeGroupsTemp.has(p.rutaPlantillaId)) {
-      routeGroupsTemp.set(p.rutaPlantillaId, { nombre: p.rutaNombre ?? p.nombre ?? 'Ruta sin nombre', trazado: p.trazado });
-    }
-  }
+  // Un SOS abierto SIEMPRE se muestra (F2): aunque el guardia figure fuera de
+  // servicio o su cuenta se haya dado de baja después de la alerta.
   return ubicaciones
-    .filter((u) => (u.estadoOperativo !== 'fuera_de_servicio' || u.esSos) && !dadosDeBaja.has(u.guardiaId))
+    .filter((u) => u.sosAbierto || (u.estadoOperativo !== 'fuera_de_servicio' && !dadosDeBaja.has(u.guardiaId)))
     .map((u) => {
       const patrulla = patrullaPorGuardia.get(u.guardiaId);
       let rutaAsignada: GuardMarker['rutaAsignada'] | undefined;
-      if (patrulla?.rutaPlantillaId) {
-        const rt = routeGroupsTemp.get(patrulla.rutaPlantillaId);
-        if (rt) {
-          const path: { lat: number; lng: number }[] = [];
-          const trazado = Array.isArray(rt.trazado) ? rt.trazado : [];
-          for (const [lng, lat] of trazado) {
-            path.push({ lat, lng });
-          }
-          rutaAsignada = { nombre: rt.nombre, color: '#C2335D', puntos: path };
-        }
+      const trazado = trazadoValido(patrulla?.trazado);
+      if (patrulla && trazado) {
+        rutaAsignada = {
+          nombre: patrulla.rutaNombre ?? patrulla.nombre ?? 'Ruta sin nombre',
+          color: '#A97F52',
+          puntos: trazado.map(([lng, lat]) => ({ lat, lng })),
+        };
       }
+      const modalidad = patrulla?.modalidad ?? patrulla?.ejecucion?.modalidad;
       return ({
         id: u.guardiaId,
         label: u.guardiaNombre.split(/\s+/).map((p) => p.charAt(0)).slice(0, 2).join('').toUpperCase(),
         lat: u.lat,
         lng: u.lng,
-        zone: epiDeCodigo(u.epiCodigo),
-        hasSos: u.esSos || u.estadoOperativo === 'emergencia',
+        // F3: el pin se colorea por la EPI donde está AHORA (GPS); la de la cuenta solo si no se sabe.
+        zone: epiDeCodigo(u.epiActual?.codigo ?? u.epiCodigo),
+        ocupacion: u.asignacion
+          ? { propia: u.asignacion.propia, epiCodigo: epiDeCodigo(u.asignacion.epiCodigo), rutaNombre: u.asignacion.rutaNombre }
+          : null,
+        hasSos: Boolean(u.sosAbierto) || u.estadoOperativo === 'emergencia',
+        sosAlertaIds: u.sosAlertaIds ?? [],
+        estadoRuta: patrulla?.estadoRuta ?? null,
+        distanciaRutaM: patrulla?.distanciaRutaM ?? null,
+        incorporadaEn: patrulla?.incorporadaEn ?? null,
+        incorporacionLimite: patrulla?.incorporacionLimite ?? null,
+        ejecucionId: patrulla?.ejecucionId ?? undefined,
         nombre: u.guardiaNombre,
         fotoUrl: fotoPorGuardia.get(u.guardiaId) ?? undefined,
         operationalStatus: u.estadoOperativo as GuardMarker['operationalStatus'],
@@ -456,7 +513,8 @@ export const getGuardMarkers = cache(async (guardiasPrefetched?: Guard[]): Promi
         capturadoEnIso: toApiDate(u.capturadoEn).toISOString(),
         gpsSinActualizacionSeg: Math.round((Date.now() - new Date(u.capturadoEn).getTime()) / 1000),
         ruta: [],
-        unidadId: UNIDAD_POR_GUARDIA.get(u.guardiaId),
+        // Unidad = la ejecución, solo si viajan juntos (coche/moto).
+        unidadId: patrulla?.ejecucionId && (modalidad === 'coche' || modalidad === 'moto') ? patrulla.ejecucionId : undefined,
         direccionActual: u.direccion ?? undefined,
         ...(rutaAsignada ? { rutaAsignada } : {}),
       });
@@ -501,6 +559,8 @@ interface ApiRuta {
   trazado: unknown;
   activo?: boolean;
   modalidad?: string;
+  tipo?: string;
+  creadaEn?: string;
 }
 
 // Una plantilla sin trazado válido (ej. fila vieja de antes del rediseño de
@@ -531,6 +591,8 @@ export const getRutasPlantilla = cache(async (): Promise<RutaPlantillaRow[]> => 
     trazado: trazadoValido(r.trazado) ?? [],
     activa: r.activo ?? true,
     modalidad: r.modalidad as RutaPlantillaRow['modalidad'],
+    tipo: (r.tipo as TipoRuta | undefined) ?? 'guardada',
+    creadaEn: r.creadaEn,
   }));
 });
 
@@ -547,6 +609,14 @@ interface ApiPatrulla {
   poligonoGeojson: unknown;
   epiCodigo: string | null;
   direccionActual?: string;
+  ejecucionId?: string | null;
+  ejecucion?: EjecucionInfo | null;
+  modalidad?: string | null;
+  estadoRuta?: EstadoRuta | null;
+  distanciaRutaM?: number | null;
+  incorporadaEn?: string | null;
+  incorporacionLimite?: string | null;
+  puntoFijo?: { id: string; nombre: string; esSubpunto: boolean } | null;
 }
 
 function rowToPatrullaApi(row: ApiPatrulla): PatrullaRow {
@@ -562,9 +632,17 @@ function rowToPatrullaApi(row: ApiPatrulla): PatrullaRow {
     descripcion: row.descripcion ?? undefined,
     poligonoGeojson: (row.poligonoGeojson as GeoJsonPolygon | GeoJsonPoint | null) ?? { type: 'Polygon', coordinates: [] },
     estado: row.estado as PatrullaEstado,
-    modalidad: 'coche',
-    unidadId: UNIDAD_POR_GUARDIA.get(row.guardiaId),
+    // Antes siempre 'coche' (no se guardaba); desde F2 viene de la ejecución.
+    modalidad: ((row.modalidad ?? row.ejecucion?.modalidad) as PatrullaModalidad | undefined) ?? 'coche',
+    unidadId: row.ejecucion?.unidad ?? undefined,
     direccionActual: row.direccionActual,
+    ejecucionId: row.ejecucionId ?? undefined,
+    ejecucion: row.ejecucion ?? null,
+    estadoRuta: row.estadoRuta ?? null,
+    distanciaRutaM: row.distanciaRutaM ?? null,
+    incorporadaEn: row.incorporadaEn ?? null,
+    incorporacionLimite: row.incorporacionLimite ?? null,
+    puntoFijo: row.puntoFijo ?? null,
   };
 }
 
@@ -578,36 +656,236 @@ export async function getPatrullaEnCurso(): Promise<PatrullaRow | null> {
   return rows.find((p) => p.estado === 'en_curso') ?? null;
 }
 
-// modalidad/unidadId no se envían al API (no existen en la BD real, ver
-// types/patrulla.ts) — modalidad solo guía la capacidad del wizard;
-// unidadId se guarda en UNIDAD_POR_GUARDIA para que el mapa siga
-// agrupando visualmente a los guardias de la misma unidad.
-export async function crearPatrulla(data: Omit<PatrullaRow, 'id' | 'estado'>): Promise<PatrullaRow> {
-  const result = await apiFetch<ApiPatrulla>('/api/mapas/patrullas', {
-    method: 'POST',
-    body: {
-      guardiaId: data.guardiaId,
-      direccionActual: data.direccionActual ?? null,
-      // epiId: se omite — el backend la deriva de la ruta/jurisdicción
-      // (mapas.service.ts asignarPatrulla); `epiId` en PatrullaRow es el
-      // CÓDIGO de la EPI, no el UUID que espera el API.
-      rutaPlantillaId: data.rutaPlantillaId ?? null,
-      nombre: data.nombre,
-      descripcion: data.descripcion ?? null,
-      poligonoGeojson: data.poligonoGeojson,
-    },
-  });
-  if (data.unidadId) UNIDAD_POR_GUARDIA.set(data.guardiaId, data.unidadId);
+// Motor de asignación (F2): UNA intención por operación — el backend valida
+// el lote completo y asigna todo o nada (antes la web creaba una patrulla por
+// guardia en un bucle y un fallo a mitad dejaba la ruta a medias).
+export interface AsignacionBody {
+  claveIdempotencia: string;
+  ejecucionId?: string;
+  rutaPlantillaId?: string;
+  /** F4: asignar a un punto fijo del catálogo (punto o subpunto). */
+  puntoFijoId?: string;
+  nueva?: { nombre: string; descripcion?: string | null; trazado: TrazadoPuntos; tipo: TipoRuta };
+  modalidad?: PatrullaModalidad;
+  nombre?: string | null;
+  descripcion?: string | null;
+  unidad?: string | null;
+  /** `puntoFijoId` por guardia: subpunto elegido (si no, el backend elige el de más cupo). */
+  guardias: { guardiaId: string; punto?: [number, number] | null; puntoFijoId?: string | null }[];
+  confirmaciones?: { guardiaId: string; patrullaId: string }[];
+}
+
+export interface ConflictoAsignacion {
+  guardiaId: string;
+  guardiaNombre: string;
+  patrullaId: string;
+  ejecucionId: string | null;
+  /** null si la ruta es de otra jurisdicción (no se revela). */
+  rutaNombre: string | null;
+  mismaJurisdiccion: boolean;
+  confirmable: boolean;
+}
+
+export interface AvisoAsignacion {
+  guardiaId: string;
+  tipo: 'gps_antiguo' | 'sin_gps';
+  mensaje: string;
+}
+
+/** Guardia que no quedó asignado y por qué (la asignación es parcial). */
+export interface NoAsignado {
+  guardiaId: string;
+  guardiaNombre: string;
+  motivo: 'no_existe' | 'cuenta_inactiva' | 'sos' | 'sin_turno' | 'otra_epi' | 'en_ruta_otra_epi' | 'ya_en_esta_ruta' | 'ruta_llena' | 'punto_lleno';
+  mensaje: string;
+}
+
+export interface PrevisualizacionAsignacion {
+  conflictos: ConflictoAsignacion[];
+  noAsignados: NoAsignado[];
+  avisos: AvisoAsignacion[];
+}
+
+/** Antes de dibujar la ruta: quién ya tiene ruta, quién no podrá asignarse y avisos de GPS. */
+export async function previsualizarAsignacion(body: { guardias: { guardiaId: string }[]; ejecucionId?: string; puntoFijoId?: string }): Promise<PrevisualizacionAsignacion> {
+  return apiFetch('/api/mapas/ejecuciones/previsualizar', { method: 'POST', body });
+}
+
+export interface ResultadoAsignacion {
+  ejecucion: { id: string; nombre: string };
+  patrullaIds: string[];
+  noAsignados: NoAsignado[];
+  avisos: AvisoAsignacion[];
+}
+
+export async function asignarEjecucion(body: AsignacionBody): Promise<ResultadoAsignacion> {
+  const result = await apiFetch<ResultadoAsignacion>('/api/mapas/ejecuciones', { method: 'POST', body });
   revalidateTag(TAGS.patrullas);
   revalidateTag(TAGS.ubicaciones);
   revalidateTag(TAGS.guardias);
-  return { ...rowToPatrullaApi(result), modalidad: data.modalidad, unidadId: data.unidadId };
+  revalidateTag(TAGS.rutas);
+  revalidateTag(TAGS.puntosFijos);
+  revalidateTag(TAGS.programacion);
+  return result;
+}
+
+// --- Puntos fijos (F4) -------------------------------------------------------
+// Ocupación autoritativa del backend; caché corta porque cambia con cada
+// asignación (las mutaciones revalidan el tag).
+export async function getPuntosFijos(opciones: { incluirInactivos?: boolean } = {}): Promise<PuntoFijoRow[]> {
+  const qs = opciones.incluirInactivos ? '?incluirInactivos=1' : '';
+  return apiFetch<PuntoFijoRow[]>(`/api/puntos-fijos${qs}`, { revalidate: 10, tags: [TAGS.puntosFijos] });
+}
+
+export interface PuntoFijoBody {
+  nombre?: string;
+  descripcion?: string | null;
+  lat?: number;
+  lng?: number;
+  capacidad?: number;
+  padreId?: string | null;
+  epiCodigo?: string | null;
+  coordenadasAproximadas?: boolean;
+  activo?: boolean;
+  politicaOcupados?: 'trasladar' | 'retirar';
+  motivo?: string | null;
+}
+
+export async function crearPuntoFijo(body: PuntoFijoBody): Promise<{ id: string }> {
+  const r = await apiFetch<{ id: string }>('/api/puntos-fijos', { method: 'POST', body });
+  revalidateTag(TAGS.puntosFijos);
+  return r;
+}
+
+export async function actualizarPuntoFijo(id: string, body: PuntoFijoBody): Promise<{ politica: string | null; afectados: { guardiaId: string }[] }> {
+  const r = await apiFetch<{ politica: string | null; afectados: { guardiaId: string }[] }>(`/api/puntos-fijos/${encodeURIComponent(id)}`, { method: 'PATCH', body });
+  revalidateTag(TAGS.puntosFijos);
+  revalidateTag(TAGS.patrullas);
+  revalidateTag(TAGS.ubicaciones);
+  return r;
+}
+
+/** Cancela UNA ejecución (las otras asignaciones de la misma ruta guardada siguen). */
+export async function cancelarEjecucion(ejecucionId: string): Promise<{ ejecucionId: string; cancelados: number }> {
+  const result = await apiFetch<{ ejecucionId: string; cancelados: number }>(`/api/mapas/ejecuciones/${encodeURIComponent(ejecucionId)}/cancelar`, { method: 'PATCH' });
+  revalidateTag(TAGS.patrullas);
+  revalidateTag(TAGS.ubicaciones);
+  revalidateTag(TAGS.puntosFijos);
+  revalidateTag(TAGS.programacion);
+  return result;
+}
+
+// --- Programación de rutas (F5) ------------------------------------------------
+// Agenda, avisos y estado del planificador cambian solos (el planificador abre,
+// asigna y cierra horarios cada minuto): se leen siempre frescos. Con caché, al
+// abrir la agenda tras un rato se veía primero la foto vieja (y la campana
+// llegaba hasta 30 s tarde). Las mutaciones igual revalidan el tag.
+export async function getProgramaciones(): Promise<ProgramacionRow[]> {
+  return apiFetch<ProgramacionRow[]>('/api/programaciones', {});
+}
+
+export async function getAgendaProgramada(desde?: string, hasta?: string): Promise<HorarioAgenda[]> {
+  const qs = new URLSearchParams();
+  if (desde) qs.set('desde', desde);
+  if (hasta) qs.set('hasta', hasta);
+  return apiFetch<HorarioAgenda[]>(`/api/programaciones/agenda${qs.size ? `?${qs}` : ''}`, {});
+}
+
+export async function getAvisosProgramacion(): Promise<AvisoProgramacion[]> {
+  return apiFetch<AvisoProgramacion[]>('/api/programaciones/pendientes', {});
+}
+
+/**
+ * El planificador abre, inicia y cierra horarios en el SERVIDOR (sin una
+ * acción de la web que invalide la caché). Al llegar su evento en vivo, la
+ * web invalida lo que cambió antes de recargar; si no, el mapa mostraba la
+ * foto anterior hasta recargar la página.
+ * Es una Server Action (este módulo es 'use server') y no pasa por el API:
+ * solo una sesión válida puede invalidar la caché.
+ */
+export async function revalidarHorariosEnVivo(): Promise<void> {
+  if (!(await getServerSession())) return;
+  revalidateTag(TAGS.patrullas);
+  revalidateTag(TAGS.ubicaciones);
+  revalidateTag(TAGS.puntosFijos);
+  revalidateTag(TAGS.programacion);
+}
+
+/** F6: el operador terminó de elegir a mano (o cerró el selector): la automática sigue al momento. */
+export async function reanudarAutomatica(ejecucionId: string): Promise<void> {
+  await apiFetch(`/api/programaciones/horarios/${encodeURIComponent(ejecucionId)}/reanudar`, { method: 'POST', body: {} });
+  revalidateTag(TAGS.programacion);
+  revalidateTag(TAGS.patrullas);
+}
+
+/** F6: a quién eligió o descartó la asignación automática en un horario (siempre fresco). */
+export async function getIntentosAutomaticos(ejecucionId: string): Promise<IntentosAutomaticos> {
+  return apiFetch<IntentosAutomaticos>(`/api/programaciones/horarios/${encodeURIComponent(ejecucionId)}/automatica`, {});
+}
+
+export async function getPlanificador(): Promise<EstadoPlanificador> {
+  return apiFetch<EstadoPlanificador>('/api/programaciones/planificador', {});
+}
+
+export async function crearProgramacion(body: ProgramacionBody): Promise<ProgramacionRow> {
+  const r = await apiFetch<ProgramacionRow>('/api/programaciones', { method: 'POST', body });
+  revalidateTag(TAGS.programacion);
+  return r;
+}
+
+export async function actualizarProgramacion(id: string, body: ProgramacionBody): Promise<ProgramacionRow> {
+  const r = await apiFetch<ProgramacionRow>(`/api/programaciones/${encodeURIComponent(id)}`, { method: 'PATCH', body });
+  revalidateTag(TAGS.programacion);
+  return r;
+}
+
+/** Elimina (lógico) una programación: cancela su horario abierto y libera a sus guardias. */
+export async function eliminarProgramacion(id: string): Promise<{ guardiasLiberados: number }> {
+  const r = await apiFetch<{ guardiasLiberados: number }>(`/api/programaciones/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  revalidateTag(TAGS.programacion);
+  revalidateTag(TAGS.patrullas);
+  revalidateTag(TAGS.ubicaciones);
+  revalidateTag(TAGS.puntosFijos);
+  return r;
+}
+
+export async function cambiarPlanificador(habilitado: boolean, motivo?: string | null): Promise<EstadoPlanificador> {
+  const r = await apiFetch<EstadoPlanificador>('/api/programaciones/planificador', { method: 'PATCH', body: { habilitado, motivo: motivo ?? null } });
+  revalidateTag(TAGS.programacion);
+  return r;
+}
+
+/** Saca una ruta de la biblioteca (borrado lógico); las asignaciones en curso siguen. */
+export async function archivarRuta(id: string): Promise<void> {
+  await apiFetch(`/api/mapas/rutas/${encodeURIComponent(id)}/archivar`, { method: 'PATCH' });
+  revalidateTag(TAGS.rutas);
+}
+
+/** Parámetros de una ruta establecida/guardada (aplican a las próximas asignaciones). */
+export async function actualizarRuta(
+  id: string,
+  patch: { nombre?: string; descripcion?: string | null; tipo?: 'establecida' | 'guardada'; modalidad?: PatrullaModalidad | null },
+): Promise<void> {
+  await apiFetch(`/api/mapas/rutas/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch });
+  revalidateTag(TAGS.rutas);
+}
+
+/** Atiende exactamente las alertas SOS indicadas (F2); el estado sale del turno real. */
+export async function atenderSos(guardiaId: string, alertaIds?: string[]): Promise<{ pendientes: number; estadoOperativo: string }> {
+  const result = await apiFetch<{ pendientes: number; estadoOperativo: string }>(`/api/guardias/${encodeURIComponent(guardiaId)}/sos/atender`, {
+    method: 'POST',
+    body: alertaIds && alertaIds.length > 0 ? { alertaIds } : {},
+  });
+  revalidateTag(TAGS.ubicaciones);
+  revalidateTag(TAGS.guardias);
+  revalidateTag(TAGS.dashboardKpi);
+  return result;
 }
 
 // POST /api/mapas/rutas (RF-G3-09, 2026-09-14) — `trazado` viaja como
 // array de puntos [lng, lat] pelado (ver trazadoValido arriba), no como
 // GeoJSON — mismo formato que ya lee la app móvil en producción.
-export async function crearRutaPlantilla(data: Omit<RutaPlantillaRow, 'id'>): Promise<RutaPlantillaRow> {
+export async function crearRutaPlantilla(data: Omit<RutaPlantillaRow, 'id' | 'creadaEn'>): Promise<RutaPlantillaRow> {
   const result = await apiFetch<ApiRuta>('/api/mapas/rutas', {
     method: 'POST',
     body: {
@@ -616,6 +894,7 @@ export async function crearRutaPlantilla(data: Omit<RutaPlantillaRow, 'id'>): Pr
       trazado: data.trazado,
       activo: data.activa,
       modalidad: data.modalidad ?? null,
+      tipo: data.tipo === 'establecida' ? 'establecida' : 'guardada',
     },
   });
   revalidateTag(TAGS.rutas);
@@ -627,6 +906,7 @@ export async function crearRutaPlantilla(data: Omit<RutaPlantillaRow, 'id'>): Pr
     trazado: trazadoValido(result.trazado) ?? data.trazado,
     activa: result.activo ?? data.activa,
     modalidad: (result.modalidad as RutaPlantillaRow['modalidad']) ?? data.modalidad,
+    tipo: (result.tipo as TipoRuta | undefined) ?? data.tipo,
   };
 }
 
@@ -647,10 +927,16 @@ export async function cancelarRuta(rutaPlantillaId: string): Promise<{ rutaPlant
 // Complemento (2026-09-14): saca a UN guardia de una ruta compartida sin
 // tocar a los demás — `patrullaId` es la fila propia de ese guardia dentro
 // de la ruta (PatrullaRow.id, no el id de la ruta).
-export async function cancelarPatrulla(patrullaId: string): Promise<{ patrullaId: string; guardiaId: string }> {
-  const result = await apiFetch<{ patrullaId: string; guardiaId: string }>(`/api/mapas/patrullas/${encodeURIComponent(patrullaId)}/cancelar`, { method: 'PATCH' });
+export async function cancelarPatrulla(patrullaId: string, reposicion?: 'automatica' | 'manual'): Promise<{ patrullaId: string; guardiaId: string }> {
+  // F6: en un horario automático, `reposicion` decide si se busca reemplazo o pasa a manual.
+  const result = await apiFetch<{ patrullaId: string; guardiaId: string }>(`/api/mapas/patrullas/${encodeURIComponent(patrullaId)}/cancelar`, {
+    method: 'PATCH',
+    body: reposicion ? { reposicion } : {},
+  });
   revalidateTag(TAGS.patrullas);
   revalidateTag(TAGS.ubicaciones);
+  revalidateTag(TAGS.puntosFijos);
+  revalidateTag(TAGS.programacion);
   return result;
 }
 
@@ -763,7 +1049,7 @@ export async function updateGuardiaEstado(id: string, estado: GuardiaRow['estado
     body: { estado },
   });
   revalidateTag(TAGS.guardias);
-  return row ? rowToGuardApi(row, 0) : null;
+  return row ? rowToGuardApi(row) : null;
 }
 
 // Estado operativo (en_servicio/fuera_de_servicio/emergencia) — distinto del
@@ -784,7 +1070,7 @@ export async function updateGuardiaEstadoOperativo(id: string, estadoOperativo: 
   revalidateTag(TAGS.guardias);
   revalidateTag(TAGS.ubicaciones);
   revalidateTag(TAGS.dashboardKpi);
-  return row ? rowToGuardApi(row, 0) : null;
+  return row ? rowToGuardApi(row) : null;
 }
 
 export async function updateGuardiaBiografia(
@@ -803,7 +1089,7 @@ export async function updateGuardiaBiografia(
     },
   });
   revalidateTag(TAGS.guardias);
-  return row ? rowToGuardApi(row, 0) : null;
+  return row ? rowToGuardApi(row) : null;
 }
 
 interface ApiGuardiaCreated {
@@ -839,7 +1125,7 @@ export async function crearGuardia(data: {
     },
   });
   revalidateTag(TAGS.guardias);
-  return { guardia: rowToGuardApi(result.guardia, 0), usuario: result.usuario, passwordTemporal: result.passwordTemporal };
+  return { guardia: rowToGuardApi(result.guardia), usuario: result.usuario, passwordTemporal: result.passwordTemporal };
 }
 
 interface ApiUserCreated {
@@ -927,7 +1213,17 @@ export const getDashboardHechosPorZona = cache(async (): Promise<HechoPorZonaIte
   return rows.map((r, i) => ({ zone: r.epiCodigo, nombre: r.zona ?? 'Sin EPI', total: r.total, percentage: pct[i]!.percentage }));
 });
 
-export interface AppNotification { id: string; title: string; timestamp: string; read?: boolean; guardiaId?: string; hechoId?: string; kind: 'sos' | 'bateria' | 'hecho' | 'ruta' }
+export interface AppNotification {
+  id: string;
+  title: string;
+  timestamp: string;
+  read?: boolean;
+  guardiaId?: string;
+  hechoId?: string;
+  /** F5: horario programado al que le faltan guardias. */
+  ejecucionId?: string;
+  kind: 'sos' | 'bateria' | 'hecho' | 'ruta' | 'programada';
+}
 
 export interface Mandado {
   id: string;
@@ -968,11 +1264,13 @@ export const getMandados = cache(async (limit = 50): Promise<Mandado[]> => {
 
 export const getNotificaciones = cache(async (limit = 10): Promise<AppNotification[]> => {
   try {
-    const [ubicaciones, hechos, mandados, patrullas] = await Promise.all([
+    const [ubicaciones, hechos, mandados, patrullas, programadas] = await Promise.all([
       apiFetch<ApiUbicacionGuardia[]>('/api/mapas/ubicaciones', { revalidate: 10, tags: [TAGS.ubicaciones] }).catch(() => [] as ApiUbicacionGuardia[]),
       apiFetch<ApiHecho[]>('/api/hechos', { revalidate: 15, tags: [TAGS.hechos] }).catch(() => [] as ApiHecho[]),
       getMandados(3).catch(() => [] as Mandado[]),
       getPatrullas().catch(() => [] as PatrullaRow[]),
+      // F5: sin el permiso (o con el backend caído) simplemente no hay avisos de horarios.
+      getAvisosProgramacion().catch(() => [] as AvisoProgramacion[]),
     ]);
     // Cada entrada guarda su fecha real (`_ts`) además del `timestamp` ya
     // formateado para mostrar — antes la lista se armaba concatenando por
@@ -984,7 +1282,7 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
     // AppNotification).
     const conFecha: (AppNotification & { _ts: number })[] = [];
 
-    const sos = ubicaciones.filter((u) => u.esSos).slice(0, 5);
+    const sos = ubicaciones.filter((u) => u.sosAbierto).slice(0, 5);
     for (const u of sos) {
       conFecha.push({
         id: `sos-${u.guardiaId}`,
@@ -1024,34 +1322,44 @@ export const getNotificaciones = cache(async (limit = 10): Promise<AppNotificati
     for (const m of mandados.slice(0, 3)) {
       conFecha.push({ id: `mandado-${m.id}`, title: `Tarea — ${m.descripcion.slice(0, 45)}`, timestamp: formatRelative(m.creadoEn), read: false, guardiaId: m.guardiaId, kind: 'hecho' as const, _ts: new Date(m.creadoEn).getTime() });
     }
-    // Guardia fuera de ruta asignada: misma detección que ya corre en vivo
-    // en el Mapa (MapasView.detectarDesviaciones) — se repite acá para que
-    // también avise por la campanita a un Operador que no tiene esa
-    // pestaña abierta (RF-G3-09, pedido explícito: "se sale de su ruta").
-    const markersMap = new Map(ubicaciones.map((u) => [u.guardiaId, { lat: u.lat, lng: u.lng }]));
-    const rutaPorGuardia = new Map<string, { lat: number; lng: number }[]>();
-    for (const grupo of groupPatrullasByRuta(patrullas, markersMap)) {
-      for (const g of grupo.guards) {
-        if (grupo.path.length >= 2 && !rutaPorGuardia.has(g.guardiaId)) rutaPorGuardia.set(g.guardiaId, grupo.path);
-      }
+    // Guardia fuera de ruta (F2): el estado lo calcula el servidor en cada
+    // ping, con umbrales por modalidad. La campana solo avisa las alertas
+    // ROJAS; las advertencias quedan en el panel lateral del mapa.
+    const ubicacionPor = new Map(ubicaciones.map((u) => [u.guardiaId, u]));
+    for (const p of patrullas) {
+      if (p.estadoRuta !== 'alerta') continue;
+      const u = ubicacionPor.get(p.guardiaId);
+      if (!u) continue;
+      conFecha.push({
+        id: `ruta-${p.guardiaId}`,
+        title: `Fuera de ruta — ${u.guardiaNombre} a ${p.distanciaRutaM ?? '?'} m de su ruta`,
+        timestamp: formatRelative(u.capturadoEn),
+        read: false,
+        guardiaId: p.guardiaId,
+        kind: 'ruta' as const,
+        _ts: new Date(u.capturadoEn).getTime(),
+      });
     }
-    const METROS_ALERTA = 50;
-    for (const u of ubicaciones) {
-      const puntos = rutaPorGuardia.get(u.guardiaId);
-      if (!puntos || puntos.length < 2) continue;
-      const dist = projectOntoPath({ lat: u.lat, lng: u.lng }, puntos);
-      const fueraDeRuta = dist.point && Math.hypot(dist.point.lat - u.lat, dist.point.lng - u.lng) * 111320 > METROS_ALERTA;
-      if (fueraDeRuta) {
-        conFecha.push({
-          id: `ruta-${u.guardiaId}`,
-          title: `Fuera de ruta — ${u.guardiaNombre} se desvió del trazado asignado`,
-          timestamp: formatRelative(u.capturadoEn),
-          read: false,
-          guardiaId: u.guardiaId,
-          kind: 'ruta' as const,
-          _ts: new Date(u.capturadoEn).getTime(),
-        });
-      }
+    // Horarios programados con guardias por asignar (F5). Se leen de la BD:
+    // aparecen aunque el socket esté caído. El id incluye cuántos faltan, así
+    // un cambio en la cobertura vuelve a marcarse como no leído.
+    for (const a of programadas.slice(0, 5)) {
+      const hora = new Date(a.inicio).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/La_Paz' });
+      // F6: en un horario automático el sistema sigue buscando solo (el radio crece si no encuentra).
+      const falta = a.faltan === 1 ? 'falta 1 guardia' : `faltan ${a.faltan} guardias`;
+      const radio = a.radioM ? `${(a.radioM / 1000).toLocaleString('es-BO', { maximumFractionDigits: 1 })} km` : null;
+      conFecha.push({
+        id: `prog-${a.ejecucionId}-${a.faltan}${a.automatica ? `-${a.radioM ?? ''}` : ''}`,
+        title: a.automatica
+          ? `Ruta automática «${a.nombre}» ${hora}: ${falta}; buscando${radio ? ` en ${radio}` : ''}`
+          : `Ruta programada «${a.nombre}» ${hora}: ${a.faltan === 1 ? 'falta asignar 1 guardia' : `faltan asignar ${a.faltan} guardias`}`,
+        timestamp: a.empezado ? 'En curso' : `Empieza a las ${hora}`,
+        read: false,
+        ejecucionId: a.ejecucionId,
+        kind: 'programada' as const,
+        // Pendientes de trabajo: arriba de la lista mientras sigan abiertos.
+        _ts: Date.now(),
+      });
     }
     return conFecha
       .sort((a, b) => b._ts - a._ts)

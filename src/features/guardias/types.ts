@@ -43,9 +43,25 @@ export const OPERATIONAL_STATUS_LABELS: Record<OperationalStatus, string> = {
 export const OPERATIONAL_STATUS_BADGE_CLASS: Record<OperationalStatus, string> = {
   fuera_de_servicio: 'bg-neutral-text-muted/10 text-neutral-text-muted',
   en_servicio: 'bg-risk-low/10 text-risk-low',
-  // Emergencia: rojo pulsante (MASTER.md sección 10) — imposible de ignorar.
-  emergencia: 'bg-risk-critical/10 text-risk-critical animate-pulse motion-reduce:animate-none',
+  // Emergencia (F7): rojo sólido con texto blanco (4.8:1) y sin parpadeo —
+  // el parpadeo de toda la etiqueta cansaba; el sonar del avatar/pin marca
+  // lo "vivo" (MASTER.md sección 10).
+  emergencia: 'bg-risk-critical text-white',
 };
+
+/**
+ * F3: EPI en la que está el guardia AHORA, por su última posición GPS
+ * válida (no su adscripción). `frescura` antigua = el dato tiene más de
+ * 10 min; null en Guard.epiActual = nunca reportó GPS (desconocida).
+ */
+export interface EpiActualInfo {
+  codigo: EpiZone | null;
+  nombre: string | null;
+  estado: 'asignada' | 'ambigua' | 'fuera_cobertura';
+  frescura: 'reciente' | 'antigua';
+  capturadoEnIso: string;
+  desdeIso: string;
+}
 
 export interface Guard {
   id: string;
@@ -58,8 +74,10 @@ export interface Guard {
   ci: string;
   fechaNacimiento: string; // dd/mm/aaaa
   telefono: string;
-  /** Código de EPI (legado: adscripción fija). null = sin EPI. */
+  /** Código de EPI (legado: adscripción fija, ya no decide nada). null = sin EPI. */
   epi: EpiZone | null;
+  /** F3: EPI actual por GPS. null = desconocida (sin GPS). */
+  epiActual?: EpiActualInfo | null;
   accountStatus: AccountStatus;
   operationalStatus: OperationalStatus;
   fotoUrl?: string;

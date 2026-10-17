@@ -73,8 +73,8 @@ export function RiskZonePanel({ zonas, selectedId, onSelect }: RiskZonePanelProp
                   aria-current={isSelected || undefined}
                   className={[
                     'flex w-full items-start gap-2.5 px-4 py-3 text-left transition-colors duration-200',
-                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2',
-                    isSelected ? 'bg-primary-100/70' : 'hover:bg-neutral-bg',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2',
+                    isSelected ? 'bg-accent-100/60' : 'hover:bg-neutral-bg',
                   ].join(' ')}
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-800">

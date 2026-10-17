@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Route } from 'lucide-react';
 import { Marker, Popup, useMap } from 'react-leaflet';
@@ -9,6 +9,7 @@ import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { OPERATIONAL_STATUS_LABELS } from '@/features/guardias/types';
 import { safePhotoUrl } from '../lib/safeIconUrl';
 import { createMarkerAnimator } from '../lib/markerAnimator';
+import { PANES, radioCluster } from '../lib/capas';
 import type { GuardMarker } from '../types';
 
 // RF/RNF: Tab Patrullaje en Vivo — RF-G1-01/02, RF-G3-09/10 (MASTER.md sección 7.3).
@@ -17,19 +18,23 @@ import type { GuardMarker } from '../types';
 // Leaflet+bundlers con los íconos por defecto). Header pulsante rojo si el
 // guardia tiene SOS activo (MASTER.md sección 9).
 //
-// Agrupamiento (Caso B — MASTER.md "Rediseño de Asignación de Rutas"):
-// cuando 2+ guardias quedan a pocos metros entre sí (ej. los ocupantes de
-// un mismo coche, con el jitter que simula que cada uno reporta desde su
-// propio celular), MarkerClusterGroup los agrupa en una sola insignia. Un
-// clic en el número acerca el mapa SOLO hasta el nivel en que ese grupo se
-// desglosa (zoomToBounds de Leaflet.markercluster: 3 → "2" + 1 → …), y así
-// sucesivamente hasta ver a cada guardia (pedido del usuario 2026-10-08;
-// antes el clic no hacía nada salvo en el zoom máximo). Si siguen juntos en
-// el zoom máximo (mismo punto exacto), se abren en abanico (spiderfy) — así
-// nunca hace falta acertarle a un pin exacto entre varios superpuestos.
-// El radio de cluster es chico a propósito (40px) para que solo agrupe
-// puntos genuinamente cercanos, no guardias de la misma zona EPI que están
-// a varias cuadras.
+// Agrupamiento (Caso B — MASTER.md "Rediseño de Asignación de Rutas"),
+// revisado 16/10 con las normas de Leaflet.markercluster:
+//  · se agrupan SOLO guardias (una capa, un tipo): puntos fijos, sedes y
+//    módulos nunca se mezclan en un grupo;
+//  · lo prioritario NUNCA queda escondido dentro de un grupo: un guardia con
+//    SOS y el guardia seleccionado se dibujan sueltos, en su propio pane por
+//    encima del resto (capas.ts);
+//  · radio según zoom (radioCluster): amplio en la vista de ciudad, mínimo a
+//    nivel de calle, así de cerca solo se agrupa lo que de verdad está
+//    encimado (los ocupantes de un mismo coche);
+//  · clic en el número = acercar hasta que el grupo se desglose
+//    (zoomToBounds); en el zoom máximo, abanico (spiderfy);
+//  · el ícono del grupo crece con la cantidad (3 tamaños) y toma el color del
+//    PEOR estado que contiene (fuera de ruta > advertencia > incorporándose),
+//    para no perder una alerta por estar agrupada;
+//  · carga por tramos (chunkedLoading) y sin dibujar lo que está fuera de la
+//    vista (removeOutsideVisibleBounds, por defecto): fluido con muchos guardias.
 //
 // Movimiento fluido (pedido explícito: "que se sienta muy fluido... como
 // Uber", con muchos guardias conectados a la vez): el pin ya NO salta de
@@ -50,10 +55,10 @@ function createGuardIcon(guard: GuardMarker, isSelected: boolean, zoneColor: str
     ? `background-image:url('${photoUrl}');background-size:cover;background-position:center;`
     : `background:${zoneColor};`;
   const label = photoUrl ? '' : guard.label;
-  const pulseClass = guard.hasSos ? 'animate-pulse' : '';
+  const pulseClass = guard.hasSos ? 'sos-sonar' : '';
   const ringStyle = guard.hasSos
-    ? (isSelected ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #DC2626,0 0 0 9px #E8567F;' : 'box-shadow:0 0 0 3px #fff,0 0 0 6px #DC2626;')
-    : (isSelected ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #E8567F;' : 'box-shadow:0 1px 4px rgba(58,44,107,.35);');
+    ? (isSelected ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #DC2626,0 0 0 9px #C59B6D;' : 'box-shadow:0 0 0 3px #fff,0 0 0 6px #DC2626;')
+    : (isSelected ? 'box-shadow:0 0 0 3px #fff,0 0 0 6px #C59B6D;' : 'box-shadow:0 1px 4px rgba(13,13,14,.35);');
 
   return L.divIcon({
     className: '',
@@ -63,22 +68,36 @@ function createGuardIcon(guard: GuardMarker, isSelected: boolean, zoneColor: str
   });
 }
 
+// Estado de ruta por guardia, leído por el ícono de los grupos. Va en un
+// Map (no en las options del marcador) porque Leaflet no actualiza options
+// después de crear el marcador; PatrolLayer lo refresca cuando cambia.
+const estadoPorGuardia = new Map<string, GuardMarker['estadoRuta']>();
+const PESO_ESTADO: Record<string, number> = { alerta: 3, advertencia: 2, incorporandose: 1 };
+const COLOR_ESTADO: Record<number, string> = { 3: '#DC2626', 2: '#F59E0B', 1: '#3B82F6' };
+
 function createClusterIcon(cluster: L.MarkerCluster) {
   const count = cluster.getChildCount();
-  const hasSos = cluster.getAllChildMarkers().some((m: L.Marker) => (m.options as { hasSos?: boolean }).hasSos);
-  const bg = hasSos ? '#DC2626' : '#6B559F';
+  let peor = 0;
+  for (const m of cluster.getAllChildMarkers()) {
+    const id = (m.options as { guardiaId?: string }).guardiaId ?? '';
+    peor = Math.max(peor, PESO_ESTADO[estadoPorGuardia.get(id) ?? ''] ?? 0);
+  }
+  const tam = count < 10 ? 34 : count < 50 ? 40 : 46;
+  const borde = COLOR_ESTADO[peor] ?? '#C59B6D';
+  const aviso = peor >= 2 ? `<span style="position:absolute;right:-3px;top:-3px;width:12px;height:12px;border-radius:9999px;background:${borde};border:2px solid #fff"></span>` : '';
   return L.divIcon({
     className: '',
-    html: `<div style="width:34px;height:34px;border-radius:9999px;background:${bg};border:2.5px solid #E8567F;box-shadow:0 1px 4px rgba(0,0,0,.35);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif">${count}</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    html: `<div title="${count} guardias agrupados — clic para acercar" style="position:relative;width:${tam}px;height:${tam}px;border-radius:9999px;background:#1A1A1A;border:3px solid ${borde};box-shadow:0 1px 4px rgba(0,0,0,.35);color:#fff;font-size:${count < 10 ? 12 : 13}px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif">${count}${aviso}</div>`,
+    iconSize: [tam, tam],
+    iconAnchor: [tam / 2, tam / 2],
   });
 }
 
 interface GuardMapMarkerProps {
   guard: GuardMarker;
-  initialPosition: [number, number];
   isSelected: boolean;
+  /** Pane propio para los prioritarios (SOS / seleccionado); los demás van en markerPane. */
+  pane?: string;
   onSelectGuard?: (guard: GuardMarker) => void;
   markerRef: (id: string, instance: L.Marker | null) => void;
 }
@@ -90,7 +109,10 @@ interface GuardMapMarkerProps {
 // lat/lng se excluyen a propósito — el movimiento lo maneja el efecto de
 // PatrolLayer vía el animador imperativo, no un re-render de este componente.
 const GuardMapMarker = React.memo(
-  function GuardMapMarker({ guard, initialPosition, isSelected, onSelectGuard, markerRef }: GuardMapMarkerProps) {
+  function GuardMapMarker({ guard, isSelected, pane, onSelectGuard, markerRef }: GuardMapMarkerProps) {
+    // Posición al MONTAR (no la primera vez que se vio al guardia): si pasa de
+    // un grupo a la capa prioritaria se vuelve a montar donde está ahora.
+    const [initialPosition] = useState<[number, number]>(() => [guard.lat, guard.lng]);
     // Color desde el catálogo dinámico (antes EPI_ZONE_HEX fijo). El
     // contexto re-renderiza este marcador si el catálogo cambia, aunque
     // el memo de abajo compare solo campos del guardia.
@@ -100,11 +122,12 @@ const GuardMapMarker = React.memo(
         ref={(instance) => markerRef(guard.id, instance)}
         position={initialPosition}
         icon={createGuardIcon(guard, isSelected, color(guard.zone))}
-        // hasSos viaja en options (react-leaflet pasa todas las props no
-        // reconocidas al constructor de L.Marker) para que
-        // createClusterIcon pueda leerlo vía getAllChildMarkers() sin
-        // acoplarse a GuardMarker.
-        {...{ hasSos: guard.hasSos }}
+        {...(pane ? { pane } : {})}
+        zIndexOffset={guard.hasSos ? 2000 : isSelected ? 1000 : 0}
+        // guardiaId viaja en options (react-leaflet pasa las props no
+        // reconocidas al constructor de L.Marker) para que createClusterIcon
+        // encuentre el estado de cada guardia agrupado.
+        {...{ guardiaId: guard.id }}
         eventHandlers={onSelectGuard ? { click: () => onSelectGuard(guard) } : undefined}
       >
         <Popup>
@@ -133,6 +156,7 @@ const GuardMapMarker = React.memo(
     prev.guard.operationalStatus === next.guard.operationalStatus &&
     prev.guard.rutaAsignada?.nombre === next.guard.rutaAsignada?.nombre &&
     prev.isSelected === next.isSelected &&
+    prev.pane === next.pane &&
     prev.onSelectGuard === next.onSelectGuard,
 );
 
@@ -147,7 +171,7 @@ export const PatrolLayer = React.memo(function PatrolLayer({ guards, selectedId,
   const animator = useMemo(() => createMarkerAnimator(map), [map]);
   const markersRef = useRef(new Map<string, L.Marker>());
   const lastPosRef = useRef(new Map<string, { lat: number; lng: number }>());
-  const initialPosRef = useRef(new Map<string, [number, number]>());
+  const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
 
   useEffect(() => () => animator.destroy(), [animator]);
 
@@ -178,36 +202,51 @@ export const PatrolLayer = React.memo(function PatrolLayer({ guards, selectedId,
     for (const id of Array.from(lastPosRef.current.keys())) {
       if (!seen.has(id)) {
         lastPosRef.current.delete(id);
-        initialPosRef.current.delete(id);
         markersRef.current.delete(id);
         animator.forget(id);
       }
     }
   }, [guards, animator]);
 
+  // Los grupos se redibujan solo al hacer zoom/pan: si cambia el estado de
+  // algún guardia agrupado, se refrescan los íconos para no mostrar un color viejo.
+  const firmaEstados = guards.map((g) => `${g.id}:${g.estadoRuta ?? ''}`).join('|');
+  useEffect(() => {
+    estadoPorGuardia.clear();
+    for (const g of guards) estadoPorGuardia.set(g.id, g.estadoRuta ?? null);
+    clusterRef.current?.refreshClusters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- basta con la firma de estados
+  }, [firmaEstados]);
+
+  const esPrioritario = (g: GuardMarker) => g.hasSos === true || g.id === selectedId;
+  const agrupables = guards.filter((g) => !esPrioritario(g));
+  const prioritarios = guards.filter(esPrioritario);
+
   return (
-    <MarkerClusterGroup
-      maxClusterRadius={40}
-      spiderfyOnMaxZoom
-      showCoverageOnHover={false}
-      zoomToBoundsOnClick
-      iconCreateFunction={createClusterIcon}
-    >
-      {guards.map((guard) => {
-        if (!initialPosRef.current.has(guard.id)) {
-          initialPosRef.current.set(guard.id, [guard.lat, guard.lng]);
-        }
-        return (
-          <GuardMapMarker
-            key={guard.id}
-            guard={guard}
-            initialPosition={initialPosRef.current.get(guard.id)!}
-            isSelected={guard.id === selectedId}
-            onSelectGuard={onSelectGuard}
-            markerRef={setMarkerRef}
-          />
-        );
-      })}
-    </MarkerClusterGroup>
+    <>
+      <MarkerClusterGroup
+        ref={clusterRef}
+        maxClusterRadius={radioCluster}
+        spiderfyOnMaxZoom
+        showCoverageOnHover={false}
+        zoomToBoundsOnClick
+        chunkedLoading
+        iconCreateFunction={createClusterIcon}
+      >
+        {agrupables.map((guard) => (
+          <GuardMapMarker key={guard.id} guard={guard} isSelected={false} onSelectGuard={onSelectGuard} markerRef={setMarkerRef} />
+        ))}
+      </MarkerClusterGroup>
+      {prioritarios.map((guard) => (
+        <GuardMapMarker
+          key={`p-${guard.id}`}
+          guard={guard}
+          isSelected={guard.id === selectedId}
+          pane={PANES.prioritarios.name}
+          onSelectGuard={onSelectGuard}
+          markerRef={setMarkerRef}
+        />
+      ))}
+    </>
   );
 });

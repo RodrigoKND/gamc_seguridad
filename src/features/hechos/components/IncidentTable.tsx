@@ -83,7 +83,14 @@ export function IncidentTable({ hechos, status, onRetry, onSelect }: IncidentTab
                   </td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">
                     {hecho.ubicacion}
-                    <span className="block text-neutral-text-muted"><EpiNombre codigo={hecho.epi} /></span>
+                    <span className="block text-neutral-text-muted">
+                      {hecho.epi ? <EpiNombre codigo={hecho.epi} /> : 'Sin EPI'}
+                      {(hecho.epiEstado === 'ambigua' || hecho.epiEstado === 'fuera_cobertura') && (
+                        <span className="ml-1.5 rounded bg-risk-medium/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#B45309]" title="La ubicación del hecho cae fuera de las EPIs o en un borde: la supervisión debe confirmar su EPI">
+                          Por clasificar
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">{hecho.timestamp}</td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">{hecho.reportante}</td>

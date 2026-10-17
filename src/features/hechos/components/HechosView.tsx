@@ -10,7 +10,8 @@ import { ExportMenu } from '@/components/ui/ExportMenu';
 import { Pagination } from '@/components/ui/Pagination';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { RISK_LEVEL_LABELS, RISK_LEVELS, type RiskLevel } from '@/types/risk';
-import { getHechosPage, getMandados, type Mandado } from '@/lib/data-source';
+import { getHechosExport, getHechosPage, getMandados, type Mandado } from '@/lib/data-source';
+import { useDialog } from '@/components/ui/AlertDialog';
 import { canWrite } from '@/lib/permissions';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
@@ -21,6 +22,7 @@ import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { exportPDF, hechosToPrint } from '@/features/reportes/actions/exportPDF';
 import { HECHO_ESTADOS, HECHO_ESTADO_LABELS, type Hecho, type HechoEstado } from '../types';
 import { updateHechoEstadoAction } from '../actions/updateEstado';
+import { clasificarHechoAction } from '../actions/clasificarHecho';
 import { IncidentTable } from './IncidentTable';
 import { IncidentDetailDrawer } from './IncidentDetailDrawer';
 
@@ -46,6 +48,9 @@ const SEARCH_DEBOUNCE_MS = 350;
 export function HechosView() {
   const { user } = useAuthSession();
   const canEditEstado = user ? canWrite(user.role, 'hechos') : false;
+  // F3: solo la supervisión global ve la bandeja de hechos por clasificar.
+  const esSupervision = user?.role === 'super_admin';
+  const dialogo = useDialog();
   const searchParams = useSearchParams();
 
   const [rows, setRows] = useState<Hecho[]>([]);
@@ -57,6 +62,7 @@ export function HechosView() {
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [estadoFilter, setEstadoFilter] = useState<HechoEstado | 'todos'>('todos');
   const [severidadFilter, setSeveridadFilter] = useState<RiskLevel | 'todos'>('todos');
+  const [soloPendientes, setSoloPendientes] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
@@ -72,13 +78,14 @@ export function HechosView() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, estadoFilter, severidadFilter]);
+  }, [debouncedQuery, estadoFilter, severidadFilter, soloPendientes]);
 
   function currentFilters() {
     return {
       q: debouncedQuery.trim() || undefined,
       estado: estadoFilter === 'todos' ? undefined : estadoFilter,
       nivelRiesgo: severidadFilter === 'todos' ? undefined : severidadFilter,
+      clasificacion: soloPendientes ? ('pendiente' as const) : undefined,
     };
   }
 
@@ -97,7 +104,7 @@ export function HechosView() {
       .catch(() => setStatus('error'));
   }
 
-  useEffect(load, [page, debouncedQuery, estadoFilter, severidadFilter]);
+  useEffect(load, [page, debouncedQuery, estadoFilter, severidadFilter, soloPendientes]);
 
   // Un hecho nuevo reportado desde el móvil (o un cambio de estado hecho
   // por otro operador) llega por socket.io — recarga silenciosa, sin pasar
@@ -124,11 +131,29 @@ export function HechosView() {
     }
   }
 
-  // Exportar es sobre TODO lo que matchea el filtro actual, no solo la
-  // página visible — se pide aparte al momento de exportar.
+  // Exportar es sobre TODO lo que matchea el filtro actual (todas las
+  // páginas, dentro del alcance del usuario). Antes se pedía una página de
+  // 500 que el backend recortaba a 100 sin avisar (F3).
   async function exportAllFiltered(): Promise<Hecho[]> {
-    const { rows: all } = await getHechosPage({ page: 1, pageSize: 500, ...currentFilters() });
+    const { rows: all, total: t, truncado } = await getHechosExport(currentFilters());
+    if (truncado) {
+      await dialogo.avisar({
+        tono: 'advertencia',
+        titulo: 'Exportación parcial',
+        mensaje: `Hay ${t} reportes con este filtro; se exportan los primeros ${all.length}. Acota el filtro para exportar el resto.`,
+      });
+    }
     return all;
+  }
+
+  async function handleClasificar(id: string, epiCodigo: string): Promise<boolean> {
+    const r = await clasificarHechoAction(id, epiCodigo);
+    if (!r.success) {
+      await dialogo.avisar({ tono: 'peligro', titulo: 'No se pudo clasificar el hecho', mensaje: r.error });
+      return false;
+    }
+    load(true);
+    return true;
   }
 
   return (
@@ -157,7 +182,7 @@ export function HechosView() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar por código o dirección…"
             aria-label="Buscar por código o dirección"
-            className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-[12.5px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-[12.5px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
           />
         </div>
 
@@ -178,6 +203,13 @@ export function HechosView() {
             </option>
           ))}
         </Select>
+
+        {esSupervision && (
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-neutral-border px-2.5 py-1.5 text-[12px] text-neutral-text">
+            <input type="checkbox" checked={soloPendientes} onChange={(e) => setSoloPendientes(e.target.checked)} className="accent-primary-700" />
+            Solo por clasificar
+          </label>
+        )}
 
         <div className="flex-1" />
 
@@ -217,6 +249,7 @@ export function HechosView() {
         hecho={selected}
         onClose={() => setSelectedId(null)}
         onEstadoChange={canEditEstado ? handleEstadoChange : undefined}
+        onClasificar={esSupervision ? handleClasificar : undefined}
       />
     </PageContainer>
   );

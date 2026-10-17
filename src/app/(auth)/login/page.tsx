@@ -1,14 +1,13 @@
-import { Logo } from '@/components/ui/Logo';
 import { LoginForm } from '@/features/auth/components/LoginForm';
 import { Lock, RadioTower, ShieldCheck } from 'lucide-react';
 
 // RF-02, RF-03 (MASTER.md sección 7.3). Split screen: panel institucional
-// (paleta Innova — primary/accent, ver sección 4) + tarjeta de acceso.
-// Rediseño 2026-10-05 (skill ui-ux-pro-max): panel PLANO primary-700, el lila
-// de Innova y de la app móvil — sin degradados, halos ni marca de agua (el
-// escudo negro difuminado sobre lila se leía como una mancha, y los halos
-// púrpura/rosa son el anti-patrón "AI purple/pink gradients"). Se conserva
-// el logo, sin modificaciones, en un marco translúcido. El divisor con rombo
+// (paleta del logo — tinta primary-900 + dorado accent, ver sección 4) +
+// tarjeta de acceso.
+// F7 (2026-10-17, pedido del usuario): vuelve la paleta negro/dorado y la
+// marca de agua semitransparente del logo; se quitó el logo enmarcado que
+// iba encima del título, y el bloque de texto sube a la altura donde estaba
+// ese logo (lg:pb-32 compensa el centrado vertical). El divisor con rombo
 // central se eliminó a pedido del usuario (2026-10-06).
 //
 // 2026-09-07 (ajustes a pedido del usuario):
@@ -50,49 +49,45 @@ const TRUST_POINTS = [
 export default function LoginPage() {
   return (
     <div className="relative grid min-h-screen grid-cols-1 lg:grid-cols-[minmax(0,13fr)_minmax(380px,7fr)]">
-      <div className="relative z-10 order-2 flex flex-col justify-center overflow-hidden bg-gradient-to-br from-primary-700 via-primary-800 to-primary-900 px-8 py-16 text-white sm:px-16 lg:order-1">
-        {/* Trama diagonal fina (repeating-linear-gradient puro CSS): da textura
-            de superficie sin el degradado radial tipo "AI gradient". */}
-        <div
+      <div className="relative z-10 order-2 flex flex-col justify-center overflow-hidden bg-primary-900 px-8 py-16 text-white sm:px-16 lg:order-1">
+        {/* Marca de agua: nuestro logo real, muy difuminado — mask-image en
+            radial-gradient lo desvanece hacia los bordes para que lea como
+            textura de fondo, no como un logo sobrepuesto. */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- decorativo, tamaño fijo */}
+        <img
+          src="/logo-gamc.png"
+          alt=""
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:repeating-linear-gradient(135deg,#fff_0,#fff_1px,transparent_1px,transparent_16px)]"
+          className="pointer-events-none absolute -right-24 bottom-[-140px] h-[560px] w-[560px] animate-watermark-in object-contain opacity-[0.14] blur-[1px] motion-reduce:animate-none [mask-image:radial-gradient(circle_at_center,black_35%,transparent_75%)]"
         />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-accent-600"
-        />
-        <div className="relative">
-          <div className="mb-8 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/25 bg-white/15 p-3 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.55)] ring-1 ring-inset ring-white/30 backdrop-blur-xl">
-            <Logo size={72} />
-          </div>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-accent-600" />
 
-          <p className="mb-2 text-[13px] font-semibold tracking-[0.14em] text-accent-300">
+        <div className="stagger-children relative lg:pb-32">
+          <p className="mb-2 text-[13px] font-semibold tracking-[0.14em] text-accent-500">
             GOBIERNO AUTÓNOMO MUNICIPAL DE COCHABAMBA
           </p>
-          <h1 className="mb-4 max-w-md text-[34px] font-bold leading-[1.15] tracking-tight">
+          <h1 className="mb-6 max-w-md text-[34px] font-bold leading-[1.15] tracking-tight">
             Plataforma de Seguridad Ciudadana
           </h1>
 
-          <div className="max-w-md">
-            <ul className="space-y-2.5 rounded-2xl border border-white/15 bg-white/[0.08] p-4">
-              {TRUST_POINTS.map(({ icon: Icon, label }) => (
-                <li key={label} className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-accent-300 ring-1 ring-inset ring-white/25">
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <p className="text-sm text-primary-100">{label}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul className="max-w-md space-y-2.5 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            {TRUST_POINTS.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-accent-500 ring-[1.5px] ring-inset ring-primary-300">
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <p className="text-sm text-primary-200">{label}</p>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 
       {/* Panel del formulario — "flota" sobre el panel institucional en la costura:
-          esquinas redondeadas + solape con margen negativo + sombra tintada en púrpura.
+          esquinas redondeadas + solape con margen negativo + sombra de tinta.
           En móvil la costura es el borde inferior (rounded-b, sombra hacia abajo); en
           desktop es el borde izquierdo (rounded-l, sombra hacia la izquierda). */}
-      <div className="relative z-20 order-1 -mb-7 flex items-center justify-center rounded-b-[32px] bg-neutral-bg px-6 py-14 shadow-[0_18px_40px_-15px_rgba(58,44,107,0.45)] lg:order-2 lg:mb-0 lg:-ml-12 lg:rounded-b-none lg:rounded-l-[40px] lg:py-16 lg:shadow-[-24px_0_50px_-20px_rgba(58,44,107,0.5)]">
+      <div className="relative z-20 order-1 -mb-7 flex items-center justify-center rounded-b-[32px] bg-neutral-bg px-6 py-14 shadow-[0_18px_40px_-15px_rgba(13,13,14,0.45)] lg:order-2 lg:mb-0 lg:-ml-12 lg:rounded-b-none lg:rounded-l-[40px] lg:py-16 lg:shadow-[-24px_0_50px_-20px_rgba(13,13,14,0.5)]">
         <LoginForm />
       </div>
     </div>
