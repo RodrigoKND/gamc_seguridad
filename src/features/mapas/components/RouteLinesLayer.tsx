@@ -1,9 +1,12 @@
 'use client';
 
-import { Polyline, Popup, Marker } from 'react-leaflet';
-import React from 'react';
+import { Polyline, Popup, Marker, Tooltip } from 'react-leaflet';
+import React, { useEffect, useState } from 'react';
+import { callesGuardadas, claveCalles, muestrasDe, resolverCalles } from '../lib/callesRuta';
+import type { LatLng } from '../lib/routeGeometry';
 import type { RouteGroup } from '../lib/routeGroups';
-import { sampleCheckpoints } from '../lib/routeGeometry';
+import { PANES, ZOOM, grosorRuta, iconoCacheado } from '../lib/capas';
+import { useZoomMapa, useZoomMaximo } from './MapPanes';
 import L from 'leaflet';
 
 // RF-G3-09 (rediseño 2026-09-14): dibuja cada ruta activa como una línea
@@ -11,44 +14,50 @@ import L from 'leaflet';
 // "deben cambiar de color las rutas que aparecen en el mapa para
 // diferenciarlas" — el mismo color que usa el chip de la ruta en
 // PatrolRosterPanel, para poder relacionarlos de un vistazo.
-// También muestra los puntos de posición de cada guardia sobre la ruta
-// cuando se monitorea en tiempo real.
+//
+// Jerarquía y zoom (16/10, lib/capas.ts): la línea siempre se ve (más fina de
+// lejos); los rombos, solo desde el zoom de barrio. Los círculos numerados
+// 1–5 se quitaron (pedido del usuario 16/10): se confundían con los puntos
+// que marca el operador.
+//
+// Rombos (16/10): uno por cada calle de "Zona y calles por donde pasará"
+// (lib/callesRuta.ts, los mismos 4 puntos), con el nombre de la calle al
+// pasar el mouse. El inicio, un poco más grande. Antes había un rombo por
+// guardia en su punto asignado; con el camino de incorporación yendo al
+// inicio de la ruta ya no aportaba (y en coche/moto se encimaban en uno).
+// Tampoco se dibuja un punto extra en la posición GPS de cada guardia:
+// repetía el pin del guardia (PatrolLayer) justo debajo de él.
 
-function createGuardPositionIcon(color: string) {
-  return L.divIcon({
+// Rombo (vs. el círculo del guardia) para que se distingan de un vistazo.
+function createCheckpointIcon(color: string, inicio = false) {
+  const tam = inicio ? 16 : 13;
+  return iconoCacheado(`rombo|${color}|${tam}`, () => L.divIcon({
     className: '',
-    html: `<div style="width:10px;height:10px;border-radius:9999px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>`,
-    iconSize: [10, 10],
-    iconAnchor: [5, 5],
-  });
+    html: `<div style="width:${tam}px;height:${tam}px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);transform:rotate(45deg)"></div>`,
+    iconSize: [tam, tam],
+    iconAnchor: [tam / 2, tam / 2],
+  }));
 }
 
-// Checkpoint = el punto ESTRATÉGICO que le tocó a este guardia dentro del
-// trazado compartido (patrulla.poligono_geojson) — distinto del punto GPS
-// en vivo de arriba. Forma de rombo (vs. el círculo del GPS) para que se
-// distingan de un vistazo aunque coincidan en el mismo lugar.
-function createCheckpointIcon(color: string) {
-  return L.divIcon({
-    className: '',
-    html: `<div style="width:14px;height:14px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);transform:rotate(45deg)"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  });
-}
-
-// Checkpoints NUMERADOS repartidos sobre TODO el trazado (no uno por
-// guardia): con 1 solo guardia el punto asignado queda pegado a su pin de
-// GPS y es indistinguible — "solo me aparece la línea" reportado
-// 2026-09-19 después de agregar el rombo por guardia. Esto usa el MISMO
-// `route.path` que ya dibuja la Polyline (que sí se ve), así que no
-// depende de que `poligonoGeojson` venga bien poblado por guardia.
-function createNumberedCheckpointIcon(color: string, index: number) {
-  return L.divIcon({
-    className: '',
-    html: `<div style="width:20px;height:20px;border-radius:9999px;background:${color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Sans',sans-serif">${index + 1}</div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
-  });
+/** Contenido del tooltip de un rombo: se monta al abrirlo, así la calle se busca solo si alguien mira (y queda en caché). */
+function CalleDeMuestra({ puntos, indice, etiqueta, ruta }: { puntos: LatLng[]; indice: number; etiqueta: string; ruta: string }) {
+  const clave = claveCalles(puntos);
+  const [calles, setCalles] = useState<string[] | null>(() => callesGuardadas(clave));
+  useEffect(() => {
+    if (calles) return;
+    let vigente = true;
+    void resolverCalles(puntos).then((r) => vigente && setCalles(r.calles));
+    return () => {
+      vigente = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `clave` resume `puntos`
+  }, [clave]);
+  return (
+    <span className="block">
+      <span className="block text-[12px] font-semibold">{calles?.[indice] ?? 'Buscando calle…'}</span>
+      <span className="block text-[11px] text-neutral-text-muted">{`${etiqueta} · ${ruta}`}</span>
+    </span>
+  );
 }
 
 export interface RouteLinesLayerProps {
@@ -56,14 +65,19 @@ export interface RouteLinesLayerProps {
 }
 
 export const RouteLinesLayer = React.memo(function RouteLinesLayer({ routeGroups }: RouteLinesLayerProps) {
+  const zoom = useZoomMapa();
+  const zoomMaximo = useZoomMaximo();
+  const conDetalle = zoom >= ZOOM.checkpoints;
+  const grosor = grosorRuta(zoom);
   return (
     <>
       {routeGroups.map((route) =>
         route.path.length >= 2 ? (
           <Polyline
             key={route.id}
+            pane={PANES.rutas.name}
             positions={route.path.map((p) => [p.lat, p.lng])}
-            pathOptions={{ color: route.color, weight: 4, opacity: 0.85 }}
+            pathOptions={{ color: route.color, weight: grosor, opacity: 0.85 }}
           >
             <Popup>
               <p className="text-[13px] font-bold">{route.nombre}</p>
@@ -82,52 +96,25 @@ export const RouteLinesLayer = React.memo(function RouteLinesLayer({ routeGroups
           </Polyline>
         ) : null,
       )}
-      {/* Marcadores de posición de cada guardia sobre la ruta (tiempo real) */}
-      {routeGroups.map((route) =>
-        route.guards.map((g) => {
-          if (g.lat == null || g.lng == null) return null;
-          return (
-            <Marker key={`guard-${g.guardiaId}`} position={[g.lat, g.lng]} icon={createGuardPositionIcon(route.color)}>
-              <Popup>
-                <p className="text-[13px] font-bold">{g.nombre ?? g.guardiaId}</p>
-                <p className="text-xs text-neutral-text-muted">Posición GPS en vivo · {route.nombre}</p>
-              </Popup>
-            </Marker>
-          );
-        }),
-      )}
-      {/* Checkpoints numerados repartidos sobre TODO el trazado — visibles
-          sin importar cuántos guardias tenga la ruta. */}
-      {routeGroups.map((route) =>
-        route.path.length >= 2
-          ? sampleCheckpoints(route.path, 5).map((p, i) => (
-              <Marker key={`ckpt-${route.id}-${i}`} position={[p.lat, p.lng]} icon={createNumberedCheckpointIcon(route.color, i)}>
-                <Popup>
-                  <p className="text-[13px] font-bold">Checkpoint {i + 1} — {route.nombre}</p>
-                </Popup>
-              </Marker>
-            ))
-          : null,
-      )}
-      {/* Checkpoint por guardia: el punto estratégico que le tocó dentro
-          del trazado compartido — con 1 solo guardia puede coincidir con
-          su pin de GPS en vivo (rombo vs. círculo para distinguirlos). */}
-      {routeGroups.map((route) =>
-        route.guards.map((g) =>
-          g.puntoAsignado ? (
-            <Marker
-              key={`checkpoint-${g.guardiaId}`}
-              position={[g.puntoAsignado.lat, g.puntoAsignado.lng]}
-              icon={createCheckpointIcon(route.color)}
-            >
-              <Popup>
-                <p className="text-[13px] font-bold">Punto asignado — {g.nombre ?? g.guardiaId}</p>
-                <p className="text-xs text-neutral-text-muted">{route.nombre}</p>
-              </Popup>
-            </Marker>
-          ) : null,
-        ),
-      )}
+      {conDetalle &&
+        routeGroups.map((route) =>
+          route.path.length >= 2
+            ? muestrasDe(route.path).map((m, idx, todas) => (
+                <Marker
+                  key={`calle-${route.id}-${idx}`}
+                  pane={PANES.checkpoints.name}
+                  position={[m.punto.lat, m.punto.lng]}
+                  icon={createCheckpointIcon(route.color, idx === 0)}
+                  title={m.etiqueta}
+                  eventHandlers={{ dblclick: (e) => zoomMaximo(m.punto.lat, m.punto.lng, e.target) }}
+                >
+                  <Tooltip direction="top" offset={[0, -8]}>
+                    <CalleDeMuestra puntos={todas.map((t) => t.punto)} indice={idx} etiqueta={m.etiqueta} ruta={route.nombre} />
+                  </Tooltip>
+                </Marker>
+              ))
+            : null,
+        )}
     </>
   );
 });

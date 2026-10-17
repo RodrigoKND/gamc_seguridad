@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, MapPin, X } from 'lucide-react';
+import { Siren, MapPin, X } from 'lucide-react';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 
@@ -71,19 +71,23 @@ export function GlobalSosBanner() {
   if (visible.length === 0) return null;
 
   return (
-    <div className="sticky top-0 z-[1060] animate-fade-in">
-      <div className="flex flex-col gap-1 bg-risk-critical px-4 py-2.5 text-white shadow-md md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 animate-pulse">
-            <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+    // F7 (2026-10-17): barra de tinta con filete rojo y sonar en el ícono, en
+    // vez de una franja roja sólida — destaca igual sobre el fondo claro sin
+    // "gritar"; el rojo queda en lo que importa (ícono, conteo, botones).
+    // Fijo al desplazarse, justo debajo del Topbar (sticky top-3 + h-16 = 76 px, + 8 px de aire).
+    <div className="sticky top-[84px] z-[1060] mx-3 animate-dropdown-in lg:mx-4">
+      <div role="alert" className="flex flex-col gap-2 rounded-2xl border-l-4 border-risk-critical bg-primary-900 px-4 py-2.5 text-white shadow-[0_12px_30px_-14px_rgba(0,0,0,0.6)] md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-risk-critical" aria-hidden="true">
+            <span className="absolute inset-0 animate-sos-ring rounded-full border-2 border-risk-critical motion-reduce:hidden" />
+            <Siren className="h-4 w-4" />
           </span>
           <div>
             <p className="text-sm font-bold leading-tight">
-              {visible.length === 1 ? '¡SOS ACTIVO!' : `¡${visible.length} SOS ACTIVOS!`} Atención inmediata requerida
+              {visible.length === 1 ? 'SOS activo' : `${visible.length} SOS activos`}
+              <span className="font-medium text-white/75"> · atención inmediata requerida</span>
             </p>
-            <p className="text-xs opacity-90 leading-tight">
-              {visible.map((s) => s.guardiaNombre).join(', ')} — toque para ver en el mapa
-            </p>
+            <p className="text-xs leading-tight text-white/70">Toque un nombre para verlo en el mapa</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -92,7 +96,7 @@ export function GlobalSosBanner() {
               key={s.guardiaId}
               type="button"
               onClick={() => router.push(`/mapas?guardiaId=${s.guardiaId}`)}
-              className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-semibold text-risk-critical shadow hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-risk-critical px-3 py-1 text-xs font-semibold text-white transition-colors duration-200 hover:bg-risk-critical-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-900"
             >
               <MapPin className="h-3 w-3" aria-hidden="true" />
               {s.guardiaNombre}
@@ -102,7 +106,7 @@ export function GlobalSosBanner() {
             type="button"
             onClick={() => setDismissedIds(new Set(visible.map((s) => s.guardiaId)))}
             aria-label="Ocultar aviso SOS"
-            className="ml-1 rounded-full p-1 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="ml-1 cursor-pointer rounded-full p-1 text-white/70 transition-colors duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>

@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/feedback/Skeleton';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorBanner } from '@/components/feedback/ErrorBanner';
 import { RISK_LEVEL_BADGE_CLASS, RISK_LEVEL_LABELS } from '@/types/risk';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
 import type { AsyncStatus } from '@/features/dashboard/types';
 import { HECHO_ESTADO_BADGE_CLASS, HECHO_ESTADO_LABELS, type Hecho } from '../types';
 
@@ -83,7 +83,14 @@ export function IncidentTable({ hechos, status, onRetry, onSelect }: IncidentTab
                   </td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">
                     {hecho.ubicacion}
-                    <span className="block text-neutral-text-muted">EPI {EPI_ZONE_LABELS[hecho.epi]}</span>
+                    <span className="block text-neutral-text-muted">
+                      {hecho.epi ? <EpiNombre codigo={hecho.epi} /> : 'Sin EPI'}
+                      {(hecho.epiEstado === 'ambigua' || hecho.epiEstado === 'fuera_cobertura') && (
+                        <span className="ml-1.5 rounded bg-risk-medium/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#B45309]" title="La ubicación del hecho cae fuera de las EPIs o en un borde: la supervisión debe confirmar su EPI">
+                          Por clasificar
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">{hecho.timestamp}</td>
                   <td className="px-3.5 py-3 text-xs text-neutral-text">{hecho.reportante}</td>

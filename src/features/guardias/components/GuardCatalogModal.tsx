@@ -5,7 +5,8 @@ import { Pencil, Search } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { ExportMenu } from '@/components/ui/ExportMenu';
 import { ImageLightbox } from '@/components/ui/ImageLightbox';
-import { EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiNombre } from '@/lib/epis/EpiNombre';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { normalizeSearch } from '@/lib/text';
 import { exportPDF, guardiasToPrint } from '@/features/reportes/actions/exportPDF';
 import { exportGuardiasExcel } from '../actions/exportGuardias';
@@ -26,6 +27,7 @@ export interface GuardCatalogModalProps {
 
 export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCatalogModalProps) {
   const [query, setQuery] = useState('');
+  const { nombre: nombreEpi } = useEpiCatalogo();
   const [fotoExpandida, setFotoExpandida] = useState<{ src: string; alt: string } | null>(null);
 
   const filtered = useMemo(() => {
@@ -53,10 +55,10 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar en el directorio…"
               aria-label="Buscar en el directorio de guardias"
-              className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+              className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
             />
           </div>
-          <ExportMenu onExportExcel={() => exportGuardiasExcel(filtered)} onExportPDF={() => exportPDF(guardiasToPrint(filtered))} disabled={filtered.length === 0} />
+          <ExportMenu onExportExcel={() => exportGuardiasExcel(filtered, undefined, nombreEpi)} onExportPDF={() => exportPDF(guardiasToPrint(filtered, nombreEpi))} disabled={filtered.length === 0} />
         </div>
 
         {filtered.length === 0 ? (
@@ -72,7 +74,7 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
                       setFotoExpandida({ src: guard.fotoUrl!, alt: `Foto de ${guardFullName(guard)}` })
                     }
                     aria-label={`Ampliar foto de ${guardFullName(guard)}`}
-                    className="shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+                    className="shrink-0 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- foto remota del backend */}
                     <img src={guard.fotoUrl} alt="" className="h-[30px] w-[30px] object-cover" />
@@ -85,7 +87,7 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12.5px] font-medium text-neutral-text">{guardFullName(guard)}</p>
                   <p className="truncate text-[11px] text-neutral-text-muted">
-                    CI {guard.ci} · EPI {EPI_ZONE_LABELS[guard.epi]}
+                    CI {guard.ci} · <EpiNombre codigo={guard.epi} />
                   </p>
                 </div>
                 <GuardStatusBadges accountStatus={guard.accountStatus} operationalStatus={guard.operationalStatus} />
@@ -94,7 +96,7 @@ export function GuardCatalogModal({ isOpen, onClose, guards, onEdit }: GuardCata
                     type="button"
                     onClick={() => onEdit(guard)}
                     aria-label={`Editar ${guardFullName(guard)}`}
-                    className="shrink-0 rounded-md p-1.5 text-neutral-text-muted transition-colors duration-200 hover:bg-neutral-bg hover:text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+                    className="shrink-0 rounded-md p-1.5 text-neutral-text-muted transition-colors duration-200 hover:bg-neutral-bg hover:text-neutral-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>

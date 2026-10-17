@@ -2,7 +2,7 @@
 
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
-import { EPI_ZONES, EPI_ZONE_LABELS } from '@/types/epi';
+import { EpiOpciones } from '@/lib/epis/EpiNombre';
 import type { ReportFilters } from '../types';
 
 // RF-XX Exportación de Reportes (MASTER.md sección 7.3 y 12).
@@ -37,11 +37,7 @@ export function ExportFiltersBar({ value, onChange, tipos }: ExportFiltersProps)
         className="w-auto"
       >
         <option value="todos">Todas las EPI</option>
-        {EPI_ZONES.map((zone) => (
-          <option key={zone} value={zone}>
-            EPI {EPI_ZONE_LABELS[zone]}
-          </option>
-        ))}
+        <EpiOpciones />
       </Select>
       <Select
         label="Tipo de hecho"

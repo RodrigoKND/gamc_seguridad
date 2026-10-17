@@ -35,9 +35,10 @@ export interface GenerateGuardCredentialsInput {
   ci: string;
   fechaNacimiento: string;
   telefono: string;
-  epi: EpiZone;
 }
 
+// F3: el guardia ya no tiene una EPI fija — puede recibir rutas de
+// cualquier EPI y su EPI actual sale de su GPS. El alta no la pide.
 export async function generateGuardCredentialsAction(data: GenerateGuardCredentialsInput): Promise<CredentialsResult> {
   const denyReason = await assertCanWriteUsuarios();
   if (denyReason) return { success: false, error: denyReason };

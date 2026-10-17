@@ -1,14 +1,17 @@
 import type { EpiZone } from '@/types/epi';
 
 // Jurisdicción por EPI (2026-10-05) — polígonos desde GET /api/mapas/jurisdiccion
-// (epi.poligono, GeoJSON [lng, lat]). La Web solo ayuda al Operador a no
+// (territorio vigente de cada EPI, GeoJSON [lng, lat]). La Web solo ayuda al Operador a no
 // salirse de su EPI; la validación real está en el backend (mapas.service.ts).
 
 type Ring = [number, number][];
 
 export interface EpiJurisdiccion {
   zone: EpiZone;
+  numero: number | null;
   nombre: string;
+  color: string | null;
+  sede: { lat: number; lng: number; direccion: string | null } | null;
   /** GeoJSON Polygon | MultiPolygon tal como viene de la BD. */
   poligono: { type: 'Polygon' | 'MultiPolygon'; coordinates: unknown } | null;
 }

@@ -4,20 +4,49 @@
 
 @import '../styles/tokens.css';
 
-/* Contenedores de ícono y avatar compartidos — mismo lenguaje visual que la
-   app móvil (appmunicipal: menú de Inicio y Avatar), MASTER.md sección 4.
-   Un solo estilo en todo el sistema (skill ui-ux-pro-max: icon-style-
-   consistent). El tamaño (h-N, w-N) y el del ícono los pone cada uso.
-   - .icon-badge: círculo lila primary-100 con anillo primary-200 e ícono
-     primary-800 (6.44:1) — sobre superficies blancas (tarjetas, modales).
-   - .avatar-initials: iniciales blancas sobre primary-700 (6.13:1) con
-     borde de acento, igual que el Avatar de la app. */
+/* Contenedores de ícono y avatar compartidos (MASTER.md sección 4). Un solo
+   estilo en todo el sistema (skill ui-ux-pro-max: icon-style-consistent).
+   El tamaño (h-N, w-N) y el del ícono los pone cada uso.
+   - .icon-badge: círculo crema dorado accent-100 con anillo accent-300 e
+     ícono accent-700 (4.2:1, ≥3:1 para íconos) — sobre superficies blancas.
+   - .avatar-initials: iniciales doradas accent-500 sobre tinta primary-900
+     (6.9:1) con anillo dorado tenue — el mismo par del escudo.
+   - .stagger-children: entrada en cascada de los hijos directos (40 ms entre
+     cada uno, tope 10) para listas y grillas que aparecen de golpe. Solo
+     opacidad + transform; reduced-motion lo vuelve instantáneo (abajo). */
 @layer components {
   .icon-badge {
-    @apply flex shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-800 ring-1 ring-inset ring-primary-200;
+    @apply flex shrink-0 items-center justify-center rounded-full bg-accent-100 text-accent-700 ring-1 ring-inset ring-accent-300/70;
   }
   .avatar-initials {
-    @apply flex shrink-0 items-center justify-center rounded-full bg-primary-700 font-bold text-white ring-[1.5px] ring-accent-500;
+    @apply flex shrink-0 items-center justify-center rounded-full bg-primary-900 font-bold text-accent-500 ring-[1.5px] ring-accent-500/50;
+  }
+  .stagger-children > * {
+    @apply animate-fade-in-up;
+  }
+  .stagger-children > *:nth-child(2) { animation-delay: 40ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 80ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 120ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 160ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(7) { animation-delay: 240ms; }
+  .stagger-children > *:nth-child(8) { animation-delay: 280ms; }
+  .stagger-children > *:nth-child(9) { animation-delay: 320ms; }
+  .stagger-children > *:nth-child(n + 10) { animation-delay: 360ms; }
+
+  /* Sonar de SOS para HTML que no pasa por Tailwind JIT (divIcon de Leaflet,
+     PatrolLayer): un anillo rojo que se expande desde el pin. */
+  .sos-sonar {
+    position: relative;
+  }
+  .sos-sonar::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 9999px;
+    border: 2px solid theme('colors.risk-critical');
+    pointer-events: none;
+    @apply animate-sos-ring;
   }
 }
 
@@ -55,8 +84,8 @@ body {
 }
 
 ::selection {
-  background-color: theme('colors.primary-700');
-  color: #fff;
+  background-color: theme('colors.accent-300');
+  color: theme('colors.primary-950');
 }
 
 /* Respeta prefers-reduced-motion globalmente (MASTER.md sección 9/10):
@@ -67,6 +96,7 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
@@ -98,7 +128,7 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    background-color: #4D3B86;
+    background-color: #1A1A1A;
     color: #ffffff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -120,7 +150,7 @@ body {
     margin: 0;
     font-size: 10.5pt;
     letter-spacing: 0.24em;
-    color: #efeaf8;
+    color: #DDBE97;
     text-align: center;
   }
 
@@ -135,7 +165,7 @@ body {
     gap: 16px;
     padding-bottom: 10px;
     margin-bottom: 16px;
-    border-bottom: 2px solid #4D3B86;
+    border-bottom: 2px solid #A97F52;
   }
   .pr-membrete-institucion {
     margin: 0;
@@ -143,7 +173,7 @@ body {
     font-weight: 600;
     letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: #C2335D;
+    color: #8C6740;
   }
   .pr-membrete h1 {
     margin: 3px 0 4px;
@@ -176,18 +206,18 @@ body {
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    background-color: #4D3B86;
+    background-color: #1A1A1A;
     color: #ffffff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
   .pr-tabla td {
     padding: 6px 8px;
-    border-bottom: 0.5pt solid #ddd6ec;
+    border-bottom: 0.5pt solid #e4e0d6;
     vertical-align: top;
   }
   .pr-tabla tr:nth-child(even) td {
-    background-color: #f5f2fa;
+    background-color: #f8f6f2;
   }
   .pr-tabla tr {
     break-inside: avoid;
@@ -196,11 +226,67 @@ body {
   .pr-pie {
     margin-top: 22px;
     padding-top: 8px;
-    border-top: 0.5pt solid #ddd6ec;
+    border-top: 0.5pt solid #e4e0d6;
     font-size: 7.5pt;
     color: #777;
   }
   .pr-pie p {
     margin: 0;
+  }
+}
+
+/* Etiqueta permanente de la zona de referencia "Centro" del mapa
+   (EpiJurisdictionLayer): texto claro sobre el negro. */
+.leaflet-tooltip.epi-centro-etiqueta {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.leaflet-tooltip.epi-centro-etiqueta::before {
+  display: none;
+}
+
+/* Animación por nivel de zoom (mapa en vivo, lib/capas.ts, pedido del
+   usuario 16/10): cuando un símbolo aparece al cruzar su umbral de zoom
+   (sedes, puntos fijos, subpuntos, rombos de calles, módulos) o cambia de
+   tamaño (chico → completo), entra con un fundido y un leve crecimiento en
+   vez de aparecer de golpe. Se anima el contenido del ícono, no el
+   contenedor que Leaflet posiciona con `transform`; se usa la propiedad
+   `scale` (se suma al `rotate` de los rombos sin pisarlo). Las líneas
+   (trayectos, módulos) solo con fundido. Los íconos se reutilizan mientras
+   no cambie lo que muestran (iconoCacheado), así el refresco de datos no
+   repite la animación. Respeta "reducir movimiento" del sistema. */
+@media (prefers-reduced-motion: no-preference) {
+  .leaflet-epi-sedes-pane .leaflet-marker-icon > div,
+  .leaflet-puntos-fijos-pane .leaflet-marker-icon > div,
+  .leaflet-checkpoints-pane .leaflet-marker-icon > div {
+    animation: gamc-zoom-aparece 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .leaflet-epi-modulos-pane path,
+  .leaflet-trayectos-pane path {
+    animation: gamc-zoom-fundido 320ms ease-out both;
+  }
+}
+@keyframes gamc-zoom-aparece {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes gamc-zoom-fundido {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

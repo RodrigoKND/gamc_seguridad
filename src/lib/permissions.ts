@@ -66,14 +66,30 @@ export const ROLE_HOME_ROUTE: Record<UserRole, string> = {
 // Matriz de escritura (Server Actions) — MASTER.md sección 15.1/15.5:
 // "crear" guardia NO está en ningún rol acá porque vive en Generar
 // Credenciales (resource 'usuarios').
-export type WriteResource = 'guardias' | 'usuarios' | 'hechos' | 'patrullaje';
+// 'rutas_establecidas' (F2): crear/editar rutas PREDETERMINADAS (oficiales)
+// — los 3 roles, por decisión del usuario (puede que luego se le quite al
+// Admin). Archivar una predeterminada queda solo para Super Admin, como en
+// `role_permission` (rutas_establecidas.eliminar).
+// 'puntos_fijos' (F4): catálogo de puntos fijos — Operador (en su EPI) y
+// Super Admin; el Admin solo los ve (`role_permission`, migración 0009).
+// 'programacion_rutas' (F5): programar rutas y puntos fijos por horario —
+// Operador (en su EPI) y Super Admin; el Admin solo ve la agenda (0010).
+export type WriteResource = 'guardias' | 'usuarios' | 'hechos' | 'patrullaje' | 'rutas_establecidas' | 'puntos_fijos' | 'programacion_rutas';
 
 const WRITE_MATRIX: Record<WriteResource, UserRole[]> = {
   guardias: ['super_admin', 'admin'],
   usuarios: ['super_admin'],
   hechos: ['operador_monitoreo'],
   patrullaje: ['super_admin', 'operador_monitoreo'],
+  rutas_establecidas: ['super_admin', 'admin', 'operador_monitoreo'],
+  puntos_fijos: ['super_admin', 'operador_monitoreo'],
+  programacion_rutas: ['super_admin', 'operador_monitoreo'],
 };
+
+/** Archivar una ruta predeterminada (rutas_establecidas.eliminar). */
+export function canArchiveEstablecida(role: UserRole): boolean {
+  return role === 'super_admin';
+}
 
 export function canWrite(role: UserRole, resource: WriteResource): boolean {
   return WRITE_MATRIX[resource].includes(role);

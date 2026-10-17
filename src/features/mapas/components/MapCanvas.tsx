@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import { mapConfig } from '@/lib/env';
+import { MapPanes } from './MapPanes';
 
 // RF/RNF: Módulo de Mapas — RF-G1-01/02 (MASTER.md sección 7.3).
 //
@@ -18,6 +19,9 @@ import { mapConfig } from '@/lib/env';
 // La URL/atribución de las teselas viene de src/lib/env.ts (OpenStreetMap
 // por defecto, sin llave) para poder cambiar de proveedor sin tocar este
 // componente.
+//
+// Sin botones +/− (pedido del usuario 16/10): se acerca con la rueda, el
+// doble clic, el gesto de pinza o el teclado (+/−), que Leaflet mantiene.
 
 export interface MapCanvasProps {
   children?: ReactNode;
@@ -29,9 +33,11 @@ export function MapCanvas({ children }: MapCanvasProps) {
       center={[mapConfig.defaultCenter.lat, mapConfig.defaultCenter.lng]}
       zoom={mapConfig.defaultZoom}
       scrollWheelZoom
+      zoomControl={false}
       className="h-full w-full isolate [&_.leaflet-top]:!z-[500] [&_.leaflet-bottom]:!z-[500]"
     >
       <TileLayer url={mapConfig.tileUrl} attribution={mapConfig.tileAttribution} maxZoom={18} />
+      <MapPanes />
       {children}
     </MapContainer>
   );
