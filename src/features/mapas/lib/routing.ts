@@ -38,6 +38,8 @@ const TIMEOUT_MS = 8000;
 export interface RutaCalculada {
   path: LatLng[];
   distanciaM: number;
+  /** Duración del servicio de ruteo, a flujo libre (sin tráfico), en segundos. 0 si no siguió calles. */
+  duracionS: number;
   /** false si el servicio de ruteo falló/no respondió y esto es una aproximación en línea recta. */
   siguioCalles: boolean;
 }
@@ -56,11 +58,27 @@ export async function calcularRutaPorCalles(
   cerrarCircuito: boolean,
   modalidad: PatrullaModalidad = 'coche',
 ): Promise<RutaCalculada> {
-  if (puntos.length < 2) return { path: puntos, distanciaM: 0, siguioCalles: false };
+  if (puntos.length < 2) return { path: puntos, distanciaM: 0, duracionS: 0, siguioCalles: false };
 
   const secuencia = cerrarCircuito && puntos.length >= 3 ? [...puntos, puntos[0]] : puntos;
   const coords = secuencia.map((p) => `${p.lng},${p.lat}`).join(';');
-  const base = OSRM_PROFILES[modalidad] ?? OSRM_PROFILES.coche;
+  return pedirOsrm(OSRM_PROFILES[modalidad] ?? OSRM_PROFILES.coche, secuencia, coords);
+}
+
+/** Perfiles para TRAYECTOS (cómo llegar): la moto circula por calles de autos, no por ciclovías. */
+const PERFIL_TRAYECTO = {
+  vehiculo: OSRM_PROFILES.coche,
+  a_pie: OSRM_PROFILES.a_pie,
+} as const;
+export type PerfilTrayecto = keyof typeof PERFIL_TRAYECTO;
+
+/** Camino más rápido por calles de `origen` a `destino` (ETA de incorporación, eta.ts). */
+export function calcularTrayecto(origen: LatLng, destino: LatLng, perfil: PerfilTrayecto): Promise<RutaCalculada> {
+  const secuencia = [origen, destino];
+  return pedirOsrm(PERFIL_TRAYECTO[perfil], secuencia, secuencia.map((p) => `${p.lng},${p.lat}`).join(';'));
+}
+
+async function pedirOsrm(base: string, secuencia: LatLng[], coords: string): Promise<RutaCalculada> {
   const url = `${base}/${coords}?overview=full&geometries=geojson`;
 
   try {
@@ -70,7 +88,7 @@ export async function calcularRutaPorCalles(
     clearTimeout(timeoutId);
     if (!res.ok) throw new Error(`OSRM respondió ${res.status}`);
     const data = (await res.json()) as {
-      routes?: { geometry?: { coordinates?: [number, number][] }; distance?: number }[];
+      routes?: { geometry?: { coordinates?: [number, number][] }; distance?: number; duration?: number }[];
     };
     const route = data.routes?.[0];
     const coords2 = route?.geometry?.coordinates;
@@ -78,9 +96,10 @@ export async function calcularRutaPorCalles(
     return {
       path: coords2.map(([lng, lat]) => ({ lat, lng })),
       distanciaM: route?.distance ?? 0,
+      duracionS: route?.duration ?? 0,
       siguioCalles: true,
     };
   } catch {
-    return { path: secuencia, distanciaM: 0, siguioCalles: false };
+    return { path: secuencia, distanciaM: 0, duracionS: 0, siguioCalles: false };
   }
 }

@@ -58,7 +58,7 @@ export function ExportMenu({ onExportExcel, onExportPDF, disabled }: ExportMenuP
         <div
           role="menu"
           aria-label="Formato de exportación"
-          className="absolute right-0 top-full z-20 mt-2 w-44 animate-fade-in rounded-xl border border-neutral-border bg-white p-1.5 shadow-md"
+          className="absolute right-0 top-full z-20 mt-2 w-44 origin-top-right animate-dropdown-in rounded-xl border border-neutral-border bg-white p-1.5 shadow-md"
         >
           <button
             type="button"
@@ -67,7 +67,7 @@ export function ExportMenu({ onExportExcel, onExportPDF, disabled }: ExportMenuP
               setIsOpen(false);
               onExportExcel();
             }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
           >
             <FileSpreadsheet className="h-4 w-4 text-risk-low" aria-hidden="true" />
             Excel
@@ -79,7 +79,7 @@ export function ExportMenu({ onExportExcel, onExportPDF, disabled }: ExportMenuP
               setIsOpen(false);
               onExportPDF();
             }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
           >
             <FileText className="h-4 w-4 text-risk-critical" aria-hidden="true" />
             PDF

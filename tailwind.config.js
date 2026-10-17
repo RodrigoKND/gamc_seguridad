@@ -9,27 +9,33 @@ module.exports = {
         sans: ['"IBM Plex Sans"', 'sans-serif'],
       },
       colors: {
-        // Marca institucional — paleta Innova, idéntica a la app móvil de
-        // guardias (appmunicipal/src/theme/colors.ts). Tokens semánticos:
-        // los componentes usan `primary-*` / `accent-*`, nunca hex sueltos.
-        // Ver MASTER.md sección 4 (roles y tabla de contraste).
-        'primary-950': '#3A2C6B',
-        'primary-900': '#4D3B86',
-        'primary-800': '#5A4794',
-        'primary-700': '#6B559F',
-        'primary-500': '#8C78BF',
-        'primary-300': '#B8A9DA',
-        'primary-200': '#E1D9F2',
-        'primary-100': '#EFEAF8',
-        'primary-50': '#F5F2FA',
-        'accent-700': '#9E2248',
-        'accent-600': '#C2335D',
-        'accent-500': '#E8567F',
-        'accent-300': '#F28BA6',
-        'accent-100': '#FCE8EE',
+        // Marca institucional — paleta del logo 2026 (escudo negro + dorado
+        // bronce), recuperada 2026-10-17 tras el paréntesis Innova. Tokens
+        // semánticos: los componentes usan `primary-*` (tinta: superficies y
+        // texto de marca) y `accent-*` (dorado: foco, activos y acentos),
+        // nunca hex sueltos. Contraste (MASTER.md sección 4): el dorado 500/600
+        // NO pasa 4.5:1 sobre blanco — en texto sobre fondo claro va accent-700
+        // (5.1:1); 500/300 solo sobre tinta (6.9:1 / 9.9:1) o como borde/anillo.
+        'primary-950': '#0D0D0E',
+        'primary-900': '#1A1A1A',
+        'primary-800': '#262624',
+        'primary-700': '#3D3A35',
+        'primary-500': '#6E6B63',
+        'primary-300': '#B3ADA2',
+        'primary-200': '#E3DED4',
+        'primary-100': '#F1EDE5',
+        'primary-50': '#F8F6F2',
+        'accent-700': '#8C6740',
+        'accent-600': '#A97F52',
+        'accent-500': '#C59B6D',
+        'accent-300': '#DDBE97',
+        'accent-100': '#F3E7D8',
 
         // Semántica de riesgo / estado
         'risk-critical': '#DC2626',
+        // Texto rojo sobre fondos claros/tintados (6.5:1 sobre blanco) —
+        // risk-critical solo llega a 4.8:1 sobre blanco y baja de 4.5 tintado.
+        'risk-critical-700': '#B91C1C',
         'risk-high': '#F97316',
         'risk-medium': '#EAB308',
         'risk-low': '#22C55E',
@@ -41,11 +47,11 @@ module.exports = {
         'epi-cona': '#8E6FCE',
         'epi-centro': '#0B1B3D', // categórico territorial, no es color de marca
 
-        // Neutrales — tintados en lila (mismos valores que la app móvil)
-        'neutral-bg': '#F5F2FA',
-        'neutral-border': '#DDD6EC',
-        'neutral-text': '#1F1A2E',
-        'neutral-text-muted': '#6B6880',
+        // Neutrales — cálidos, para acompañar al dorado (muted 5.2:1 sobre bg)
+        'neutral-bg': '#F6F5F1',
+        'neutral-border': '#E4E0D6',
+        'neutral-text': '#1F1E1B',
+        'neutral-text-muted': '#6B675F',
       },
       maxWidth: {
         stage: '1600px',
@@ -58,19 +64,15 @@ module.exports = {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
         'fade-in-up': {
           from: { opacity: '0', transform: 'translateY(6px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
+          to: { opacity: '1', transform: 'none' },
         },
         'scale-in': {
           from: { opacity: '0', transform: 'scale(0.96)' },
-          to: { opacity: '1', transform: 'scale(1)' },
+          to: { opacity: '1', transform: 'none' },
         },
         'slide-in-right': {
           from: { transform: 'translateX(100%)' },
-          to: { transform: 'translateX(0)' },
-        },
-        'pulse-emergency': {
-          '0%, 100%': { boxShadow: '0 0 0 0 rgba(220,38,38,0.55)' },
-          '50%': { boxShadow: '0 0 0 8px rgba(220,38,38,0)' },
+          to: { transform: 'none' },
         },
         // Dashboard: entrada en cascada de la cinta de KPIs (rise-up), barras
         // que crecen desde la izquierda (grow-bar) y línea de gráfico que se
@@ -78,7 +80,7 @@ module.exports = {
         // refactor/dashboard-design, adaptado a los tokens de la sección 4.
         'rise-up': {
           from: { opacity: '0', transform: 'translateY(14px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
+          to: { opacity: '1', transform: 'none' },
         },
         'grow-bar': {
           from: { transform: 'scaleX(0)' },
@@ -88,16 +90,54 @@ module.exports = {
           from: { strokeDashoffset: '1' },
           to: { strokeDashoffset: '0' },
         },
+        // Todas las entradas terminan en `transform: none` (no translate(0)):
+        // con fill-mode both un transform residual convierte al elemento en
+        // bloque contenedor de sus hijos `position: fixed` (modales, drawers).
+        // F7 (2026-10-17): entrada de página y de menús desplegables, y el
+        // "sonar" de SOS — un anillo que se expande y se desvanece desde el
+        // avatar/pin en vez de hacer parpadear toda la ficha (menos fatiga,
+        // la urgencia la sigue marcando el color + la etiqueta).
+        // page-in solo con opacidad: <main> envuelve páginas que abren
+        // modales al montar (deep links del mapa) y un transform, aunque sea
+        // durante la animación, los encerraría en <main>.
+        'page-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'dropdown-in': {
+          from: { opacity: '0', transform: 'translateY(-4px) scale(0.98)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+        'sos-ring': {
+          '0%': { transform: 'scale(1)', opacity: '0.55' },
+          '70%, 100%': { transform: 'scale(2.1)', opacity: '0' },
+        },
+        'slide-in-left': {
+          from: { opacity: '0', transform: 'translateX(-10px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+        // Marca de agua del login: aparece con algo de color y se asienta en
+        // su opacidad final (0.14) sin salto — fade-in iba a 1 y al terminar
+        // caía de golpe a la opacidad de la clase.
+        'watermark-in': {
+          '0%': { opacity: '0' },
+          '30%': { opacity: '0.45' },
+          '100%': { opacity: '0.14' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 200ms ease-out',
         'fade-in-up': 'fade-in-up 350ms ease-out both',
         'scale-in': 'scale-in 200ms ease-out',
         'slide-in-right': 'slide-in-right 250ms cubic-bezier(0.32,0.72,0,1)',
-        'pulse-emergency': 'pulse-emergency 1.6s infinite',
         'rise-up': 'rise-up 600ms cubic-bezier(0.22,1,0.36,1) both',
         'grow-bar': 'grow-bar 800ms cubic-bezier(0.22,1,0.36,1) both',
         'draw-line': 'draw-line 1400ms ease-out both',
+        'page-in': 'page-in 280ms ease-out backwards',
+        'dropdown-in': 'dropdown-in 160ms cubic-bezier(0.22,1,0.36,1) both',
+        'sos-ring': 'sos-ring 2.2s cubic-bezier(0,0,0.2,1) infinite',
+        'slide-in-left': 'slide-in-left 260ms cubic-bezier(0.22,1,0.36,1) both',
+        'watermark-in': 'watermark-in 2400ms ease-in-out both',
       },
     },
   },

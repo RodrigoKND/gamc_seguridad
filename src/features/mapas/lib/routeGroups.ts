@@ -1,27 +1,19 @@
-import type { PatrullaRow } from '@/types/patrulla';
+import type { EjecucionInfo, EstadoRuta, PatrullaRow } from '@/types/patrulla';
 import { colorForRuta } from './routeColors';
 import type { LatLng } from './routeGeometry';
 
-// Agrupa las filas `patrulla` (1 por guardia) que comparten la misma
-// `rutaPlantillaId` — así es como el rediseño de rutas (2026-09-14) vincula
-// a varios guardias a UNA ruta compartida (ver assignRoute.ts). Una
-// patrulla sin rutaPlantillaId (asignaciones viejas, o modalidades que
-// nunca pasaron por el wizard) queda fuera de la agrupación — no rompe
-// nada, simplemente no se le dibuja línea de ruta ni aparece como grupo en
-// el panel derecho (ver PatrolRosterPanel — segmentado estilo "grupos de
-// amigos", pedido explícito 2026-09-14: Emergencia / General / una sección
-// colapsable por ruta activa).
+// Agrupa las filas `patrulla` (1 por guardia) de una misma EJECUCIÓN — la
+// asignación concreta de una ruta en un momento dado (F2). Antes se agrupaba
+// por plantilla (`rutaPlantillaId`): dos asignaciones de la misma ruta
+// guardada (mañana y tarde) se veían como una sola, y cancelar una cancelaba
+// la otra. Las filas viejas sin ejecución se agrupan por plantilla, como antes.
 //
-// Bug encontrado en pruebas locales 2026-09-14: la primera versión cruzaba
-// `patrullas` contra `getRutasPlantilla()` (GET /mapas/rutas) para sacar el
-// trazado/nombre — pero ese endpoint filtra `activo=true` (solo plantillas
-// reutilizables). Una ruta creada SIN marcar "guardar como reutilizable"
-// (activo=false, el caso normal de una asignación puntual) nunca aparecía
-// ahí, así que la ruta desaparecía del panel/mapa aunque los guardias la
-// tuvieran perfectamente asignada. Fix: usar `rutaNombre`/`trazado` que el
-// backend YA embebe en cada fila de `GET /mapas/patrullas`
-// (mapas.service.ts:patrullasVigentes hace el join) — no hace falta ni
-// depende de si la ruta es reutilizable.
+// Nombre y trazado salen de cada fila (`GET /mapas/patrullas` ya los trae,
+// desde la copia guardada en la ejecución), no de GET /mapas/rutas: así una
+// ruta dinámica (no reutilizable) también se dibuja.
+//
+// F4: una asignación a un PUNTO FIJO no tiene trazado (se asigna por la
+// identidad del punto); el grupo existe igual, con `path` vacío y su destino.
 
 export interface RouteGroupMember {
   guardiaId: string;
@@ -32,34 +24,50 @@ export interface RouteGroupMember {
   lng?: number;
   nombre?: string;
   /**
-   * Punto estratégico ASIGNADO a este guardia dentro del trazado
-   * compartido (patrulla.poligono_geojson, ver types/patrulla.ts) —
-   * distinto de `lat`/`lng` (posición GPS en vivo). Antes esto nunca se
-   * leía en el Mapa: solo se dibujaba la línea de la ruta y el punto GPS
-   * en vivo, nunca el "checkpoint" que le tocó a cada guardia (pedido
-   * explícito 2026-09-19: "me aparece la línea trazada pero debería
-   * aparecerme igual los checkpoints marcados").
+   * Punto ASIGNADO a este guardia dentro del trazado compartido
+   * (patrulla.poligono_geojson) — distinto de `lat`/`lng` (GPS en vivo).
    */
   puntoAsignado?: { lat: number; lng: number };
+  /** Estado respecto a la ruta, calculado por el servidor (F2). */
+  estadoRuta?: EstadoRuta | null;
+  distanciaRutaM?: number | null;
+  /** F4: subpunto (o punto) fijo donde está este guardia. */
+  puntoFijoNombre?: string;
 }
 
 export interface RouteGroup {
+  /** Id de la ejecución (o de la plantilla en filas viejas): es lo que se cancela. */
   id: string;
+  /** true si `id` es una ejecución (se cancela con PATCH /ejecuciones/:id/cancelar). */
+  esEjecucion: boolean;
   nombre: string;
   color: string;
   path: LatLng[];
   guards: RouteGroupMember[];
-  /** Número de guardias que están dentro de los puntos de la ruta (vs los que se salieron). */
+  ejecucion: EjecucionInfo | null;
+  /** Guardias con posición GPS conocida. */
+  guardiasLocalizados: number;
+  /** Guardias realmente sobre su ruta (estado del servidor 'en_ruta'). */
   guardiasEnRuta: number;
+  /** F4: asignación a un punto fijo (sin trazado). */
+  puntoFijo: { id: string; nombre: string; lat: number; lng: number } | null;
 }
 
 export function groupPatrullasByRuta(patrullas: PatrullaRow[], markersMap?: Map<string, { lat: number; lng: number; nombre?: string }>): RouteGroup[] {
   const estadosActivos = new Set(['asignada', 'en_curso']);
-  const byRuta = new Map<string, { nombre: string; trazado: PatrullaRow['trazado']; guards: RouteGroupMember[] }>();
+  const porGrupo = new Map<string, { esEjecucion: boolean; nombre: string; trazado: PatrullaRow['trazado']; ejecucion: EjecucionInfo | null; guards: RouteGroupMember[] }>();
 
   for (const p of patrullas) {
-    if (!p.rutaPlantillaId || !estadosActivos.has(p.estado)) continue;
-    const entry = byRuta.get(p.rutaPlantillaId) ?? { nombre: p.rutaNombre ?? p.nombre ?? 'Ruta sin nombre', trazado: p.trazado, guards: [] };
+    if (!estadosActivos.has(p.estado)) continue;
+    const clave = p.ejecucionId ?? p.rutaPlantillaId;
+    if (!clave) continue;
+    const entry = porGrupo.get(clave) ?? {
+      esEjecucion: Boolean(p.ejecucionId),
+      nombre: p.ejecucion?.nombre ?? p.rutaNombre ?? p.nombre ?? 'Ruta sin nombre',
+      trazado: p.trazado,
+      ejecucion: p.ejecucion ?? null,
+      guards: [],
+    };
     const marcador = markersMap?.get(p.guardiaId);
     const puntoAsignado =
       p.poligonoGeojson?.type === 'Point' && Array.isArray(p.poligonoGeojson.coordinates)
@@ -72,22 +80,28 @@ export function groupPatrullasByRuta(patrullas: PatrullaRow[], markersMap?: Map<
       lng: marcador?.lng,
       nombre: marcador?.nombre,
       puntoAsignado,
+      estadoRuta: p.estadoRuta ?? null,
+      distanciaRutaM: p.distanciaRutaM ?? null,
+      puntoFijoNombre: p.puntoFijo?.esSubpunto ? p.puntoFijo.nombre : undefined,
     });
-    byRuta.set(p.rutaPlantillaId, entry);
+    porGrupo.set(clave, entry);
   }
 
   const groups: RouteGroup[] = [];
-  for (const [rutaId, { nombre, trazado, guards }] of byRuta) {
-    if (!trazado || trazado.length < 2) continue;
-    const path: LatLng[] = trazado.map(([lng, lat]) => ({ lat, lng }));
-    const guardiasEnRuta = guards.filter((g) => g.lat != null && g.lng != null).length;
+  for (const [id, { esEjecucion, nombre, trazado, ejecucion, guards }] of porGrupo) {
+    const destino = ejecucion?.puntoFijoId && ejecucion.destino ? ejecucion.destino : null;
+    if (!destino && (!trazado || trazado.length < 2)) continue;
     groups.push({
-      id: rutaId,
+      id,
+      esEjecucion,
       nombre,
-      color: colorForRuta(rutaId),
-      path,
+      color: colorForRuta(id),
+      path: destino ? [] : trazado!.map(([lng, lat]) => ({ lat, lng })),
       guards,
-      guardiasEnRuta,
+      ejecucion,
+      guardiasLocalizados: guards.filter((g) => g.lat != null && g.lng != null).length,
+      guardiasEnRuta: guards.filter((g) => g.estadoRuta === 'en_ruta').length,
+      puntoFijo: destino ? { id: destino.puntoFijoId, nombre: destino.nombre, lat: destino.lat, lng: destino.lng } : null,
     });
   }
   return groups;

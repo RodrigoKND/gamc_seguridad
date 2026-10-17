@@ -15,7 +15,8 @@ import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { useAuthSession } from '@/features/auth/hooks/useAuthSession';
 import { exportPDF, guardiasToPrint } from '@/features/reportes/actions/exportPDF';
 import type { AsyncStatus } from '@/features/dashboard/types';
-import { EPI_ZONE_LABELS, type EpiZone } from '@/types/epi';
+import type { EpiZone } from '@/types/epi';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { OPERATIONAL_STATUS_LABELS, type Guard, type OperationalStatus } from '../types';
 import { exportGuardiasExcel } from '../actions/exportGuardias';
 import { GuardTable } from './GuardTable';
@@ -52,7 +53,9 @@ export function GuardiasView() {
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [operationalFilter, setOperationalFilter] = useState<OperationalStatus | 'todos'>('todos');
-  const [epiFilter, setEpiFilter] = useState<EpiZone | 'todos'>('todos');
+  // F3: el filtro es por EPI ACTUAL (donde está el guardia por GPS).
+  const [epiFilter, setEpiFilter] = useState<EpiZone | 'todos' | 'fuera_cobertura' | 'sin_dato'>('todos');
+  const { operativas, nombre: nombreEpi } = useEpiCatalogo();
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [catalogGuards, setCatalogGuards] = useState<Guard[]>([]);
   const [editingGuard, setEditingGuard] = useState<Guard | null>(null);
@@ -79,7 +82,7 @@ export function GuardiasView() {
     return {
       q: debouncedQuery.trim() || undefined,
       estadoOperativo: operationalFilter === 'todos' ? undefined : operationalFilter,
-      epiCodigo: epiFilter === 'todos' ? undefined : epiFilter,
+      epiActual: epiFilter === 'todos' ? undefined : epiFilter,
     };
   }
 
@@ -134,7 +137,7 @@ export function GuardiasView() {
         <div>
           <h1 className="text-4xl font-bold text-primary-900">Guardias</h1>
           <p className="mt-0.5 text-sm text-neutral-text-muted">
-            Personal de patrullaje activo por Estación Policial Integral
+            Personal de patrullaje y la EPI en la que se encuentra ahora
           </p>
         </div>
       </div>
@@ -146,9 +149,9 @@ export function GuardiasView() {
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por nombre o EPI…"
-            aria-label="Buscar por nombre o EPI"
-            className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-[12.5px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700"
+            placeholder="Buscar por nombre, CI o usuario…"
+            aria-label="Buscar por nombre, CI o usuario"
+            className="w-full rounded-md border border-neutral-border py-2 pl-9 pr-3 text-[12.5px] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
           />
         </div>
 
@@ -166,20 +169,22 @@ export function GuardiasView() {
           ))}
         </Select>
 
-        <Select aria-label="Filtrar por zona" value={epiFilter} onChange={(e) => setEpiFilter(e.target.value as EpiZone | 'todos')} className="w-auto">
-          <option value="todos">Todas las zonas</option>
-          {(Object.keys(EPI_ZONE_LABELS) as EpiZone[]).map((z) => (
-            <option key={z} value={z}>
-              {EPI_ZONE_LABELS[z]}
+        <Select aria-label="Filtrar por EPI actual" value={epiFilter} onChange={(e) => setEpiFilter(e.target.value as typeof epiFilter)} className="w-auto">
+          <option value="todos">Todas las EPIs (actual)</option>
+          {operativas.map((e) => (
+            <option key={e.codigo} value={e.codigo}>
+              En {e.nombre}
             </option>
           ))}
+          <option value="fuera_cobertura">Fuera de cobertura</option>
+          <option value="sin_dato">Sin GPS</option>
         </Select>
 
         <div className="flex-1" />
 
         <ExportMenu
-          onExportExcel={() => exportAllFiltered().then(exportGuardiasExcel)}
-          onExportPDF={() => exportAllFiltered().then((all) => exportPDF(guardiasToPrint(all)))}
+          onExportExcel={() => exportAllFiltered().then((all) => exportGuardiasExcel(all, undefined, nombreEpi))}
+          onExportPDF={() => exportAllFiltered().then((all) => exportPDF(guardiasToPrint(all, nombreEpi)))}
           disabled={total === 0}
         />
         <Button variant="secondary" onClick={openCatalog}>

@@ -6,11 +6,12 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ExportMenu } from '@/components/ui/ExportMenu';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { getHechosActivos } from '@/lib/data-source';
+import { getHechosExport } from '@/lib/data-source';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import type { Hecho } from '@/features/hechos/types';
 import { exportExcel } from '../actions/exportExcel';
+import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { exportPDF, hechosToPrint } from '../actions/exportPDF';
 import type { ReportFilters } from '../types';
 import { ExportFiltersBar } from './ExportFilters';
@@ -33,6 +34,7 @@ function toIsoDateKey(timestamp: string): string {
 
 export function ReportesView() {
   const [hechos, setHechos] = useState<Hecho[]>([]);
+  const { nombre: nombreEpi } = useEpiCatalogo();
   const [filters, setFilters] = useState<ReportFilters>({ from: '', to: '', epi: 'todos', tipo: 'todos' });
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,16 +44,18 @@ export function ReportesView() {
   function load() {
     setStatus('loading');
     setErrorMsg(null);
-    getHechosActivos()
-      .then((data) => {
-        setHechos(data);
+    // F3: el archivo completo dentro del alcance (antes eran los 200
+    // más recientes de todas las EPIs, y la exportación perdía el resto).
+    getHechosExport()
+      .then(({ rows }) => {
+        setHechos(rows);
         setStatus('ready');
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Error de conexión con el API. Verifica que el backend esté en http://localhost:4000';
         setErrorMsg(msg);
         setStatus('error');
-        console.error('[ReportesView] getHechosActivos failed', err);
+        console.error('[ReportesView] getHechosExport failed', err);
       });
   }
 
@@ -61,8 +65,8 @@ export function ReportesView() {
   // estado — mismo socket compartido del layout (RealtimeProvider), nunca
   // pasa por 'loading' para no perder los filtros/scroll ya aplicados.
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, () => {
-    getHechosActivos()
-      .then((data) => setHechos(data))
+    getHechosExport()
+      .then(({ rows }) => setHechos(rows))
       .catch(() => {});
   });
 
@@ -110,7 +114,7 @@ export function ReportesView() {
 
       <div className="col-span-12 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-neutral-text-muted">{filtered.length} resultado(s) — página {currentPage} de {totalPages || 1}</p>
-        <ExportMenu onExportExcel={() => exportExcel(filtered)} onExportPDF={() => exportPDF(hechosToPrint(filtered))} disabled={filtered.length === 0} />
+        <ExportMenu onExportExcel={() => exportExcel(filtered, undefined, nombreEpi)} onExportPDF={() => exportPDF(hechosToPrint(filtered, nombreEpi))} disabled={filtered.length === 0} />
       </div>
 
       <div className="col-span-12">

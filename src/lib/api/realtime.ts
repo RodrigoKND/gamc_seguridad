@@ -32,6 +32,14 @@ export const REALTIME_EVENTS = {
   turnoIniciado: 'turno:iniciado',
   turnoFinalizado: 'turno:finalizado',
   guardiaFueraDeRuta: 'guardia:fuera_de_ruta',
+  /** F2: cambio de estado respecto a la ruta (incorporándose/en ruta/advertencia/alerta). */
+  patrullaEstadoRuta: 'patrulla:estado_ruta',
+  /** F2: alertas SOS atendidas. */
+  sosAtendido: 'sos:atendido',
+  /** F4: cambió el catálogo de puntos fijos. */
+  puntoFijoActualizado: 'punto_fijo:actualizado',
+  /** F5: cambió una programación o uno de sus horarios (abierto, asignado, cerrado). */
+  programacionActualizada: 'programacion:actualizada',
 } as const;
 
 // `auth` se pasa como FUNCIÓN (no un objeto estático) — socket.io-client la

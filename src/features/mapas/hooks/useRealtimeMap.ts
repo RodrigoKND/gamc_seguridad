@@ -17,4 +17,7 @@ export function useRealtimeMap(onEvent: () => void) {
   useRealtimeEvent(REALTIME_EVENTS.patrullaCancelada, onEvent);
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, onEvent);
   useRealtimeEvent(REALTIME_EVENTS.guardiaFueraDeRuta, onEvent);
+  useRealtimeEvent(REALTIME_EVENTS.patrullaEstadoRuta, onEvent);
+  useRealtimeEvent(REALTIME_EVENTS.sosAtendido, onEvent);
+  useRealtimeEvent(REALTIME_EVENTS.puntoFijoActualizado, onEvent);
 }

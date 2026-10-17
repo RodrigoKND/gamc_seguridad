@@ -6,10 +6,11 @@ import { forwardRef, type ButtonHTMLAttributes } from 'react';
 // RF/RNF: Grupo 4 (Dashboard Estadístico) — reglas de componentes MASTER.md sección 10.
 // Botón primitivo compartido — no duplicar por feature (MASTER.md sección 6).
 
-// Paleta Innova (MASTER.md sección 4): 'primary' = púrpura medio
-// (primary-700, el tono de la barra de Innova) para acciones generales;
-// 'brand' = púrpura profundo (primary-900) con anillo primary-700, para el
-// CTA principal de formularios/modales de marca (Login, credenciales, wizard).
+// Paleta del logo (MASTER.md sección 4): 'primary' = tinta media
+// (primary-700, 11.3:1 con blanco) para acciones generales; 'brand' = tinta
+// profunda (primary-900) con filete dorado, para el CTA principal de
+// formularios/modales de marca (Login, credenciales, wizard). Foco siempre
+// en anillo dorado accent-600.
 export type ButtonVariant = 'primary' | 'brand' | 'secondary' | 'destructive';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -18,12 +19,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: 'bg-primary-700 text-white hover:opacity-90 focus-visible:ring-primary-700',
-  brand: 'bg-primary-900 text-white hover:bg-primary-800 focus-visible:ring-primary-700',
+  primary: 'bg-primary-700 text-white hover:bg-primary-800 focus-visible:ring-accent-600',
+  brand:
+    'bg-primary-900 text-white border border-accent-500/40 hover:bg-primary-800 hover:border-accent-500/70 focus-visible:ring-accent-600',
   secondary:
-    'bg-white text-primary-900 border border-neutral-border hover:bg-neutral-bg focus-visible:ring-primary-700',
+    'bg-white text-primary-900 border border-neutral-border hover:bg-neutral-bg focus-visible:ring-accent-600',
   // destructive: reservado exclusivamente a SOS/eliminar, nunca decorativo (MASTER.md sección 10).
-  destructive: 'bg-risk-critical text-white hover:opacity-90 focus-visible:ring-primary-700',
+  destructive: 'bg-risk-critical text-white hover:opacity-90 focus-visible:ring-accent-600',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -41,7 +43,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={isLoading || undefined}
         className={[
           'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2',
-          'text-sm font-medium transition-colors duration-200',
+          'text-sm font-medium transition-[background-color,color,box-shadow,transform] duration-200',
           'active:scale-[0.98]',
           'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
           // disabled: opacity-50 cursor-not-allowed, sin eventos hover (MASTER.md sección 8).
