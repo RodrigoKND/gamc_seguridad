@@ -22,7 +22,8 @@ en el repositorio del backend), con las migraciones 0006–0012 aplicadas.
   y subpuntos, asignación a un punto. Mapa con capas por zoom, agrupación de
   guardias, interruptores de capas y leyenda desplegable. Camino y tiempo
   estimado de incorporación.
-- **F5 — Programar Rutas.** Agenda (ayer, hoy, mañana) y programaciones por
+- **F5 — Programar Rutas.** Agenda (hoy y mañana; incluye el turno nocturno
+  iniciado ayer que sigue abierto) y programaciones por
   días y horas. La campana avisa cuando a un horario le faltan guardias.
 - **F6 — Asignación automática.** Interruptor en la programación, detalle de
   cada intento en la agenda y retiro con reposición (Cancelar / Manual /
@@ -43,8 +44,6 @@ en el repositorio del backend), con las migraciones 0006–0012 aplicadas.
 4. Verificar: inicio de sesión; el Módulo de Mapas carga guardias, rutas y
    puntos fijos; el menú «Rutas» abre «Programar Rutas»; un SOS activo muestra
    el banner fuera del mapa y su enlace acerca el mapa al guardia.
-
-## Reversión
-
-Publicar la versión anterior de la web junto con el backend anterior (ver la
-reversión de la base de datos en `docs/entrega-f1-f7.md` del backend).
+5. Volver a iniciar sesión en las cuentas existentes para recibir los nuevos
+   permisos. Reasignar desde Super Admin las cuentas de Centro Cercado a una
+   EPI operativa: esa EPI histórica queda inactiva y rechaza acceso territorial.
