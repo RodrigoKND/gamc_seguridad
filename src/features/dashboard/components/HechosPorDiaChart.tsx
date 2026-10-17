@@ -5,9 +5,9 @@ import type { HechoPorDiaPoint } from '../types';
 
 // RF/RNF: Dashboard Estadístico — Grupo 4 (MASTER.md sección 7.3).
 // Serie única -> un solo hue (primary-800), sin leyenda (dataviz: "A
-// single series needs no legend box"). Paleta Innova (MASTER.md sección 4):
-// el trazo va en púrpura de marca y el punto más reciente (hoy) se resalta
-// en accent-500 — el rosa de acento queda reservado
+// single series needs no legend box"). Paleta del logo (MASTER.md sección 4):
+// el trazo va en tinta de marca y el punto más reciente (hoy) se resalta
+// en accent-600 — el dorado de acento queda reservado
 // para "esto es lo que importa mirar ahora", igual que en el resto de la UI,
 // en vez de repetirse en toda la serie. Marcas: línea 2px, extremos >=8px con
 // anillo de superficie, crosshair por punto con tooltip (dataviz/interaction).
@@ -65,7 +65,7 @@ export function HechosPorDiaChart({ data, onSelect }: HechosPorDiaChartProps) {
             x2={WIDTH - PADDING.right}
             y1={y(t)}
             y2={y(t)}
-            stroke="#E1D9F2"
+            stroke="#E4E0D6"
             strokeWidth={1}
           />
           <text x={PADDING.left - 8} y={y(t)} textAnchor="end" dominantBaseline="middle" className="fill-neutral-text-muted text-[9px]">
@@ -89,7 +89,7 @@ export function HechosPorDiaChart({ data, onSelect }: HechosPorDiaChartProps) {
 
       <path
         d={areaPath}
-        fill="#5A4794"
+        fill="#262624"
         fillOpacity={0.08}
         stroke="none"
         className="animate-fade-in"
@@ -98,7 +98,7 @@ export function HechosPorDiaChart({ data, onSelect }: HechosPorDiaChartProps) {
       <path
         d={linePath}
         fill="none"
-        stroke="#5A4794"
+        stroke="#262624"
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -131,7 +131,7 @@ export function HechosPorDiaChart({ data, onSelect }: HechosPorDiaChartProps) {
               cx={x(i)}
               cy={y(d.total)}
               r={isLatest ? 5 : 4}
-              fill={isLatest ? '#E8567F' : '#5A4794'}
+              fill={isLatest ? '#A97F52' : '#262624'}
               stroke="white"
               strokeWidth={2}
               pointerEvents="none"
@@ -144,7 +144,7 @@ export function HechosPorDiaChart({ data, onSelect }: HechosPorDiaChartProps) {
 
       {active && (
         <g transform={`translate(${tooltipAnchorsRight ? tooltipX - 84 : tooltipX + 8}, ${Math.max(y(active.total) - 40, 4)})`}>
-          <rect width={76} height={34} rx={6} fill="#4D3B86" />
+          <rect width={76} height={34} rx={6} fill="#1A1A1A" />
           <text x={8} y={14} className="fill-white text-[9px] font-medium">{active.day}</text>
           <text x={8} y={27} className="fill-white text-[11px] font-semibold">{active.total} hechos</text>
         </g>

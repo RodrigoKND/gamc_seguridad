@@ -31,6 +31,9 @@ export interface HechoEvidencia {
   tipo: 'foto' | 'video';
 }
 
+/** F3: cómo se decidió la EPI del hecho. ambigua/fuera_cobertura = pendiente de revisión. */
+export type HechoEpiEstado = 'asignada' | 'ambigua' | 'fuera_cobertura';
+
 export interface Hecho {
   id: string;
   tipo: string;
@@ -38,8 +41,12 @@ export interface Hecho {
   ubicacion: string;
   lat: number;
   lng: number;
-  /** Código de la EPI del hecho; null = sin clasificar. */
+  /** Código de la EPI del hecho (por SU ubicación, F3); null = sin clasificar. */
   epi: EpiZone | null;
+  /** F3: ambigua / fuera_cobertura = pendiente de revisión por supervisión. */
+  epiEstado?: HechoEpiEstado;
+  /** F3: ubicacion | manual | legado */
+  epiMetodo?: string;
   timestamp: string;
   reportante: string;
   estado: HechoEstado;

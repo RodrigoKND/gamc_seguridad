@@ -1,6 +1,6 @@
 'use client';
 
-// Catálogo EPI para componentes cliente (cambios/04 F1). Se carga UNA vez
+// Catálogo EPI para componentes cliente. Se carga UNA vez
 // por sesión en el layout del grupo (dashboard) desde GET /api/epis y
 // reemplaza a las listas fijas EPI_ZONES/EPI_ZONE_LABELS/EPI_ZONE_HEX: los
 // nombres, colores y el orden oficial salen del backend (inventario de 6

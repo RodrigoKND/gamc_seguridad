@@ -12,8 +12,8 @@ import { UserCredentialModal } from './UserCredentialModal';
 // cual (ya implementa MASTER.md sección 13.2/14.2); Operador/Administrador
 // usa el formulario de email nuevo (UserCredentialModal, sección 15.4).
 // Tarjetas con el mismo lenguaje del menú de Inicio de la app móvil:
-// ícono en .icon-badge (círculo lila con anillo) que pasa a relleno
-// primary-700 al hover/foco (MASTER.md sección 4).
+// ícono en .icon-badge (círculo crema dorado con anillo) que pasa a relleno
+// de tinta primary-900 con ícono dorado al hover/foco (MASTER.md sección 4).
 
 type TipoCredencial = 'operador' | 'guardia' | 'administrador';
 
@@ -50,10 +50,10 @@ export function GenerateCredentialsView() {
               key={t.id}
               type="button"
               onClick={() => setTipo(t.id)}
-              className="group flex animate-fade-in-up cursor-pointer flex-col items-start gap-3 rounded-2xl border border-neutral-border bg-white p-5 text-left transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-[0_12px_28px_-12px_rgba(77,59,134,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+              className="group flex animate-fade-in-up cursor-pointer flex-col items-start gap-3 rounded-2xl border border-neutral-border bg-white p-5 text-left transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-[0_12px_28px_-12px_rgba(26,26,26,0.35)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              <span className="icon-badge h-12 w-12 transition-colors duration-200 group-hover:bg-primary-700 group-hover:text-white group-hover:ring-primary-700 group-focus-visible:bg-primary-700 group-focus-visible:text-white">
+              <span className="icon-badge h-12 w-12 transition-colors duration-200 group-hover:bg-primary-900 group-hover:text-accent-500 group-hover:ring-primary-900 group-focus-visible:bg-primary-700 group-focus-visible:text-white">
                 <Icon className="h-[22px] w-[22px]" aria-hidden="true" />
               </span>
               <p className="text-base font-semibold text-primary-900">{t.label}</p>

@@ -2,15 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, ChevronDown, ChevronRight, Inbox, LogOut, Menu, Search, User } from 'lucide-react';
+import { Bell, Check, ChevronDown, ChevronRight, Inbox, LogOut, Menu, Search, User } from 'lucide-react';
 import { Skeleton } from '@/components/feedback/Skeleton';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorBanner } from '@/components/feedback/ErrorBanner';
 import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 
 // RF/RNF: Dashboard Shell — Grupo 4 (MASTER.md sección 7.3).
-// Altura 64px, hamburguesa en móvil (MASTER.md sección 7.1). Migrado a la
-// paleta Innova el 2026-09-06 (MASTER.md sección 4): barra "flotante" con
+// Altura 64px, hamburguesa en móvil (MASTER.md sección 7.1). Paleta del
+// logo (MASTER.md sección 4): barra "flotante" con
 // margen, esquinas redondeadas y vidrio (backdrop-blur) en vez de una franja
 // pegada al borde — más moderno sin perder la jerarquía sticky.
 
@@ -21,7 +21,9 @@ export interface TopbarNotification {
   read?: boolean;
   guardiaId?: string;
   hechoId?: string;
-  kind?: 'sos' | 'bateria' | 'hecho' | 'turno' | 'ruta';
+  /** F5: horario programado al que le faltan guardias. */
+  ejecucionId?: string;
+  kind?: 'sos' | 'bateria' | 'hecho' | 'turno' | 'ruta' | 'programada';
 }
 
 export interface TopbarProps {
@@ -78,12 +80,12 @@ export function Topbar({
   }
 
   return (
-    <header className="sticky top-3 z-[1080] m-3 flex h-16 items-center gap-4 rounded-2xl border border-neutral-border/70 bg-white/75 px-4 shadow-[0_1px_2px_rgba(77,59,134,0.04),0_8px_24px_-12px_rgba(77,59,134,0.18)] backdrop-blur-md lg:m-4 lg:px-6">
+    <header className="sticky top-3 z-[1080] m-3 flex h-16 items-center gap-4 rounded-2xl border border-neutral-border/70 bg-white/75 px-4 shadow-[0_1px_2px_rgba(26,26,26,0.04),0_8px_24px_-12px_rgba(26,26,26,0.18)] backdrop-blur-md lg:m-4 lg:px-6">
       <button
         type="button"
         onClick={onOpenMobileMenu}
         aria-label="Abrir menú"
-        className="rounded-md p-2 text-primary-800 hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2 lg:hidden"
+        className="rounded-md p-2 text-primary-800 transition-colors duration-200 hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2 lg:hidden"
       >
         <Menu className="h-5 w-5" aria-hidden="true" />
       </button>
@@ -95,7 +97,7 @@ export function Topbar({
             <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           </span>
         ))}
-        <span className="truncate font-semibold text-neutral-text">{title}</span>
+        <span key={title} className="truncate animate-fade-in font-semibold text-neutral-text">{title}</span>
       </nav>
 
       {/* Búsqueda global — conectada a guardias/hechos (no decorativa) */}
@@ -110,7 +112,7 @@ export function Topbar({
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleGlobalSearch(); }}
             placeholder="Buscar guardia, hecho, zona… (Enter)"
-            className="w-full rounded-full border border-neutral-border/80 bg-white/60 py-2 pl-9 pr-3 text-[13px] text-neutral-text placeholder:text-neutral-text-muted transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+            className="w-full rounded-full border border-neutral-border/80 bg-white/60 py-2 pl-9 pr-3 text-[13px] text-neutral-text placeholder:text-neutral-text-muted transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
           />
         </div>
       </div>
@@ -122,23 +124,23 @@ export function Topbar({
             onClick={() => setIsBellOpen((open) => !open)}
             aria-label="Alertas"
             aria-expanded={isBellOpen}
-            className="relative rounded-full p-2 text-primary-800 transition-colors duration-200 hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+            className="relative rounded-full p-2 text-primary-800 transition-colors duration-200 hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
           >
             <Bell className="h-5 w-5" aria-hidden="true" />
             {unreadCount > 0 && (
-              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-risk-critical px-1 text-[10px] font-semibold text-white">
+              <span key={unreadCount} className="absolute right-1 top-1 flex h-4 min-w-4 animate-scale-in items-center justify-center rounded-full bg-risk-critical px-1 text-[10px] font-semibold text-white">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
 
           {isBellOpen && (
-            <div className="fixed inset-x-3 top-[4.75rem] z-[1090] max-h-[80vh] w-auto animate-fade-in-up overflow-hidden rounded-xl border border-neutral-border/70 bg-white/90 p-3 shadow-lg backdrop-blur-md sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
+            <div className="fixed inset-x-3 top-[4.75rem] z-[1090] max-h-[80vh] w-auto origin-top-right animate-dropdown-in overflow-hidden rounded-xl border border-neutral-border/70 bg-white/90 p-3 shadow-lg backdrop-blur-md sm:absolute sm:inset-x-auto sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
               {/* Móvil: fixed centrado al viewport (inset-x-3) para que quede al medio y no pegado a la derecha. Desktop sm+: vuelve a absolute right-0 anclado a la campana. */}
               <div className="mb-2 flex items-center justify-between px-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-text-muted">Alertas</p>
                 {unreadCount > 0 && onMarkAllRead && (
-                  <button type="button" onClick={onMarkAllRead} className="text-xs font-medium text-primary-800 hover:underline">
+                  <button type="button" onClick={onMarkAllRead} className="cursor-pointer text-xs font-medium text-accent-700 hover:underline">
                     Marcar leídas
                   </button>
                 )}
@@ -168,10 +170,11 @@ export function Topbar({
                         type="button"
                         onClick={() => handleNotifClick(n)}
                         className={[
-                          'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-bg',
-                          n.read ? 'text-neutral-text-muted' : 'bg-primary-100/70 font-medium text-neutral-text',
+                          'flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-200 hover:bg-neutral-bg',
+                          n.read ? 'text-neutral-text-muted' : 'bg-accent-100/60 font-medium text-neutral-text',
                         ].join(' ')}
                       >
+                        {!n.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-600" aria-hidden="true" />}
                         <span className="min-w-0 flex-1">
                           <p className="truncate">{n.title}</p>
                           <p className="text-xs text-neutral-text-muted">{n.timestamp}</p>
@@ -182,9 +185,10 @@ export function Topbar({
                             tabIndex={0}
                             onClick={(e) => { e.stopPropagation(); onMarkOneRead(n.id); }}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onMarkOneRead(n.id); }}}
-                            className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold text-primary-800 hover:bg-white"
+                            aria-label="Marcar como leída"
+                            className="shrink-0 rounded p-1 text-accent-700 transition-colors duration-200 hover:bg-white"
                           >
-                            ✓
+                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
                           </span>
                         )}
                       </button>
@@ -201,7 +205,7 @@ export function Topbar({
             type="button"
             onClick={() => setIsUserMenuOpen((open) => !open)}
             aria-expanded={isUserMenuOpen}
-            className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+            className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
           >
             <span className="avatar-initials h-8 w-8">
               <User className="h-4 w-4" aria-hidden="true" />
@@ -214,11 +218,11 @@ export function Topbar({
           </button>
 
           {isUserMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-48 animate-fade-in-up rounded-xl border border-neutral-border/70 bg-white/90 p-1.5 shadow-lg backdrop-blur-md">
+            <div className="absolute right-0 top-full mt-2 w-48 origin-top-right animate-dropdown-in rounded-xl border border-neutral-border/70 bg-white/90 p-1.5 shadow-lg backdrop-blur-md">
               <button
                 type="button"
                 onClick={onLogout}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700 focus-visible:ring-offset-2"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-neutral-text transition-colors duration-200 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
                 Cerrar sesión

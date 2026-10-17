@@ -2,7 +2,7 @@
 
 import { getServerSession } from '@/lib/auth-session';
 import { canWrite } from '@/lib/permissions';
-import { updateGuardiaEstadoOperativo } from '@/lib/data-source';
+import { atenderSos } from '@/lib/data-source';
 import { isApiError } from '@/lib/api/http';
 
 // Bug reportado tras la defensa: todavía no había forma de resolver un SOS
@@ -19,9 +19,14 @@ import { isApiError } from '@/lib/api/http';
 export interface ClearSosResult {
   success: boolean;
   error?: string;
+  /** Alertas que siguen abiertas (llegaron después de las que se atendieron). */
+  pendientes?: number;
 }
 
-export async function clearSosAction(guardiaId: string): Promise<ClearSosResult> {
+// F2: atiende EXACTAMENTE las alertas que el operador vio (`alertaIds`); si
+// llegó un SOS nuevo después, ese sigue abierto. El estado operativo lo
+// deriva el backend del turno real (antes se forzaba 'en_servicio').
+export async function clearSosAction(guardiaId: string, alertaIds?: string[]): Promise<ClearSosResult> {
   const session = await getServerSession();
   if (!session) return { success: false, error: 'No hay sesión activa.' };
   if (!canWrite(session.role, 'patrullaje')) {
@@ -29,9 +34,8 @@ export async function clearSosAction(guardiaId: string): Promise<ClearSosResult>
   }
 
   try {
-    const guard = await updateGuardiaEstadoOperativo(guardiaId, 'en_servicio');
-    if (!guard) return { success: false, error: 'Guardia no encontrado.' };
-    return { success: true };
+    const r = await atenderSos(guardiaId, alertaIds);
+    return { success: true, pendientes: r.pendientes };
   } catch (error) {
     return {
       success: false,

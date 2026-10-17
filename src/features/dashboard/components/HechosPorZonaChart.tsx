@@ -7,7 +7,7 @@ import type { HechoPorZonaItem } from '../types';
 //
 // El mockup de Etapa 2 agrupaba por zonas genéricas (Centro/Norte/Sur/Este/
 // Oeste) que no coinciden con la taxonomía territorial oficial de MASTER.md
-// sección 4. Desde el catálogo v2 (cambios/04 F1) zonas, nombres y colores
+// sección 4. Desde el catálogo v2 zonas, nombres y colores
 // salen de GET /api/epis (6 EPIs del inventario oficial) — la misma
 // jurisdicción que ya se usa en Guardias y en los filtros de Mapas.
 //
@@ -42,7 +42,7 @@ export function HechosPorZonaChart({ data, onSelect }: HechosPorZonaChartProps) 
           role={onSelect ? 'button' : undefined}
           tabIndex={onSelect ? 0 : undefined}
           onKeyDown={onSelect ? (e) => { if (e.key === 'Enter') onSelect(item); } : undefined}
-          className={`flex animate-rise-up items-center gap-3 ${onSelect ? 'cursor-pointer rounded-md px-1 py-1 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-700' : ''}`}
+          className={`flex animate-rise-up items-center gap-3 ${onSelect ? 'cursor-pointer rounded-md px-1 py-1 hover:bg-neutral-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600' : ''}`}
           style={{ animationDelay: `${100 + i * 70}ms` }}
         >
           <span className="w-24 shrink-0 truncate text-sm text-neutral-text-muted">{item.zone ? nombreCorto(item.zone) : item.nombre}</span>

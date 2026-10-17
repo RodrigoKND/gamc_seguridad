@@ -1,7 +1,7 @@
 // Colores para diferenciar rutas activas en el mapa y en el panel derecho
 // (RF-G3-09, rediseño 2026-09-14: "deben cambiar de color las rutas... para
 // diferenciarlas"). Evita el rojo (reservado para SOS, ver PatrolLayer) y
-// los tonos de marca — púrpura y rosa-vino (marcadores de guardia y
+// los tonos de marca — tinta y dorado (marcadores de guardia y
 // selección/acento, ver MASTER.md sección 4) — para que una línea de ruta
 // nunca se confunda con esas señales ya establecidas en el mapa.
 export const ROUTE_COLOR_PALETTE = [

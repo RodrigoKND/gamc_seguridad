@@ -5,10 +5,7 @@ import { Check, Copy } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { DateField } from '@/components/ui/DateField';
-import { EpiOpciones } from '@/lib/epis/EpiNombre';
-import type { EpiZone } from '@/types/epi';
 import { guardFullName } from '../types';
 import { generateGuardCredentialsAction } from '@/features/auth/actions/generateCredentials';
 
@@ -16,9 +13,9 @@ import { generateGuardCredentialsAction } from '@/features/auth/actions/generate
 // datos biográficos (sin foto, sin campos de credenciales) — la BD genera
 // usuario/contraseña, que se muestran una única vez en la pantalla de
 // confirmación. Error de CI duplicado: inline bajo el campo, sin cerrar
-// el modal (MASTER.md sección 10). Exclusivo de Generar Credenciales — migrado
-// a la paleta Innova el 2026-09-06 (MASTER.md sección 4): Modal/Input/Select
-// con accent="rose", Button variant="brand".
+// el modal (MASTER.md sección 10). Exclusivo de Generar Credenciales — paleta
+// del logo (MASTER.md sección 4): Modal/Input/Select
+// con accent="gold", Button variant="brand".
 //
 // Bug real corregido 2026-09-14: este modal calculaba credenciales FALSAS
 // en el cliente y mostraba "éxito" de inmediato, mientras la persistencia
@@ -43,7 +40,6 @@ export interface GuardCreateModalProps {
     ci: string;
     fechaNacimiento: string;
     telefono: string;
-    epi: EpiZone;
   }) => void;
 }
 
@@ -79,7 +75,6 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
       ci: String(formData.get('ci') ?? '').trim(),
       fechaNacimiento: String(formData.get('fechaNacimiento') ?? '').trim(),
       telefono: String(formData.get('telefono') ?? '').trim(),
-      epi: String(formData.get('epi') ?? '') as EpiZone,
     };
 
     if (existingCis.includes(data.ci)) {
@@ -116,7 +111,7 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Registrar Nuevo Guardia" accent="rose" dismissible={phase !== 'success'}>
+    <Modal isOpen={isOpen} onClose={handleClose} title="Registrar Nuevo Guardia" accent="gold" dismissible={phase !== 'success'}>
       {phase === 'success' && credentials ? (
         <div className="animate-fade-in p-6">
           <div className="mb-3.5 flex justify-center">
@@ -163,26 +158,23 @@ export function GuardCreateModal({ isOpen, onClose, existingCis, onCreated }: Gu
           )}
 
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Primer Nombre" name="primerNombre" accent="rose" required disabled={phase === 'loading'} />
-            <Input label="Segundo Nombre" name="segundoNombre" accent="rose" disabled={phase === 'loading'} />
+            <Input label="Primer Nombre" name="primerNombre" accent="gold" required disabled={phase === 'loading'} />
+            <Input label="Segundo Nombre" name="segundoNombre" accent="gold" disabled={phase === 'loading'} />
           </div>
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Apellido Paterno" name="apellidoPaterno" accent="rose" required disabled={phase === 'loading'} />
-            <Input label="Apellido Materno" name="apellidoMaterno" accent="rose" required disabled={phase === 'loading'} />
+            <Input label="Apellido Paterno" name="apellidoPaterno" accent="gold" required disabled={phase === 'loading'} />
+            <Input label="Apellido Materno" name="apellidoMaterno" accent="gold" required disabled={phase === 'loading'} />
           </div>
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Cédula de Identidad" name="ci" placeholder="0000000" accent="rose" required disabled={phase === 'loading'} />
+            <Input label="Cédula de Identidad" name="ci" placeholder="0000000" accent="gold" required disabled={phase === 'loading'} />
             <DateField label="Fecha de Nacimiento" name="fechaNacimiento" required disabled={phase === 'loading'} />
           </div>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Teléfono" name="telefono" placeholder="+591 7XX XXXXX" accent="rose" required disabled={phase === 'loading'} />
-            <Select label="EPI / Distrito asignado" name="epi" accent="rose" required disabled={phase === 'loading'} defaultValue="">
-              <option value="" disabled>
-                Seleccione una EPI
-              </option>
-              <EpiOpciones soloOperativas />
-            </Select>
+            <Input label="Teléfono" name="telefono" placeholder="+591 7XX XXXXX" accent="gold" required disabled={phase === 'loading'} />
           </div>
+          <p className="-mt-2 mb-4 text-[11.5px] text-neutral-text-muted">
+            El guardia no tiene una EPI fija: puede recibir rutas de cualquier EPI y su EPI actual se ve por su GPS.
+          </p>
 
           <div className="flex gap-2.5">
             <Button type="button" variant="secondary" onClick={handleClose} className="flex-1" disabled={phase === 'loading'}>

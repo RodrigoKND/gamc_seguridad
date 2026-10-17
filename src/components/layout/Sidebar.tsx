@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   AlertTriangle,
   ChevronLeft,
-  ChevronRight,
   KeyRound,
   LayoutDashboard,
   Map,
@@ -17,19 +16,19 @@ import { ROLE_NAV_ROUTES } from '@/lib/permissions';
 import type { UserRole } from '@/types/user';
 
 // RF/RNF: Dashboard Shell — Grupo 4 (MASTER.md sección 7.3).
-// Paleta Innova (MASTER.md sección 4): lila primary-700 → primary-900 en
-// degradado sutil (a pedido del usuario 2026-10-06: el plano se perdía
-// contra el contenido y el morado "no se notaba").
-// Letras SIEMPRE claras sobre el morado: inactivas primary-100 (5.1:1 sobre
-// primary-700), activas white sobre píldora primary-950/70 (10:1) con barra
-// e ícono accent-300 — nada de texto negro sobre fondo claro.
-// Foco: anillo blanco con offset del mismo lila (visible sobre la superficie).
+// Rediseño F7 (2026-10-17, pedido del usuario): tres "burbujas" flotantes de
+// tinta sobre el fondo de la página, alineadas con el Topbar flotante —
+// arriba la marca, al medio las opciones (centradas en vertical), abajo el
+// colapso. El comportamiento no cambia: 264px expandido / 84px colapsado,
+// drawer con backdrop en <lg (MASTER.md sección 7.1).
+// Paleta del logo (MASTER.md sección 4): ítem activo en píldora dorada
+// accent-500 con texto primary-950 (8.3:1); inactivos primary-300 sobre
+// primary-900 (7.9:1), blancos al pasar el mouse. Foco: anillo dorado con
+// offset del mismo tono de la burbuja.
 // Árbol de navegación por rol — MASTER.md sección 7.2 (Opción A: los ítems
 // fuera de alcance NO se renderizan, no se muestran deshabilitados). El
 // filtrado usa lib/permissions.ts (ROLE_NAV_ROUTES) para no divergir nunca
 // del middleware, que usa la misma fuente de verdad.
-// Ancho: 260px expandido / 72px colapsado; <lg: drawer overlay con backdrop
-// (MASTER.md sección 7.1).
 
 interface NavItem {
   href: string;
@@ -39,6 +38,10 @@ interface NavItem {
 
 // Registro maestro — el orden acá es el orden visual dentro de cada árbol
 // de rol (ROLE_NAV_ROUTES filtra, no reordena).
+// Superficie común de las tres burbujas.
+const BUBBLE =
+  'rounded-2xl bg-primary-900 ring-1 ring-inset ring-accent-500/15 shadow-[0_14px_30px_-16px_rgba(13,13,14,0.55)]';
+
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/credenciales', label: 'Generar Credenciales', icon: KeyRound },
@@ -71,7 +74,7 @@ export function Sidebar({
       {/* Backdrop móvil (<lg) — MASTER.md sección 7.1 */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-[1090] bg-black/40 lg:hidden"
+          className="fixed inset-0 z-[1090] animate-fade-in bg-primary-950/45 backdrop-blur-[2px] lg:hidden"
           onClick={onCloseMobile}
           aria-hidden="true"
         />
@@ -80,77 +83,89 @@ export function Sidebar({
       <aside
         aria-label="Navegación principal"
         className={[
-          'fixed inset-y-0 left-0 z-[1100] flex flex-col overflow-hidden bg-gradient-to-b from-primary-700 via-primary-800 to-primary-900 transition-[transform,width] duration-200 ease-in-out',
-          'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
-          isCollapsed ? 'lg:w-[72px]' : 'lg:w-[260px]',
-          'w-[260px]',
+          'fixed inset-y-0 left-0 z-[1100] flex flex-col gap-3 p-3',
+          'transition-[transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          'lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:py-4 lg:pl-4 lg:pr-0',
+          isCollapsed ? 'lg:w-[84px]' : 'lg:w-[264px]',
+          'w-[264px]',
           isMobileOpen ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
       >
-        <div className="flex items-center gap-3 border-b border-white/15 px-4 py-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 p-1 ring-1 ring-inset ring-white/25">
+        {/* Burbuja 1 — marca */}
+        <div className={[BUBBLE, 'flex items-center gap-3 p-2.5', isCollapsed ? 'lg:justify-center' : ''].join(' ')}>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] p-1 ring-1 ring-inset ring-accent-500/30">
             <Logo size={28} />
           </span>
-          {!isCollapsed && (
-            <div className="min-w-0 animate-fade-in">
-              <p className="truncate text-sm font-semibold text-white">GAMC</p>
-              <p className="truncate text-xs text-primary-100">Seguridad Ciudadana</p>
-            </div>
-          )}
+          <div className={['min-w-0 animate-fade-in', isCollapsed ? 'lg:hidden' : ''].join(' ')}>
+            <p className="truncate text-sm font-semibold tracking-wide text-white">GAMC</p>
+            <p className="truncate text-xs text-accent-500">Seguridad Ciudadana</p>
+          </div>
           <button
             type="button"
             onClick={onCloseMobile}
             aria-label="Cerrar menú"
-            className="ml-auto rounded-md p-1.5 text-primary-100 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-700 lg:hidden"
+            className="ml-auto cursor-pointer rounded-lg p-1.5 text-primary-300 transition-colors duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 lg:hidden"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {items.map((item) => {
-            const isActive = pathname?.startsWith(item.href) ?? false;
-            const Icon = item.icon;
+        {/* Burbuja 2 — opciones, centrada en el alto disponible */}
+        <div className="flex min-h-0 flex-1 flex-col justify-center">
+          <nav className={[BUBBLE, 'scrollbar-hidden max-h-full overflow-y-auto p-2'].join(' ')}>
+            <ul className="stagger-children space-y-1">
+              {items.map((item) => {
+                const isActive = pathname?.startsWith(item.href) ?? false;
+                const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                prefetch
-                aria-current={isActive ? 'page' : undefined}
-                title={isCollapsed ? item.label : undefined}
-                onClick={onCloseMobile}
-                className={[
-                  'flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2.5 text-[13.5px] font-medium',
-                  'transition-colors duration-200',
-                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-800',
-                  isActive
-                    ? 'border-accent-300 bg-primary-950/70 font-semibold text-white ring-1 ring-inset ring-white/15'
-                    : 'border-transparent text-primary-100 hover:bg-white/10 hover:text-white',
-                ].join(' ')}
-              >
-                <Icon className={['h-5 w-5 shrink-0', isActive ? 'text-accent-300' : ''].join(' ')} aria-hidden="true" />
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
-              </Link>
-            );
-          })}
-        </nav>
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      prefetch
+                      aria-current={isActive ? 'page' : undefined}
+                      title={isCollapsed ? item.label : undefined}
+                      onClick={onCloseMobile}
+                      className={[
+                        'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium',
+                        'transition-[background-color,color,box-shadow] duration-200',
+                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-primary-900',
+                        isCollapsed ? 'lg:justify-center lg:px-0' : '',
+                        isActive
+                          ? 'bg-accent-500 font-semibold text-primary-950 shadow-[0_6px_16px_-8px_rgba(197,155,109,0.7)]'
+                          : 'text-primary-300 hover:bg-white/[0.07] hover:text-white',
+                      ].join(' ')}
+                    >
+                      <Icon
+                        className={[
+                          'h-5 w-5 shrink-0 transition-transform duration-200',
+                          isActive ? '' : 'group-hover:scale-110',
+                        ].join(' ')}
+                        aria-hidden="true"
+                      />
+                      <span className={['truncate', isCollapsed ? 'lg:hidden' : ''].join(' ')}>{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
 
-        <div className="border-t border-white/15 p-3">
+        {/* Burbuja 3 — colapsar (solo desktop; en móvil se cierra con la X o el backdrop) */}
+        <div className={[BUBBLE, 'hidden p-2 lg:block'].join(' ')}>
           <button
             type="button"
             onClick={onToggleCollapse}
             aria-label={isCollapsed ? 'Expandir menú' : 'Colapsar menú'}
-            className="hidden w-full items-center justify-center gap-2 rounded-lg p-2 text-xs font-medium text-primary-100 transition-colors duration-200 hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-700 lg:flex"
+            aria-expanded={!isCollapsed}
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl p-2 text-xs font-medium text-primary-300 transition-colors duration-200 hover:bg-white/[0.07] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-primary-900"
           >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                <span>Colapsar</span>
-              </>
-            )}
+            <ChevronLeft
+              className={['h-4 w-4 transition-transform duration-300', isCollapsed ? 'rotate-180' : ''].join(' ')}
+              aria-hidden="true"
+            />
+            {!isCollapsed && <span className="animate-fade-in">Colapsar</span>}
           </button>
         </div>
       </aside>

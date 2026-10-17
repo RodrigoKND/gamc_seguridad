@@ -2,7 +2,7 @@
 
 import { getServerSession } from '@/lib/auth-session';
 import { canWrite } from '@/lib/permissions';
-import { cancelarPatrulla, cancelarRuta } from '@/lib/data-source';
+import { cancelarEjecucion, cancelarPatrulla } from '@/lib/data-source';
 import { isApiError } from '@/lib/api/http';
 
 // RF-G3-09 (rediseño de rutas 2026-09-14): "cancelar la ruta" saca a TODOS
@@ -18,7 +18,9 @@ export interface CancelRouteResult {
   cancelados?: number;
 }
 
-export async function cancelRouteAction(rutaPlantillaId: string): Promise<CancelRouteResult> {
+// F2: se cancela UNA ejecución (la ruta tal como se asignó en ese momento);
+// otras asignaciones de la misma ruta guardada no se tocan.
+export async function cancelRouteAction(ejecucionId: string): Promise<CancelRouteResult> {
   const session = await getServerSession();
   if (!session) return { success: false, error: 'No hay sesión activa.' };
   if (!canWrite(session.role, 'patrullaje')) {
@@ -26,7 +28,7 @@ export async function cancelRouteAction(rutaPlantillaId: string): Promise<Cancel
   }
 
   try {
-    const result = await cancelarRuta(rutaPlantillaId);
+    const result = await cancelarEjecucion(ejecucionId);
     return { success: true, cancelados: result.cancelados };
   } catch (error) {
     return {
@@ -44,7 +46,7 @@ export interface CancelGuardFromRouteResult {
   error?: string;
 }
 
-export async function cancelGuardFromRouteAction(patrullaId: string): Promise<CancelGuardFromRouteResult> {
+export async function cancelGuardFromRouteAction(patrullaId: string, reposicion?: 'automatica' | 'manual'): Promise<CancelGuardFromRouteResult> {
   const session = await getServerSession();
   if (!session) return { success: false, error: 'No hay sesión activa.' };
   if (!canWrite(session.role, 'patrullaje')) {
@@ -52,7 +54,7 @@ export async function cancelGuardFromRouteAction(patrullaId: string): Promise<Ca
   }
 
   try {
-    await cancelarPatrulla(patrullaId);
+    await cancelarPatrulla(patrullaId, reposicion);
     return { success: true };
   } catch (error) {
     return {

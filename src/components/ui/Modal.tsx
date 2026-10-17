@@ -7,10 +7,9 @@ import { X } from 'lucide-react';
 // otro flujo modal futuro (MASTER.md sección 6: 2+ módulos -> components/ui/,
 // nunca duplicar). Entrada scale+fade desde el centro (motion-modal: los
 // modales/sheets deben animarse desde su origen), duration-200,
-// respeta prefers-reduced-motion vía globals.css. `accent="rose"` es opt-in
+// respeta prefers-reduced-motion vía globals.css. `accent="gold"` es opt-in
 // (formularios de marca: Generar Credenciales, Registrar Guardia, Asignar
 // Ruta — MASTER.md sección 4): esquinas más amplias y anillo de foco
-// rosa (accent-500); el default `purple` usa el anillo primary-700.
 
 export interface ModalProps {
   isOpen: boolean;
@@ -18,7 +17,7 @@ export interface ModalProps {
   title: string;
   children: ReactNode;
   widthClassName?: string;
-  accent?: 'purple' | 'rose';
+  accent?: 'default' | 'gold';
   /** Cuando false, el modal NO se cierra con click afuera ni con Escape
    *  (y se oculta la X). Útil para contenido que no debe perderse por
    *  accidente, p.ej. credenciales recién generadas. Solo cierra onClose(). */
@@ -31,7 +30,7 @@ export function Modal({
   title,
   children,
   widthClassName = 'max-w-[480px]',
-  accent = 'purple',
+  accent = 'default',
   dismissible = true,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -69,7 +68,7 @@ export function Modal({
 
   if (!isOpen) return null;
 
-  const isRose = accent === 'rose';
+  const isGold = accent === 'gold';
 
   return (
     <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4">
@@ -78,7 +77,7 @@ export function Modal({
         aria-hidden="true"
         className={[
           'absolute inset-0 animate-fade-in backdrop-blur-[2px]',
-          isRose ? 'bg-primary-900/55' : 'bg-primary-900/50',
+          isGold ? 'bg-primary-950/55' : 'bg-primary-950/50',
         ].join(' ')}
       />
       <div
@@ -89,7 +88,7 @@ export function Modal({
         tabIndex={-1}
         className={[
           'relative max-h-[88vh] w-full overflow-y-auto bg-white shadow-lg',
-          isRose ? 'rounded-2xl' : 'rounded-xl',
+          isGold ? 'rounded-2xl border-t-[3px] border-accent-500' : 'rounded-xl',
           'animate-scale-in outline-none',
           widthClassName,
         ].join(' ')}
@@ -104,7 +103,7 @@ export function Modal({
               className={[
                 'rounded-md p-1 text-neutral-text-muted transition-colors duration-200 hover:bg-neutral-bg hover:text-neutral-text',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-                isRose ? 'focus-visible:ring-accent-500' : 'focus-visible:ring-primary-700',
+                'focus-visible:ring-accent-600',
               ].join(' ')}
             >
               <X className="h-5 w-5" aria-hidden="true" />

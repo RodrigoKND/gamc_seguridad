@@ -19,8 +19,8 @@ import { EpiOpciones } from '@/lib/epis/EpiNombre';
 // el campo identificador (correo en vez de CI + fecha de nacimiento) y que
 // la contraseña temporal es aleatoria, no la fecha de nacimiento — ver el
 // TODO en features/auth/actions/generateCredentials.ts citando MASTER.md 15.4.
-// Migrado a la paleta Innova el 2026-09-06 (MASTER.md sección 4): Modal/Input
-// con accent="rose", Button variant="brand".
+// Paleta del logo (MASTER.md sección 4): Modal/Input
+// con accent="gold", Button variant="brand".
 
 export interface UserCredentialModalProps {
   isOpen: boolean;
@@ -97,7 +97,7 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={`Generar Credenciales — ${USER_ROLE_LABELS[role]}`} accent="rose">
+    <Modal isOpen={isOpen} onClose={handleClose} title={`Generar Credenciales — ${USER_ROLE_LABELS[role]}`} accent="gold">
       {phase === 'success' && credentials ? (
         <div className="animate-fade-in p-6">
           <div className="mb-3.5 flex justify-center">
@@ -144,27 +144,27 @@ export function UserCredentialModal({ isOpen, onClose, role, existingEmails }: U
           )}
 
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Primer Nombre" name="primerNombre" accent="rose" required disabled={phase === 'loading'} />
-            <Input label="Segundo Nombre" name="segundoNombre" accent="rose" disabled={phase === 'loading'} />
+            <Input label="Primer Nombre" name="primerNombre" accent="gold" required disabled={phase === 'loading'} />
+            <Input label="Segundo Nombre" name="segundoNombre" accent="gold" disabled={phase === 'loading'} />
           </div>
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Apellido Paterno" name="apellidoPaterno" accent="rose" required disabled={phase === 'loading'} />
-            <Input label="Apellido Materno" name="apellidoMaterno" accent="rose" required disabled={phase === 'loading'} />
+            <Input label="Apellido Paterno" name="apellidoPaterno" accent="gold" required disabled={phase === 'loading'} />
+            <Input label="Apellido Materno" name="apellidoMaterno" accent="gold" required disabled={phase === 'loading'} />
           </div>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Teléfono" name="telefono" placeholder="+591 7XX XXXXX" accent="rose" required disabled={phase === 'loading'} />
+            <Input label="Teléfono" name="telefono" placeholder="+591 7XX XXXXX" accent="gold" required disabled={phase === 'loading'} />
             <Input
               label="Correo institucional"
               name="email"
               type="email"
               placeholder="nombre.apellido@cochabamba.bo"
-              accent="rose"
+              accent="gold"
               required
               disabled={phase === 'loading'}
             />
           </div>
           <div className="mb-4">
-            <Select label="EPI / Jurisdicción asignada" name="epi" accent="rose" required disabled={phase === 'loading'} defaultValue="">
+            <Select label="EPI / Jurisdicción asignada" name="epi" accent="gold" required disabled={phase === 'loading'} defaultValue="">
               <option value="" disabled>Seleccione una EPI</option>
               <EpiOpciones soloOperativas />
             </Select>

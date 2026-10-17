@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ExportMenu } from '@/components/ui/ExportMenu';
 import { PageContainer } from '@/components/layout/PageContainer';
-import { getHechosActivos } from '@/lib/data-source';
+import { getHechosExport } from '@/lib/data-source';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import type { Hecho } from '@/features/hechos/types';
@@ -44,16 +44,18 @@ export function ReportesView() {
   function load() {
     setStatus('loading');
     setErrorMsg(null);
-    getHechosActivos()
-      .then((data) => {
-        setHechos(data);
+    // F3: el archivo completo dentro del alcance (antes eran los 200
+    // más recientes de todas las EPIs, y la exportación perdía el resto).
+    getHechosExport()
+      .then(({ rows }) => {
+        setHechos(rows);
         setStatus('ready');
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Error de conexión con el API. Verifica que el backend esté en http://localhost:4000';
         setErrorMsg(msg);
         setStatus('error');
-        console.error('[ReportesView] getHechosActivos failed', err);
+        console.error('[ReportesView] getHechosExport failed', err);
       });
   }
 
@@ -63,8 +65,8 @@ export function ReportesView() {
   // estado — mismo socket compartido del layout (RealtimeProvider), nunca
   // pasa por 'loading' para no perder los filtros/scroll ya aplicados.
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, () => {
-    getHechosActivos()
-      .then((data) => setHechos(data))
+    getHechosExport()
+      .then(({ rows }) => setHechos(rows))
       .catch(() => {});
   });
 

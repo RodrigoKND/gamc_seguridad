@@ -54,7 +54,7 @@ export const PATRULLA_MODALIDAD_LABELS: Record<PatrullaModalidad, string> = {
 
 // Capacidad máxima de guardias por unidad, según el rol de servicio real.
 export const PATRULLA_MODALIDAD_CAPACIDAD: Record<PatrullaModalidad, number> = {
-  coche: 4,
+  coche: 12,
   moto: 2,
   a_pie: 3,
   punto_fijo: 2,
@@ -76,6 +76,42 @@ export const PATRULLA_MODALIDAD_CAPACIDAD: Record<PatrullaModalidad, number> = {
 // servicio con nombre (ej. sub-puntos de un mismo sitio) — la tabla real
 // sigue siendo 1 fila por guardia, esto solo permite dibujarlos
 // relacionados en el mapa (Caso B/C de la bandeja de Patrullaje).
+// F2: tipo de ruta. Establecida = PREDETERMINADA (oficial, de la policía;
+// en BD sigue llamándose 'establecida'); guardada = recurrente que el
+// operador decidió guardar; dinámica = dibujada para una sola asignación
+// (sin tiempo límite, la cierra el usuario).
+export const TIPOS_RUTA = ['dinamica', 'guardada', 'establecida'] as const;
+export type TipoRuta = (typeof TIPOS_RUTA)[number];
+export const TIPO_RUTA_LABELS: Record<TipoRuta, string> = {
+  dinamica: 'Dinámica',
+  guardada: 'Recurrente',
+  establecida: 'Predeterminada',
+};
+
+// F2: estado del guardia respecto a su ruta, calculado por el SERVIDOR en
+// cada ping GPS (umbrales por modalidad).
+export type EstadoRuta = 'incorporandose' | 'en_ruta' | 'advertencia' | 'alerta';
+
+/** Asignación concreta de una ruta (agrupa a sus guardias). */
+export interface EjecucionInfo {
+  id: string;
+  nombre: string;
+  tipo: TipoRuta | 'legado';
+  modalidad: PatrullaModalidad;
+  capacidad: number;
+  unidad: string | null;
+  inicio: string;
+  /** null = sin límite (ruta dinámica: la cierra el usuario). */
+  fin: string | null;
+  epiCodigo: string | null;
+  /** F4: asignación a un punto fijo (sin trazado). */
+  puntoFijoId?: string | null;
+  destino?: { puntoFijoId: string; nombre: string; lat: number; lng: number; version: number } | null;
+  /** F6: horario programado del que sale (y su modo): se avisa antes de retirar o cancelar. */
+  programacionId?: string | null;
+  asignacionModo?: 'manual' | 'automatica' | null;
+}
+
 export interface PatrullaRow {
   id: string;
   guardiaId: string;
@@ -93,6 +129,16 @@ export interface PatrullaRow {
   modalidad: PatrullaModalidad;
   unidadId?: string;
   direccionActual?: string;
+  /** F2: ejecución a la que pertenece (agrupa la ruta compartida). */
+  ejecucionId?: string;
+  ejecucion?: EjecucionInfo | null;
+  estadoRuta?: EstadoRuta | null;
+  distanciaRutaM?: number | null;
+  incorporadaEn?: string | null;
+  /** F7: hora límite para incorporarse; vencida sin llegar pasa a advertencia/alerta. */
+  incorporacionLimite?: string | null;
+  /** F4: punto o subpunto fijo donde está este guardia. */
+  puntoFijo?: { id: string; nombre: string; esSubpunto: boolean } | null;
   horaInicioProgramada?: string;
   horaFinProgramada?: string;
   horaInicioReal?: string;
@@ -115,4 +161,8 @@ export interface RutaPlantillaRow {
   trazado: TrazadoPuntos;
   activa: boolean;
   modalidad?: PatrullaModalidad;
+  /** F2: establecida (predeterminada) / guardada (recurrente) / dinámica. */
+  tipo?: TipoRuta;
+  /** ISO: cuándo se guardó en la biblioteca. */
+  creadaEn?: string;
 }

@@ -50,6 +50,18 @@ function setClientCookie(user: AuthenticatedUser): void {
 }
 
 /**
+ * Datos de otro usuario en memoria (F3, reportado 17/10): al cambiar de
+ * cuenta en la misma pestaña, la página no se recargaba y quedaban en memoria
+ * del navegador los datos del anterior (caché del mapa, páginas ya cargadas):
+ * un Operador veía por un rato las rutas de otras EPIs que había cargado el
+ * Super Admin. Cerrar sesión e iniciarla recargan la página de verdad, y si en
+ * otra pestaña entra un usuario DISTINTO, esta se recarga sola.
+ */
+function recargarComo(usuarioId: string | null, cargadoId: string | null) {
+  if (cargadoId && usuarioId && usuarioId !== cargadoId) window.location.reload();
+}
+
+/**
  * Sesión del cliente. El JWT real vive en `gamc_access` (httpOnly, lo valida
  * el middleware/fetch del servidor); aquí solo se lee el perfil no sensible
  * (`gamc_profile`) que el API escribió junto a los tokens.
@@ -59,6 +71,8 @@ export function useAuthSession() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const recoveringRef = useRef(false);
+  // Usuario con el que se cargó esta pestaña: si la cookie pasa a ser de otro, se recarga.
+  const cargadoComoRef = useRef<string | null>(null);
 
   async function syncFromCookie(): Promise<AuthenticatedUser | null> {
     const parsed = parseSessionCookie(readCookie(PROFILE_COOKIE_NAME));
@@ -94,6 +108,7 @@ export function useAuthSession() {
       const parsed = await syncFromCookie();
       if (!cancelled) {
         if (parsed) {
+          cargadoComoRef.current = parsed.id;
           setUser(parsed);
           setIsLoaded(true);
         } else if (hasSessionHint()) {
@@ -119,6 +134,7 @@ export function useAuthSession() {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
         syncFromCookie().then((p) => {
+          recargarComo(p?.id ?? null, cargadoComoRef.current);
           if (p) setUser(p);
           else if (hasSessionHint() && !recoveringRef.current) attemptRecovery();
         });
@@ -126,6 +142,7 @@ export function useAuthSession() {
     };
     const onFocus = () => {
       syncFromCookie().then((p) => {
+        recargarComo(p?.id ?? null, cargadoComoRef.current);
         if (p) setUser(p);
         else if (hasSessionHint()) attemptRecovery();
       });
@@ -136,6 +153,7 @@ export function useAuthSession() {
     // Polling suave de la cookie (detecta rotación por Server Action en otro comp)
     const pollIv = setInterval(() => {
       syncFromCookie().then((p) => {
+        recargarComo(p?.id ?? null, cargadoComoRef.current);
         if (p && p.id !== user?.id) setUser(p);
         if (!p && hasSessionHint() && isLoaded) attemptRecovery();
       });
@@ -159,15 +177,22 @@ export function useAuthSession() {
   }, []);
 
   const login = useCallback((nextUser: AuthenticatedUser) => {
+    cargadoComoRef.current = nextUser.id;
     setUser(nextUser);
     setClientCookie(nextUser);
   }, []);
 
-  const logout = useCallback(() => {
-    void serverLogout();
+  /** Cierra la sesión en el servidor (se espera) y limpia la del cliente; quien llama recarga la página. */
+  const logout = useCallback(async () => {
     clearClientCookie(PROFILE_COOKIE_NAME);
     clearClientCookie('gamc_xsrf');
+    cargadoComoRef.current = null;
     setUser(null);
+    try {
+      await serverLogout();
+    } catch {
+      // Sin red: las cookies del cliente ya se borraron; el refresh vence solo.
+    }
   }, []);
 
   return { user, isLoaded: isLoaded && !isRefreshing, isRefreshing, login, logout, refresh: attemptRecovery };

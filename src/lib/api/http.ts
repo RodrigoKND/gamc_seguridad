@@ -125,7 +125,7 @@ const { name, value, options } = toResponseCookie(raw);
 
 interface ApiEnvelope {
   data?: unknown;
-  meta?: { total?: number; page?: number; pageSize?: number };
+  meta?: { total?: number; page?: number; pageSize?: number; truncado?: boolean };
   error?: { code?: string; message?: string; details?: unknown };
 }
 
@@ -193,7 +193,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
  * página. El envelope sigue siendo compatible con apiFetch: mismos
  * endpoints, mismo `data`, esto solo lee el campo extra.
  */
-export async function apiFetchPage<T>(path: string, options: RequestOptions = {}): Promise<{ data: T; total: number }> {
+export async function apiFetchPage<T>(path: string, options: RequestOptions = {}): Promise<{ data: T; total: number; truncado: boolean }> {
   const payload = await attemptRequest(path, options);
-  return { data: payload.data as T, total: payload.meta?.total ?? 0 };
+  return { data: payload.data as T, total: payload.meta?.total ?? 0, truncado: Boolean(payload.meta?.truncado) };
 }
