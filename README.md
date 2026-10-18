@@ -1,167 +1,312 @@
-# Plataforma Web · Seguridad Ciudadana GAMC
+# GAMC Seguridad — Plataforma Web de Seguridad Ciudadana
 
-**Gobierno Autónomo Municipal de Cochabamba — Dirección de Seguridad Ciudadana**
+**Gobierno Autónomo Municipal de Cochabamba · Dirección de Seguridad Ciudadana**
 
-![Next.js](https://img.shields.io/badge/Next.js-15.5-black?logo=next.js) ![React](https://img.shields.io/badge/React-19.0-61DAFB?logo=react&logoColor=black) ![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white) ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3.3-06B6D4?logo=tailwindcss&logoColor=white) ![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet&logoColor=white) ![Lucide](https://img.shields.io/badge/Iconos-Lucide-8B5CF6)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5-000000?logo=next.js)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19.0-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.3-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![Socket.IO](https://img.shields.io/badge/Socket.IO-4.8-010101?logo=socket.io)](https://socket.io)
+[![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet)](https://leafletjs.com)
 
-Plataforma web para la reingeniería de la Dirección de Seguridad Ciudadana del GAMC 
-(Cochabamba, Bolivia).
+Panel de operaciones en tiempo real para la gestión de guardias, patrullaje, incidentes y análisis de seguridad ciudadana en el municipio de Cochabamba, Bolivia.
+
+---
+
+## Tabla de contenidos
+
+- [Descripción general](#descripción-general)
+- [Stack técnico](#stack-técnico)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Puesta en marcha](#puesta-en-marcha)
+- [Variables de entorno](#variables-de-entorno)
+- [Scripts disponibles](#scripts-disponibles)
+- [Módulos funcionales](#módulos-funcionales)
+- [Roles y permisos](#roles-y-permisos)
+- [Paleta de colores](#paleta-de-colores)
+- [Rendimiento y tiempo real](#rendimiento-y-tiempo-real)
+- [Documentación técnica](#documentación-técnica)
+- [Convenciones de desarrollo](#convenciones-de-desarrollo)
+
+---
+
+## Descripción general
+
+GAMC Seguridad es el frontend web del sistema integrado de seguridad ciudadana del municipio de Cochabamba. Permite al personal operativo:
+
+- **Monitorear en tiempo real** la ubicación y estado de los guardias en campo vía GPS.
+- **Gestionar patrullajes** asignando rutas establecidas, guardadas o dinámicas a unidades activas.
+- **Atender alertas SOS** emitidas desde la aplicación móvil de los guardias.
+- **Registrar y clasificar incidentes** (hechos) por tipo, nivel de riesgo y zona EPI.
+- **Analizar indicadores** de seguridad mediante el dashboard ejecutivo con gráficas y KPIs.
+- **Generar reportes** y exportar datos en CSV/PDF.
+
+El sistema opera sobre **6 EPIs** (Estaciones Policiales Integrales) que cubren el territorio municipal, con visibilidad segmentada por rol y zona.
 
 ---
 
 ## Stack técnico
 
-| Capa | Tecnología |
-|---|---|
-| Framework | Next.js 15 (App Router) |
-| UI | React 19 + TypeScript (strict) |
-| Estilos | Tailwind CSS 3 |
-| Mapas GIS | Leaflet + React-Leaflet + `react-leaflet-cluster` |
-| Tiempo real | Socket.IO client |
-| Autenticación | JWT (`jose`) |
-| Iconografía | Lucide React |
-| Tipografía | IBM Plex Sans |
-| Backend | API REST propia (`gamc-api`, Express + PostgreSQL) — documentación en `unificacion/` (carpeta local, no versionada, ver `.gitignore`) |
-
-Estado de integración: **Guardias, Usuarios y Dashboard** ya consumen el backend real vía `src/lib/api/`. **Mapas y Hechos** siguen sobre datos simulados en `src/lib/data-source.ts` mientras se completa esa integración.
-
----
-
-## Paleta de colores
-
-### Paleta principal
-
-| | Token | Hex |
+| Capa | Tecnología | Versión |
 |---|---|---|
-| ![#0D0D0E](https://img.shields.io/badge/-%20-0D0D0E?style=flat-square) | `brand-ink-950` | `#0D0D0E` |
-| ![#1A1A1A](https://img.shields.io/badge/-%20-1A1A1A?style=flat-square) | `brand-ink-900` | `#1A1A1A` |
-| ![#262624](https://img.shields.io/badge/-%20-262624?style=flat-square) | `brand-ink-800` | `#262624` |
-| ![#3D3A35](https://img.shields.io/badge/-%20-3D3A35?style=flat-square) | `brand-ink-700` | `#3D3A35` |
-| ![#C59B6D](https://img.shields.io/badge/-%20-C59B6D?style=flat-square) | `brand-gold-500` | `#C59B6D` |
-| ![#A97F52](https://img.shields.io/badge/-%20-A97F52?style=flat-square) | `brand-gold-600` | `#A97F52` |
-| ![#8C6740](https://img.shields.io/badge/-%20-8C6740?style=flat-square) | `brand-gold-700` | `#8C6740` |
-| ![#DDBE97](https://img.shields.io/badge/-%20-DDBE97?style=flat-square) | `brand-gold-300` | `#DDBE97` |
-| ![#F3E7D8](https://img.shields.io/badge/-%20-F3E7D8?style=flat-square) | `brand-gold-100` | `#F3E7D8` |
-
-### Semántica de riesgo
-
-| | Token | Hex |
-|---|---|---|
-| ![#DC2626](https://img.shields.io/badge/-%20-DC2626?style=flat-square) | `risk-critical` | `#DC2626` |
-| ![#F97316](https://img.shields.io/badge/-%20-F97316?style=flat-square) | `risk-high` | `#F97316` |
-| ![#EAB308](https://img.shields.io/badge/-%20-EAB308?style=flat-square) | `risk-medium` | `#EAB308` |
-| ![#22C55E](https://img.shields.io/badge/-%20-22C55E?style=flat-square) | `risk-low` | `#22C55E` |
-
-
-### Neutrales
-
-| | Token | Hex |
-|---|---|---|
-| ![#F5F7FA](https://img.shields.io/badge/-%20-F5F7FA?style=flat-square) | `neutral-bg` | `#F5F7FA` |
-| ![#E5E7EB](https://img.shields.io/badge/-%20-E5E7EB?style=flat-square) | `neutral-border` | `#E5E7EB` |
-| ![#1F2937](https://img.shields.io/badge/-%20-1F2937?style=flat-square) | `neutral-text` | `#1F2937` |
-| ![#6B7280](https://img.shields.io/badge/-%20-6B7280?style=flat-square) | `neutral-text-muted` | `#6B7280` |
-
-Todos los tokens viven en `tailwind.config.js` — usar siempre la clase Tailwind (`bg-brand-ink-900`, `text-risk-critical`, etc.), nunca un hex suelto en un componente.
+| Framework | Next.js App Router (RSC + Server Actions) | 15.5 |
+| UI | React | 19.0 |
+| Lenguaje | TypeScript (strict) | 6.0 |
+| Estilos | Tailwind CSS | 3.3.6 |
+| Mapas GIS | Leaflet + React-Leaflet + react-leaflet-cluster | 1.9 / 5.0 / 4.1 |
+| Tiempo real | Socket.IO Client | 4.8.3 |
+| Autenticación | jose (JWT RS256) | 6.2 |
+| Iconografía | Lucide React | 0.469 |
+| Tipografía | IBM Plex Sans | — |
+| Backend | gamc-api (Express + PostgreSQL 14+) | — |
+| Deploy | Vercel | — |
 
 ---
 
 ## Estructura del proyecto
 
 ```
-src/
-├── app/                 # App Router — rutas (auth)/(dashboard), layouts, globals.css
-├── features/            # 1 módulo funcional = 1 carpeta (auth, dashboard, guardias, hechos, mapas, reportes)
-│   └── <módulo>/
-│       ├── actions/     # Server Actions ('use server')
-│       ├── components/
-│       └── types.ts
-├── components/          # UI y layout compartidos entre módulos
-├── lib/
-│   ├── api/             # Cliente HTTP/WebSocket contra el backend real
-│   ├── data-source.ts   # Adaptador con datos simulados (Mapas y Hechos, ver arriba)
-│   ├── auth-session*.ts # Sesión (cookie + verificación JWT)
-│   └── permissions.ts   # RBAC — matriz de escritura por rol
-├── middleware.ts        # Protección de rutas por rol
-└── types/                # Tipos alineados con el esquema de la base de datos
-
-design/                  # Mockups y referencias visuales
-unificacion/             # Documentación del backend (API, base de datos)
+gamc_seguridad/
+├── src/
+│   ├── app/                        # Rutas Next.js (App Router)
+│   │   ├── (auth)/login/           # Acceso público
+│   │   └── (dashboard)/            # Rutas protegidas por rol
+│   │       ├── dashboard/
+│   │       ├── credenciales/
+│   │       ├── guardias/
+│   │       ├── hechos/
+│   │       ├── mapas/
+│   │       └── reportes/
+│   │
+│   ├── features/                   # Módulos funcionales (1 dominio = 1 carpeta)
+│   │   ├── auth/
+│   │   ├── dashboard/
+│   │   ├── guardias/
+│   │   ├── hechos/
+│   │   ├── mapas/
+│   │   └── reportes/
+│   │       └── <módulo>/
+│   │           ├── actions/        # Server Actions ('use server')
+│   │           ├── components/     # Componentes del módulo
+│   │           └── types.ts
+│   │
+│   ├── components/                 # Componentes compartidos
+│   │   ├── feedback/               # EmptyState, ErrorBanner, Skeleton
+│   │   ├── layout/                 # Sidebar, Topbar, PageContainer, GlobalSosBanner
+│   │   └── ui/                     # AlertDialog, Badge, Button, Drawer, Input, Modal, Select…
+│   │
+│   ├── lib/
+│   │   ├── api/
+│   │   │   ├── http.ts             # Cliente HTTP con renovación automática de JWT
+│   │   │   ├── auth.ts             # Endpoints de autenticación
+│   │   │   ├── realtime.ts         # Conexión Socket.IO
+│   │   │   └── realtimeTicket.ts   # Ticket temporal para handshake WS
+│   │   ├── auth-session.ts         # Sesión vía cookies httpOnly
+│   │   ├── data-source.ts          # Adaptador (datos reales + simulados temporales)
+│   │   ├── permissions.ts          # Matriz RBAC de escritura por rol
+│   │   ├── env.ts                  # Validación de variables de entorno
+│   │   ├── epis/                   # Catálogo de EPIs (coordenadas, colores, nombres)
+│   │   └── hooks/                  # Hooks globales reutilizables
+│   │
+│   ├── middleware.ts               # Protección de rutas por rol
+│   └── types/                      # Tipos TypeScript alineados con el esquema DB
+│       ├── user.ts
+│       ├── guardia.ts
+│       ├── hecho.ts
+│       ├── patrulla.ts
+│       ├── epi.ts
+│       └── …
+│
+├── database/
+│   └── schema.sql                  # Esquema PostgreSQL completo
+│
+├── docs/                           # Documentación técnica detallada
+├── design/                         # Mockups y referencias de diseño
+├── cambios/                        # Notas de entrega por fase (F1–F7)
+├── public/                         # Activos estáticos
+├── next.config.js
+├── tailwind.config.js
+└── vercel.json
 ```
 
 ---
 
 ## Puesta en marcha
 
+### Requisitos previos
+
+- **Node.js** ≥ 20.x
+- **npm** ≥ 10.x (no mezclar con `pnpm`/`yarn`, hay `package-lock.json` comprometido)
+- Acceso a una instancia de **gamc-api** (backend REST + WebSocket)
+
+### Instalación
+
 ```bash
+# 1. Clonar el repositorio
+git clone <url-del-repositorio> gamc_seguridad
+cd gamc_seguridad
+
+# 2. Instalar dependencias
 npm install
-cp .env.example .env.local   # completar con los valores del backend
-npm run dev                  # http://localhost:3000
+
+# 3. Configurar variables de entorno
+cp .env.example .env.local
+# Editar .env.local con los valores del entorno
+
+# 4. Iniciar el servidor de desarrollo
+npm run dev
+# → http://localhost:3000
 ```
 
-Variables de entorno (`.env.example`): URL del backend (`NEXT_PUBLIC_API_BASE_URL`), WebSocket (`NEXT_PUBLIC_WEBSOCKET_URL`), configuración del mapa base, y `JWT_SECRET` — debe ser idéntico al del backend.
+---
 
-### Scripts
+## Variables de entorno
+
+Crear `.env.local` a partir de `.env.example`. Todas las variables `NEXT_PUBLIC_*` se exponen al navegador.
+
+| Variable | Requerida | Descripción |
+|---|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` | Sí | URL base del backend (`https://api.gamc-seguridad.gob.bo`) |
+| `NEXT_PUBLIC_WEBSOCKET_URL` | Sí | URL del servidor WebSocket (puede ser el mismo que la API) |
+| `JWT_SECRET` | Sí | Secreto para verificar JWTs — debe ser **idéntico** al del backend |
+| `NEXT_PUBLIC_MAP_TILE_URL` | No | URL del proveedor de teselas cartográficas (default: OpenStreetMap) |
+| `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION` | No | Atribución HTML del proveedor |
+| `NEXT_PUBLIC_MAP_DEFAULT_LAT` | No | Latitud del centro inicial del mapa (default: `-17.3935`) |
+| `NEXT_PUBLIC_MAP_DEFAULT_LNG` | No | Longitud del centro inicial (default: `-66.1653`) |
+| `NEXT_PUBLIC_MAP_DEFAULT_ZOOM` | No | Nivel de zoom inicial (default: `13`) |
+
+---
+
+## Scripts disponibles
 
 | Comando | Descripción |
 |---|---|
-| `npm run dev` | Servidor de desarrollo |
-| `npm run build` | Build de producción |
+| `npm run dev` | Servidor de desarrollo con hot reload |
+| `npm run build` | Build de producción optimizado |
 | `npm run start` | Sirve el build de producción |
-| `npm run typecheck` | Verificación de tipos (TypeScript strict) |
-| `npm run lint` | ESLint |
+| `npm run typecheck` | Verificación de tipos TypeScript (`--noEmit`) |
+| `npm run lint` | Análisis estático con ESLint |
 
-Gestor de paquetes: **npm** (no mezclar con `pnpm`/`yarn`, hay `package-lock.json` comiteado).
+---
+
+## Módulos funcionales
+
+| Módulo | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| **Dashboard** | `/dashboard` | KPIs ejecutivos, gráficas de incidentes por tipo/zona/día | Super Admin, Admin |
+| **Mapa** | `/mapas` | Mapa GIS en tiempo real: guardias, rutas, SOS, zonas críticas, puntos fijos | Todos |
+| **Guardias** | `/guardias` | Listado, alta y edición de guardias; estado operativo; telemetría | Todos |
+| **Hechos** | `/hechos` | Registro de incidentes; clasificación por EPI; cambio de estado | Todos |
+| **Reportes** | `/reportes` | Exportación CSV/PDF de guardias, hechos y patrullajes | Todos |
+| **Credenciales** | `/credenciales` | Alta de usuarios web y generación de credenciales | Solo Super Admin |
+
+---
+
+## Roles y permisos
+
+El sistema implementa RBAC con tres roles de usuario web:
+
+| Rol | Descripción |
+|---|---|
+| `super_admin` | Acceso total, incluyendo gestión de usuarios web |
+| `admin` | Acceso operativo completo excepto gestión de credenciales |
+| `operador_monitoreo` | Acceso de monitoreo y operación; sin acceso al dashboard ejecutivo |
+
+Para la matriz completa de permisos de lectura y escritura por recurso, ver [`docs/permissions.md`](docs/permissions.md).
+
+---
+
+## Paleta de colores
+
+Los tokens de color viven en `tailwind.config.js`. **Siempre usar clases Tailwind** — nunca valores hex sueltos en componentes.
+
+### Marca institucional
+
+| Token | Hex | Uso |
+|---|---|---|
+| `brand-ink-950` | `#0D0D0E` | Fondo más oscuro |
+| `brand-ink-900` | `#1A1A1A` | Sidebar, cabeceras |
+| `brand-ink-800` | `#262624` | Superficies elevadas |
+| `brand-ink-700` | `#3D3A35` | Bordes oscuros |
+| `brand-gold-300` | `#DDBE97` | Texto sobre oscuro |
+| `brand-gold-500` | `#C59B6D` | Acento principal |
+| `brand-gold-600` | `#A97F52` | Hover del acento |
+| `brand-gold-700` | `#8C6740` | Acento presionado |
+| `brand-gold-100` | `#F3E7D8` | Superficies doradas sutiles |
+
+### Semántica de riesgo
+
+| Token | Hex | Nivel |
+|---|---|---|
+| `risk-critical` | `#DC2626` | Muy alto |
+| `risk-high` | `#F97316` | Alto |
+| `risk-medium` | `#EAB308` | Medio |
+| `risk-low` | `#22C55E` | Bajo |
+
+### Neutrales
+
+| Token | Hex | Uso |
+|---|---|---|
+| `neutral-bg` | `#F5F7FA` | Fondo de página |
+| `neutral-border` | `#E5E7EB` | Divisores, bordes |
+| `neutral-text` | `#1F2937` | Texto principal |
+| `neutral-text-muted` | `#6B7280` | Texto secundario |
 
 ---
 
 ## Rendimiento y tiempo real
 
-El Dashboard, el Mapa y la campanita de notificaciones dependen de dos canales que
-deben funcionar bien juntos: **push en vivo por Socket.io** (la vía normal) y
-**polling de respaldo** (red de seguridad si el socket se cae). Requisitos para que
-esto se sienta rápido — no son opcionales para producción con guardias reales en
-campo:
+### Canales de datos
 
-### Hosting del frontend
+La plataforma usa dos canales paralelos para mantener la UI sincronizada:
 
-- Debe servir Server Actions/Route Handlers cerca de los usuarios (Cochabamba/
-  Bolivia) — en Vercel, elegir la región sudamericana disponible más cercana. Cada
-  Server Action de este proyecto (`src/lib/data-source.ts`) hace un round-trip
-  completo: navegador → frontend → backend (`gamc-api`) → base de datos, y de
-  vuelta — la latencia de cada tramo se suma.
-- El backend y el frontend deben estar en regiones cercanas entre sí por el mismo
-  motivo (ver requisitos de servidor en el README de `gamc-api`).
+1. **Push en vivo (Socket.IO)** — vía primaria. Latencia < 1 s para ubicaciones y alertas.
+2. **Polling de respaldo** — se activa automáticamente si el socket se desconecta. Intervalo: 30–60 s según el módulo. Más lento, pero el sistema no queda inoperante.
 
-### Cache: no servir datos viejos por accidente
+### Cache de Next.js
 
-Este proyecto usa el Data Cache de Next.js (`revalidate` + `tags` en
-`src/lib/api/http.ts` y `src/lib/data-source.ts`) para no golpear la base de datos
-en cada render. Es un requisito de **correctitud**, no solo de velocidad: **toda
-mutación nueva que se agregue debe llamar `revalidateTag(...)` con el tag
-correspondiente** (ver el objeto `TAGS` en `data-source.ts`). Sin eso, la próxima
-lectura — incluso la disparada por un evento realtime — puede devolver la respuesta
-cacheada vieja durante todo el `revalidate` configurado, y algo recién
-resuelto/asignado/cambiado se ve "pegado" en la pantalla hasta que el TTL expira
-solo (bug real ya corregido una vez con este patrón: la resolución de un SOS tardaba
-en reflejarse).
+Todas las mutaciones que modifican datos persistidos **deben llamar `revalidateTag(...)`** con el tag correspondiente definido en `data-source.ts`. Sin ello, el cliente puede ver datos obsoletos durante todo el TTL del caché, incluso si un evento realtime llega correctamente.
 
-### Conexión del cliente (navegador)
+```ts
+// Ejemplo correcto en un Server Action
+await revalidateTag(TAGS.hechos)
+```
 
-- El socket (`src/lib/api/realtime.ts`) conecta directo al dominio del backend, no
-  al del frontend — en producción esto cruza dominios (Vercel ↔ Render/Railway/
-  etc.), así que el backend necesita `CORS_ORIGINS` bien configurado y el navegador
-  del Operador necesita poder alcanzar ambos dominios sin un proxy/firewall
-  corporativo que bloquee WebSockets.
-- Si el socket no conecta (red restrictiva, proxy, etc.), el sistema sigue
-  funcionando por el polling de respaldo (30-60s según la pantalla) — más lento,
-  pero no roto. No hay push en vivo sin WebSockets habilitados en la red del
-  Operador.
+### Requisitos de red del operador
 
-### Geolocalización
+- El navegador debe poder alcanzar **tanto** el dominio del frontend como el dominio del backend.
+- Los WebSockets deben estar permitidos en la red corporativa o proxy del operador.
+- La app nunca solicita geolocalización al navegador; toda la telemetría GPS proviene de la app móvil.
 
-La web nunca pide GPS al navegador — toda la geolocalización viene de la app móvil
-de los guardias, vía `gamc-api`. Los requisitos de precisión/frecuencia de esa
-geolocalización viven en el README de la app móvil (`appmunicipal`).
+---
 
+## Documentación técnica
 
+La carpeta [`docs/`](docs/) contiene documentación técnica detallada:
+
+| Documento | Descripción |
+|---|---|
+| [`docs/getting-started.md`](docs/getting-started.md) | Guía de instalación y configuración paso a paso |
+| [`docs/architecture.md`](docs/architecture.md) | Arquitectura del sistema y decisiones de diseño |
+| [`docs/modules.md`](docs/modules.md) | Descripción de cada módulo funcional |
+| [`docs/api-reference.md`](docs/api-reference.md) | Referencia de endpoints REST del backend |
+| [`docs/realtime-events.md`](docs/realtime-events.md) | Catálogo de eventos Socket.IO |
+| [`docs/permissions.md`](docs/permissions.md) | Matriz RBAC completa |
+| [`docs/deployment.md`](docs/deployment.md) | Guía de despliegue en producción (Vercel) |
+| [`docs/database.md`](docs/database.md) | Esquema de base de datos PostgreSQL |
+
+---
+
+## Convenciones de desarrollo
+
+- **TypeScript strict** activado. No usar `any` ni `as unknown`.
+- **Colores**: siempre tokens Tailwind (`bg-brand-ink-900`), nunca hex directos.
+- **Server Actions**: toda mutación de datos vive en `features/<módulo>/actions/`. Nunca exponer lógica de sesión o JWT en componentes cliente.
+- **Tags de caché**: toda mutación debe invalidar el tag correspondiente con `revalidateTag`.
+- **Gestor de paquetes**: exclusivamente `npm`. No commitear `pnpm-lock.yaml` ni `yarn.lock`.
+- **Ramas**: `main` es la rama estable. Los cambios entran por pull request.
+
+---
+
+> Gobierno Autónomo Municipal de Cochabamba — Dirección de Seguridad Ciudadana  
+> Plataforma desarrollada para la reingeniería operativa del sistema de seguridad municipal.
