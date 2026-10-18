@@ -15,6 +15,7 @@ import { DashboardDetailDrawer, type DetailData } from './DashboardDetailDrawer'
 import { getDashboardHechosPorDia, getDashboardHechosPorTipo, getDashboardHechosPorZona, getDashboardKpis, getHechosActivos, getGuardias, getJurisdiccion } from '@/lib/data-source';
 import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
 import { useRealtimeEvent } from '@/lib/realtime/RealtimeProvider';
+import { useQuery } from '@/lib/hooks/useQuery';
 import { REALTIME_EVENTS } from '@/lib/api/realtime';
 import { updateHechoEstadoAction } from '@/features/hechos/actions/updateEstado';
 import { clearSosAction } from '@/features/mapas/actions/clearSos';
@@ -27,6 +28,16 @@ function buildKpiItems(kpis: { hechosHoy: number; hechosEnRevision: number; guar
     { id: 'sos-pendientes', label: 'Alertas SOS', value: kpis.sosPendientes, periodLabel: 'Sin atender' },
     { id: 'guardias-servicio', label: 'Guardias Activos', value: kpis.guardiasEnServicio, periodLabel: 'En servicio' },
   ];
+}
+
+async function fetchDashboard() {
+  const [kpis, hechosPorDia, hechosPorTipo, hechosPorZona] = await Promise.all([
+    getDashboardKpis(),
+    getDashboardHechosPorDia(7),
+    getDashboardHechosPorTipo(),
+    getDashboardHechosPorZona(),
+  ]);
+  return { kpis, hechosPorDia, hechosPorTipo, hechosPorZona };
 }
 
 export function DashboardClient({ denied }: { denied?: string }) {
@@ -47,19 +58,14 @@ export function DashboardClient({ denied }: { denied?: string }) {
       getJurisdiccion().then((j) => setEpiAlcance(j.miEpi ?? null)).catch(() => {});
     }
   }, []);
-  const [kpis, setKpis] = useState<{ hechosHoy: number; hechosEnRevision: number; guardiasEnServicio: number; sosPendientes: number } | null>(null);
-  const [hechosPorDia, setHechosPorDia] = useState<HechoPorDiaPoint[]>([]);
-  const [hechosPorTipo, setHechosPorTipo] = useState<HechoPorTipoItem[]>([]);
-  const [hechosPorZona, setHechosPorZona] = useState<HechoPorZonaItem[]>([]);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // Datos con caché en memoria: volver al dashboard pinta lo último al instante
+  // y refresca por detrás (ver lib/hooks/useQuery.ts).
+  const { data: dashboard, status, refetch: load } = useQuery('dashboard', fetchDashboard, { refreshMs: 60000 });
+  const kpis = dashboard?.kpis ?? null;
+  const hechosPorDia = dashboard?.hechosPorDia ?? [];
+  const hechosPorTipo = dashboard?.hechosPorTipo ?? [];
+  const hechosPorZona = dashboard?.hechosPorZona ?? [];
   const [detail, setDetail] = useState<DetailData | null>(null);
-
-  async function load() {
-    try {
-      const [k, dia, tipo, zona] = await Promise.all([getDashboardKpis(), getDashboardHechosPorDia(7), getDashboardHechosPorTipo(), getDashboardHechosPorZona()]);
-      setKpis(k); setHechosPorDia(dia); setHechosPorTipo(tipo); setHechosPorZona(zona); setStatus('ready');
-    } catch { setStatus('error'); }
-  }
 
   function isToday(timestamp: string): boolean {
     // timestamp es "DD/MM/YYYY HH:mm" ya en hora Bolivia (formateado desde ocurridoEn)
@@ -156,22 +162,13 @@ export function DashboardClient({ denied }: { denied?: string }) {
     return result.success;
   }
 
-  useEffect(() => { load(); }, []);
-  // Respaldo por si el socket compartido (RealtimeProvider) no está
-  // disponible (API caído, red bloqueada) — el push en vivo de abajo es la
-  // vía normal, este intervalo es solo la red de seguridad. Antes 30s, ahora 60s para no saturar KPIs.
-  useEffect(() => {
-    const iv = setInterval(load, 60000);
-    return () => clearInterval(iv);
-  }, []);
-
   const lastUbicacionRef = useRef(0);
   const debouncedLoad = useCallback(() => {
     const now = Date.now();
     if (now - lastUbicacionRef.current < 5000) return;
     lastUbicacionRef.current = now;
     load();
-  }, []);
+  }, [load]);
 
   useRealtimeEvent(REALTIME_EVENTS.hechoActualizado, load);
   useRealtimeEvent(REALTIME_EVENTS.guardiaEstado, load);

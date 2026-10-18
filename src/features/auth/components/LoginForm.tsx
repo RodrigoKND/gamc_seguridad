@@ -50,10 +50,10 @@ export function LoginForm() {
         startSession(normalizedUser);
         const home = ROLE_HOME_ROUTE[normalizedRole] ?? ROLE_HOME_ROUTE[result.user.role] ?? '/dashboard';
         // Carga real (no navegación interna): la sesión nueva empieza sin datos en memoria de otra.
-        setTimeout(() => window.location.assign(home), 700);
+        window.location.assign(home);
         return;
       }
-      setTimeout(() => window.location.assign('/dashboard'), 700);
+      window.location.assign('/dashboard');
     } else {
       setStatus('error');
       setErrorMessage(result.error ?? 'No se pudo iniciar sesión.');

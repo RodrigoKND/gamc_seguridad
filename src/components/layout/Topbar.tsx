@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, Check, ChevronDown, ChevronRight, Inbox, LogOut, Menu, Search, User } from 'lucide-react';
 import { Skeleton } from '@/components/feedback/Skeleton';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { ErrorBanner } from '@/components/feedback/ErrorBanner';
 import { useEpiCatalogo } from '@/lib/epis/EpiCatalogProvider';
+import { useDismiss } from '@/lib/hooks/useDismiss';
 
 // RF/RNF: Dashboard Shell — Grupo 4 (MASTER.md sección 7.3).
 // Altura 64px, hamburguesa en móvil (MASTER.md sección 7.1). Paleta del
@@ -59,6 +60,13 @@ export function Topbar({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
   const { epis } = useEpiCatalogo();
+  const bellRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const closeBell = useCallback(() => setIsBellOpen(false), []);
+  const closeUserMenu = useCallback(() => setIsUserMenuOpen(false), []);
+  // Clic/toque fuera o Escape cierran los menús, no solo el botón que los abre.
+  useDismiss(bellRef, isBellOpen, closeBell);
+  useDismiss(userMenuRef, isUserMenuOpen, closeUserMenu);
 
   function handleGlobalSearch() {
     const q = search.trim();
@@ -80,19 +88,19 @@ export function Topbar({
   }
 
   return (
-    <header className="sticky top-3 z-[1080] m-3 flex h-16 items-center gap-4 rounded-2xl border border-neutral-border/70 bg-white/75 px-4 shadow-[0_1px_2px_rgba(26,26,26,0.04),0_8px_24px_-12px_rgba(26,26,26,0.18)] backdrop-blur-md lg:m-4 lg:px-6">
+    <header className="sticky top-3 z-[1080] m-3 flex h-16 min-w-0 items-center gap-2 rounded-2xl border border-neutral-border/70 bg-white/75 px-3 sm:px-4 shadow-[0_1px_2px_rgba(26,26,26,0.04),0_8px_24px_-12px_rgba(26,26,26,0.18)] backdrop-blur-md sm:gap-4 lg:m-4 lg:px-6">
       <button
         type="button"
         onClick={onOpenMobileMenu}
         aria-label="Abrir menú"
-        className="rounded-md p-2 text-primary-800 transition-colors duration-200 hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2 lg:hidden"
+        className="shrink-0 rounded-md p-2 text-primary-800 transition-colors duration-200 hover:bg-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:ring-offset-2 lg:hidden"
       >
         <Menu className="h-5 w-5" aria-hidden="true" />
       </button>
 
-      <nav aria-label="Breadcrumb" className="flex min-w-0 shrink-0 items-center gap-1.5 text-sm">
+      <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm md:flex-none md:shrink-0">
         {breadcrumb.map((crumb) => (
-          <span key={crumb} className="flex items-center gap-1.5 text-neutral-text-muted">
+          <span key={crumb} className="hidden items-center gap-1.5 text-neutral-text-muted sm:flex">
             <span className="truncate">{crumb}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           </span>
@@ -117,8 +125,8 @@ export function Topbar({
         </div>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
-        <div className="relative">
+      <div className="flex shrink-0 items-center gap-1 sm:ml-auto sm:gap-2">
+        <div ref={bellRef} className="relative">
           <button
             type="button"
             onClick={() => setIsBellOpen((open) => !open)}
@@ -200,7 +208,7 @@ export function Topbar({
           )}
         </div>
 
-        <div className="relative">
+        <div ref={userMenuRef} className="relative">
           <button
             type="button"
             onClick={() => setIsUserMenuOpen((open) => !open)}
