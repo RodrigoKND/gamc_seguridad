@@ -26,6 +26,13 @@ export function isApiError(err: unknown): err is ApiError {
   return err instanceof ApiError;
 }
 
+/** Una petición colgada no debe dejar la página esperando indefinidamente. */
+const REQUEST_TIMEOUT_MS = 15_000;
+/** Reintento único de lecturas (GET) ante fallo de red/timeout o 502-504. */
+const RETRYABLE_STATUS = new Set([502, 503, 504]);
+/** Mensaje para fallos del servidor: nunca se propaga el texto interno del API a la UI. */
+const SERVER_ERROR_MESSAGE = 'El servicio no está disponible. Intente nuevamente.';
+
 /** Ruta del refresh: rara por diseño — la cookie del refresh solo viaja ahí. */
 const REFRESH_PATH = '/api/auth/refresh';
 
@@ -84,7 +91,7 @@ interface RequestOptions {
 
 async function rawFetch(
   path: string,
-  { method = 'GET', body, refreshOn401 = true, revalidate, tags }: RequestOptions,
+  { method = 'GET', body, revalidate, tags }: RequestOptions,
   cookieHeader: string,
 ): Promise<Response> {
   const xsrf = (await cookies()).get('gamc_xsrf')?.value;
@@ -99,6 +106,7 @@ async function rawFetch(
       ...(xsrf && method !== 'GET' ? { 'x-csrf-token': xsrf } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     ...(cacheMode ? { cache: cacheMode } : {}),
     ...(isGet && revalidate !== undefined ? { next: { revalidate, ...(tags ? { tags } : {}) } } : {}),
   });
@@ -146,10 +154,34 @@ async function attemptRequest(path: string, options: RequestOptions): Promise<Ap
       .map((c) => `${c.name}=${c.value}`)
       .join('; ');
 
-  const attempt = async () => {
+  const isRead = (options.method ?? 'GET') === 'GET';
+
+  const send = async (): Promise<Response> => {
     const res = await rawFetch(path, options, await readCookies());
     await applySetCookies(res);
     return res;
+  };
+
+  // Solo las lecturas se reintentan: repetir un POST podría duplicar el efecto.
+  const attempt = async (): Promise<Response> => {
+    try {
+      const res = await send();
+      return isRead && RETRYABLE_STATUS.has(res.status) ? await send() : res;
+    } catch (err) {
+      if (isRead) {
+        try {
+          return await send();
+        } catch {
+          // cae al ApiError de abajo
+        }
+      }
+      const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+      throw new ApiError(
+        timedOut ? 504 : 503,
+        timedOut ? 'API_TIMEOUT' : 'API_UNREACHABLE',
+        SERVER_ERROR_MESSAGE,
+      );
+    }
   };
 
   let response = await attempt();
@@ -168,8 +200,8 @@ async function attemptRequest(path: string, options: RequestOptions): Promise<Ap
     throw new ApiError(
       response.status,
       payload.error?.code ?? 'API_ERROR',
-      payload.error?.message ?? 'El servicio no está disponible. Intente nuevamente.',
-      payload.error?.details,
+      response.status >= 500 ? SERVER_ERROR_MESSAGE : (payload.error?.message ?? SERVER_ERROR_MESSAGE),
+      response.status >= 500 ? undefined : payload.error?.details,
     );
   }
 

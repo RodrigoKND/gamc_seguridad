@@ -5,6 +5,8 @@ import { authApi, isApiError } from '@/lib/api/auth';
 import { AUTH_COOKIE_NAME, PROFILE_COOKIE_NAME } from '@/lib/auth-session-shared';
 import type { LoginCredentials, LoginResult, UserRole } from '../types';
 
+const SERVICE_UNAVAILABLE = 'No pudimos completar el inicio de sesión en este momento. Intente nuevamente en unos minutos.';
+
 /**
  * Autenticación contra gamc-api. El API responde las cookies de sesión
  * (gamc_access/gamc_refresh/gamc_profile/gamc_xsrf), que apiFetch reenvía al
@@ -30,12 +32,20 @@ export async function login({ identifier, password }: LoginCredentials): Promise
           error: 'Su cuenta está deshabilitada o suspendida. Contacte al administrador del sistema.',
         };
       }
+      if (err.status === 429) {
+        return { success: false, error: 'Demasiados intentos. Espere unos segundos e intente nuevamente.' };
+      }
+      // Cualquier falla del servidor (5xx, timeout, red) se muestra igual de
+      // genérica: el detalle técnico nunca llega al usuario.
+      if (err.status >= 500) {
+        return { success: false, error: SERVICE_UNAVAILABLE };
+      }
       return {
         success: false,
         error: 'Usuario o contraseña incorrectos. Verifique sus credenciales e intente nuevamente.',
       };
     }
-    return { success: false, error: 'El servicio no está disponible. Intente más tarde.' };
+    return { success: false, error: SERVICE_UNAVAILABLE };
   }
 }
 

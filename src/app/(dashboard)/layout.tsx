@@ -53,14 +53,9 @@ export default function DashboardGroupLayout({ children }: { children: React.Rea
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Se inicia en false (igual que el HTML del servidor, evita el desajuste de
+  // hidratación) y el valor guardado se aplica apenas monta el cliente.
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { user, isLoaded, isRefreshing, logout } = useAuthSession() as ReturnType<typeof useAuthSession> & { isRefreshing?: boolean };
   const READ_KEY = 'gamc_notif_read';
@@ -69,9 +64,19 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(isCollapsed));
+      if (window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true') setIsCollapsed(true);
     } catch {}
-  }, [isCollapsed]);
+  }, []);
+
+  function toggleCollapsed() {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {}
+      return next;
+    });
+  }
 
   function applyRead<T extends { id: string; read?: boolean }>(data: T[]): T[] {
     try {
@@ -203,7 +208,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <Sidebar
         role={authUser.role}
         isCollapsed={isCollapsed}
-        onToggleCollapse={() => setIsCollapsed((v) => !v)}
+        onToggleCollapse={toggleCollapsed}
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
       />
