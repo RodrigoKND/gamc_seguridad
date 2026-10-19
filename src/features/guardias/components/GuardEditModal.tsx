@@ -5,8 +5,8 @@ import { Power, PowerOff } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { updateGuardiaAction, toggleGuardiaEstadoAction } from '../actions/manageGuardia';
-import { ACCOUNT_STATUS_LABELS, guardFullName, type Guard } from '../types';
+import { updateGuardiaAction, toggleGuardiaEstadoAction, toggleGuardiaEstadoOperativoAction } from '../actions/manageGuardia';
+import { ACCOUNT_STATUS_LABELS, OPERATIONAL_STATUS_LABELS, guardFullName, type Guard } from '../types';
 
 // RF-01, RF-12 (MASTER.md sección 15.1): Super Admin y Admin editan datos
 // biográficos y activan/desactivan la cuenta — nunca crean (eso vive en
@@ -18,11 +18,14 @@ export interface GuardEditModalProps {
   onClose: () => void;
   guard: Guard | null;
   onSaved: (guard: Guard) => void;
+  /** Solo Super Admin/Admin: poner al guardia en/fuera de servicio. */
+  canChangeServicio?: boolean;
 }
 
-export function GuardEditModal({ isOpen, onClose, guard, onSaved }: GuardEditModalProps) {
+export function GuardEditModal({ isOpen, onClose, guard, onSaved, canChangeServicio = false }: GuardEditModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
+  const [isTogglingServicio, setIsTogglingServicio] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,7 +43,9 @@ export function GuardEditModal({ isOpen, onClose, guard, onSaved }: GuardEditMod
 
     const result = await updateGuardiaAction(guard.id, {
       primerNombre: String(formData.get('primerNombre') ?? '').trim(),
-      segundoNombre: String(formData.get('segundoNombre') ?? '').trim() || undefined,
+      // Vacío = borrar el segundo nombre (antes `|| undefined` lo omitía y el
+      // backend conservaba el valor anterior).
+      segundoNombre: String(formData.get('segundoNombre') ?? '').trim(),
       apellidoPaterno: String(formData.get('apellidoPaterno') ?? '').trim(),
       apellidoMaterno: String(formData.get('apellidoMaterno') ?? '').trim(),
       telefono: String(formData.get('telefono') ?? '').trim(),
@@ -71,11 +76,29 @@ export function GuardEditModal({ isOpen, onClose, guard, onSaved }: GuardEditMod
     onSaved(result.guard);
   }
 
+  async function handleToggleServicio() {
+    if (!guard) return;
+    const next = guard.operationalStatus === 'en_servicio' ? 'fuera_de_servicio' : 'en_servicio';
+    setIsTogglingServicio(true);
+    setError(null);
+
+    const result = await toggleGuardiaEstadoOperativoAction(guard.id, next);
+
+    setIsTogglingServicio(false);
+    if (!result.success || !result.guard) {
+      setError(result.error ?? 'No se pudo cambiar el estado de servicio.');
+      return;
+    }
+    onSaved(result.guard);
+  }
+
   const isActive = guard.accountStatus === 'activo';
+  const enServicio = guard.operationalStatus === 'en_servicio';
+  const enEmergencia = guard.operationalStatus === 'emergencia';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Editar — ${guardFullName(guard)}`}>
-      <form onSubmit={handleSubmit} className="p-5">
+      <form key={`${guard.id}:${guard.segundoNombre ?? ''}`} onSubmit={handleSubmit} className="p-5">
         {error && (
           <div role="alert" className="mb-3.5 animate-fade-in rounded-md border border-risk-critical/20 bg-risk-critical/10 px-3 py-2.5 text-xs text-risk-critical">
             {error}
@@ -111,6 +134,27 @@ export function GuardEditModal({ isOpen, onClose, guard, onSaved }: GuardEditMod
             {isActive ? 'Desactivar' : 'Activar'}
           </Button>
         </div>
+
+        {canChangeServicio && (
+          <div className="mb-4 flex items-center justify-between rounded-lg bg-neutral-bg p-3.5">
+            <div>
+              <p className="text-xs font-semibold text-neutral-text">Estado de servicio</p>
+              <p className="text-xs text-neutral-text-muted">
+                {enEmergencia ? 'En emergencia — resuelva el SOS desde el Mapa' : OPERATIONAL_STATUS_LABELS[guard.operationalStatus]}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleToggleServicio}
+              isLoading={isTogglingServicio}
+              disabled={isSaving || isToggling || enEmergencia || !isActive}
+            >
+              {enServicio ? <PowerOff className="h-3.5 w-3.5" aria-hidden="true" /> : <Power className="h-3.5 w-3.5" aria-hidden="true" />}
+              {enServicio ? 'Poner fuera de servicio' : 'Poner en servicio'}
+            </Button>
+          </div>
+        )}
 
         <div className="flex gap-2.5">
           <Button type="button" variant="secondary" onClick={onClose} className="flex-1" disabled={isSaving}>

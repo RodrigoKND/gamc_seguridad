@@ -32,3 +32,12 @@ next-env.d.ts
 .DS_Store
 .vercel
 .env*
+
+# Paquetes y notas de despliegue (contienen rutas/datos del servidor)
+*.zip
+/ACTUALIZACION_CPANEL.md
+
+# Basura de herramientas / archivos vacíos
+design/x
+.thumbnail
+.claude/

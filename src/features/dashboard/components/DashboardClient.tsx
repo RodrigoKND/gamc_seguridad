@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { canWrite } from '@/lib/permissions';
 import { PROFILE_COOKIE_NAME, parseSessionCookie } from '@/lib/auth-session-shared';
 import { KpiGrid } from './KpiGrid';
 import { ChartCard } from './ChartCard';
@@ -48,12 +49,15 @@ export function DashboardClient({ denied }: { denied?: string }) {
   const [firstName, setFirstName] = useState<string | undefined>();
   // F3: el Admin ve las estadísticas de SU EPI (el backend las filtra); se
   // indica en el encabezado para que no se lean como totales de la ciudad.
+  const [role, setRole] = useState<string | undefined>();
+  const [resolveError, setResolveError] = useState<string | null>(null);
   const [epiAlcance, setEpiAlcance] = useState<string | null>(null);
   const { nombre: nombreEpi } = useEpiCatalogo();
   useEffect(() => {
     const raw = document.cookie.split('; ').find((row) => row.startsWith(`${PROFILE_COOKIE_NAME}=`));
     const profile = raw ? parseSessionCookie(decodeURIComponent(raw.split('=').slice(1).join('='))) : null;
     setFirstName(profile?.name.split(' ')[0]);
+    setRole(profile?.role);
     if (profile && profile.role !== 'super_admin') {
       getJurisdiccion().then((j) => setEpiAlcance(j.miEpi ?? null)).catch(() => {});
     }
@@ -140,27 +144,36 @@ export function DashboardClient({ denied }: { denied?: string }) {
   // propio drawer sin esperar ese refetch.
   async function handleResolveHecho(id: string): Promise<boolean> {
     const previous = detail;
+    setResolveError(null);
     setDetail((prev) => (prev?.hechos ? { ...prev, hechos: prev.hechos.filter((h) => h.id !== id) } : prev));
     const result = await updateHechoEstadoAction(id, 'resuelto');
     if (result.success) {
       load();
     } else {
       setDetail(previous);
+      setResolveError(result.error ?? 'No se pudo marcar el hecho como resuelto.');
     }
     return result.success;
   }
 
   async function handleResolveSos(guardiaId: string): Promise<boolean> {
     const previous = detail;
+    setResolveError(null);
     setDetail((prev) => (prev?.guards ? { ...prev, guards: prev.guards.filter((g) => g.id !== guardiaId) } : prev));
     const result = await clearSosAction(guardiaId);
     if (result.success) {
       load();
     } else {
       setDetail(previous);
+      setResolveError(result.error ?? 'No se pudo resolver la alerta SOS.');
     }
     return result.success;
   }
+
+  // Mismo gate que las Server Actions (la UI solo oculta; el servidor decide).
+  const userRole = role as Parameters<typeof canWrite>[0] | undefined;
+  const canResolveHecho = userRole ? canWrite(userRole, 'hechos') || canWrite(userRole, 'hechos_dashboard') : false;
+  const canResolveSos = userRole ? canWrite(userRole, 'patrullaje') : false;
 
   const lastUbicacionRef = useRef(0);
   const debouncedLoad = useCallback(() => {
@@ -207,9 +220,13 @@ export function DashboardClient({ denied }: { denied?: string }) {
       </ChartCard>
       <DashboardDetailDrawer
         data={detail}
-        onClose={() => setDetail(null)}
-        onResolveHecho={handleResolveHecho}
-        onResolveSos={handleResolveSos}
+        onClose={() => {
+          setDetail(null);
+          setResolveError(null);
+        }}
+        onResolveHecho={canResolveHecho ? handleResolveHecho : undefined}
+        onResolveSos={canResolveSos ? handleResolveSos : undefined}
+        error={resolveError}
       />
     </PageContainer>
   );
