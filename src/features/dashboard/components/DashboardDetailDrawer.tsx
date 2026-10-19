@@ -25,9 +25,11 @@ export interface DashboardDetailDrawerProps {
   onResolveHecho?: (id: string) => Promise<boolean>;
   /** Resuelve el SOS de un guardia (vuelve a en_servicio) sin salir del Dashboard. */
   onResolveSos?: (guardiaId: string) => Promise<boolean>;
+  /** Motivo por el que falló la última resolución (permiso, red, etc.). */
+  error?: string | null;
 }
 
-export function DashboardDetailDrawer({ data, onClose, onResolveHecho, onResolveSos }: DashboardDetailDrawerProps) {
+export function DashboardDetailDrawer({ data, onClose, onResolveHecho, onResolveSos, error }: DashboardDetailDrawerProps) {
   const router = useRouter();
   const isOpen = Boolean(data);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -58,6 +60,11 @@ export function DashboardDetailDrawer({ data, onClose, onResolveHecho, onResolve
         </div>
       }
     >
+      {error && (
+        <div role="alert" className="mb-3 rounded-md border border-risk-critical/20 bg-risk-critical/10 px-3 py-2.5 text-xs text-risk-critical">
+          {error}
+        </div>
+      )}
       {data?.hechos && data.hechos.length > 0 && (
         <div className="space-y-2">
           {data.hechos.slice(0, 20).map((h) => (

@@ -74,7 +74,7 @@ export const ROLE_HOME_ROUTE: Record<UserRole, string> = {
 // Super Admin; el Admin solo los ve (`role_permission`, migración 0009).
 // 'programacion_rutas' (F5): programar rutas y puntos fijos por horario —
 // Operador (en su EPI) y Super Admin; el Admin solo ve la agenda (0010).
-export type WriteResource = 'guardias' | 'usuarios' | 'hechos' | 'patrullaje' | 'rutas_establecidas' | 'puntos_fijos' | 'programacion_rutas';
+export type WriteResource = 'guardias' | 'usuarios' | 'hechos' | 'patrullaje' | 'rutas_establecidas' | 'puntos_fijos' | 'programacion_rutas' | 'estado_operativo' | 'hechos_dashboard';
 
 const WRITE_MATRIX: Record<WriteResource, UserRole[]> = {
   guardias: ['super_admin', 'admin'],
@@ -84,6 +84,13 @@ const WRITE_MATRIX: Record<WriteResource, UserRole[]> = {
   rutas_establecidas: ['super_admin', 'admin', 'operador_monitoreo'],
   puntos_fijos: ['super_admin', 'operador_monitoreo'],
   programacion_rutas: ['super_admin', 'operador_monitoreo'],
+  // Poner a un guardia en/fuera de servicio a mano (modal de edición de
+  // Guardias). El backend lo permite con `guardias:editar` (Super Admin y Admin).
+  estado_operativo: ['super_admin', 'admin'],
+  // Resolver un hecho desde el drawer del Dashboard — que solo ven Super
+  // Admin y Admin; el backend ya permite `hechos:editar` a ambos. La
+  // pantalla /hechos sigue gateada por 'hechos' (solo Operador).
+  hechos_dashboard: ['super_admin', 'admin'],
 };
 
 /** Archivar una ruta predeterminada (rutas_establecidas.eliminar). */

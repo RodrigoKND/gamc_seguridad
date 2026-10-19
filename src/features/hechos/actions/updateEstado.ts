@@ -18,7 +18,7 @@ export interface HechoActionResult {
 export async function updateHechoEstadoAction(id: string, estado: HechoEstado): Promise<HechoActionResult> {
   const session = await getServerSession();
   if (!session) return { success: false, error: 'No hay sesión activa.' };
-  if (!canWrite(session.role, 'hechos')) {
+  if (!canWrite(session.role, 'hechos') && !canWrite(session.role, 'hechos_dashboard')) {
     return { success: false, error: 'Su rol no tiene permiso para cambiar el estado de un hecho.' };
   }
 

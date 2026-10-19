@@ -207,6 +207,7 @@ export function GuardiasView() {
           isOpen={Boolean(editingGuard)}
           onClose={() => setEditingGuard(null)}
           guard={editingGuard}
+          canChangeServicio={user ? canWrite(user.role, 'estado_operativo') : false}
           onSaved={(updated) => {
             setRows((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
             setCatalogGuards((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
