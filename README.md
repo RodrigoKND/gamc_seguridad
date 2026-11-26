@@ -20,6 +20,7 @@ Panel de operaciones en tiempo real para la gestión de guardias, patrullaje, in
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Puesta en marcha](#puesta-en-marcha)
 - [Variables de entorno](#variables-de-entorno)
+- [Docker + nginx + RustFS](#docker--nginx--rustfs)
 - [Scripts disponibles](#scripts-disponibles)
 - [Módulos funcionales](#módulos-funcionales)
 - [Roles y permisos](#roles-y-permisos)
@@ -59,7 +60,7 @@ El sistema opera sobre **6 EPIs** (Estaciones Policiales Integrales) que cubren 
 | Iconografía | Lucide React | 0.469 |
 | Tipografía | IBM Plex Sans | — |
 | Backend | gamc-api (Express + PostgreSQL 14+) | — |
-| Deploy | Vercel | — |
+| Deploy | Vercel (histórico) o Docker + nginx (recomendado) | — |
 
 ---
 
@@ -166,14 +167,30 @@ Crear `.env.local` a partir de `.env.example`. Todas las variables `NEXT_PUBLIC_
 
 | Variable | Requerida | Descripción |
 |---|---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | Sí | URL base del backend (`https://api.gamc-seguridad.gob.bo`) |
-| `NEXT_PUBLIC_WEBSOCKET_URL` | Sí | URL del servidor WebSocket (puede ser el mismo que la API) |
+| `NEXT_PUBLIC_API_BASE_URL` | Sí | Origen del backend; con Docker apunta al proxy (`http://localhost:8080`), **sin** `/api` |
+| `NEXT_PUBLIC_WEBSOCKET_URL` | Sí | Origen de Socket.IO (con Docker, el mismo que la API) |
 | `JWT_SECRET` | Sí | Secreto para verificar JWTs — debe ser **idéntico** al del backend |
 | `NEXT_PUBLIC_MAP_TILE_URL` | No | URL del proveedor de teselas cartográficas (default: OpenStreetMap) |
 | `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION` | No | Atribución HTML del proveedor |
 | `NEXT_PUBLIC_MAP_DEFAULT_LAT` | No | Latitud del centro inicial del mapa (default: `-17.3935`) |
 | `NEXT_PUBLIC_MAP_DEFAULT_LNG` | No | Longitud del centro inicial (default: `-66.1653`) |
 | `NEXT_PUBLIC_MAP_DEFAULT_ZOOM` | No | Nivel de zoom inicial (default: `13`) |
+
+Las `NEXT_PUBLIC_*` se compilan en el bundle: en Docker se pasan como build args y cambiarlas exige `docker compose build web`.
+
+---
+
+## Docker + nginx + RustFS
+
+El stack completo (web, API, RustFS y reverse proxy) está en `../gamc-stack`:
+
+```bash
+cd ..\gamc-stack
+copy .env.example .env   # rellenar secretos y GAMC_PUBLIC_ORIGIN
+docker compose up -d --build
+```
+
+nginx publica `http://localhost:8080` y enruta `/` a esta web, `/api/`, `/socket.io/` y `/media/` al backend. El backend guarda las fotos/videos en RustFS (red interna) y la web las muestra con URLs `/media/<clave>`, así que no necesita permisos ni llaves de almacenamiento. Guía completa y pasos para confirmar que los archivos están en RustFS: [../gamc-stack/README.md](../gamc-stack/README.md).
 
 ---
 

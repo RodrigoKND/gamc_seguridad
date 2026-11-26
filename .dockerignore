@@ -1,0 +1,16 @@
+node_modules
+.next
+deploy
+cambios
+design
+database
+docs
+manual
+.git
+.env
+.env.*
+!.env.example
+vercel.json
+mkzip.py
+*.tsbuildinfo
+npm-debug.log*
